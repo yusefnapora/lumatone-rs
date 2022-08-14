@@ -14,9 +14,6 @@ const INDEX_MSG_STATUS: u8 = 0x5;
 const INDEX_CALIB_MODE: u8 = 0x5;
 const INDEX_PAYLOAD_INIT: u8 = 0x6;
 
-const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI 
-const TEST_ECHO: u8 = 0x7f; // should not be returned by lumatone
-
 pub type EncodedSysex = Vec<u8>;
 
 pub fn create_sysex(board_index: BoardIndex, cmd: CommandId, data: Vec<u8>) -> EncodedSysex {

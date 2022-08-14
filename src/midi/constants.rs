@@ -1,6 +1,10 @@
 
 pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 
+pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI 
+pub const TEST_ECHO: u8 = 0x7f; // should not be returned by lumatone
+
+
 pub enum BoardIndex {
   SERVER = 0,
   OCTAVE_1,

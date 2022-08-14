@@ -1,3 +1,4 @@
+mod commands;
 mod constants;
 mod sysex;
 use midir::{MidiOutput, MidiInput};
