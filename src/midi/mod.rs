@@ -1,6 +1,6 @@
 mod commands;
 mod constants;
-mod detect;
+pub mod detect;
 mod device;
 mod sysex;
 

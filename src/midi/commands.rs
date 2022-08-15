@@ -1,4 +1,9 @@
-use super::{constants::{BoardIndex, CommandId as CMD, TEST_ECHO}, sysex::{EncodedSysex, create_sysex, create_extended_key_color_sysex, is_lumatone_message, strip_sysex_markers, message_payload}};
+#![allow(dead_code)]
+
+use super::{
+  constants::{BoardIndex, CommandId as CMD, TEST_ECHO}, 
+  sysex::{EncodedSysex, create_sysex, create_extended_key_color_sysex, is_lumatone_message, message_payload}
+};
 
 use std::error::Error;
 
@@ -66,8 +71,11 @@ pub fn decode_ping(msg: &[u8]) -> Result<u32, Box<dyn Error>> {
   if payload.len() < 4 {
     return Err("ping message payload too short".into());
   }
-  if payload[0] != CMD::LumaPing.into() {
-    return Err("unexpected command id".into())
+
+  println!("checking ping payload: {:?}", payload);
+
+  if payload[0] != TEST_ECHO {
+    return Err("unexpected flag in ping response".into())
   }
 
   let value: u32 = 

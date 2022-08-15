@@ -1,4 +1,4 @@
-
+#![allow(dead_code)]
 use midir::{MidiOutput, MidiInput};
 
 
@@ -19,4 +19,12 @@ impl LumatoneDevice {
       in_port_name: input_port_name.to_string(),
     }
   }
+}
+
+impl std::fmt::Debug for LumatoneDevice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LumatoneDevice")
+          .field("out_port_name", &self.out_port_name)
+          .field("in_port_name", &self.in_port_name).finish()
+    }
 }
