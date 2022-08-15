@@ -2,7 +2,7 @@ mod midi;
 
 use tokio;
 use env_logger;
-use log::info;
+use log::{error, info};
 
 #[tokio::main]
 async fn main() {
@@ -14,7 +14,7 @@ async fn main() {
 
     info!("hi there! starting device detection");
     match midi::detect::detect_device().await {
-      Err(e) => println!("midi detection error: {}", e),
-      Ok(dev) => println!("found device: {:?}", dev)
+      Err(e) => error!("midi detection error: {}", e),
+      Ok(dev) => info!("found device: {:?}", dev)
     }
 }
