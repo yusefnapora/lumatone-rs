@@ -73,13 +73,12 @@ pub fn decode_ping(msg: &[u8]) -> Result<u32, Box<dyn Error>> {
   if cmd_id != CMD::LumaPing {
     return Err("unexpected command id - not a ping response".into());
   }
-  
+
   let payload = message_payload(msg)?;
   if payload.len() < 4 {
     return Err("ping message payload too short".into());
   }
 
-  println!("checking ping payload: {:?}", payload);
 
   if payload[0] != TEST_ECHO {
     return Err("unexpected flag in ping response".into())

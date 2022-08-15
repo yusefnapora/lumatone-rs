@@ -95,7 +95,6 @@ pub fn strip_sysex_markers<'a>(msg: &'a [u8]) -> &'a [u8] {
 pub fn is_lumatone_message(msg: &[u8]) -> bool {
   let msg = strip_sysex_markers(msg);
 
-  println!("checking if msg is lumatone: {:?}", msg);
   if msg.len() < 3 {
     return false
   }
