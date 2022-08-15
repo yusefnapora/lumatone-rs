@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::midi::sysex::message_command_id;
+
 use super::{
   constants::{BoardIndex, CommandId as CMD, TEST_ECHO}, 
   sysex::{EncodedSysex, create_sysex, create_extended_key_color_sysex, is_lumatone_message, message_payload}
@@ -67,6 +69,11 @@ pub fn decode_ping(msg: &[u8]) -> Result<u32, Box<dyn Error>> {
     return Err("ping response is not a valid lumatone message".into());
   }
 
+  let cmd_id = message_command_id(msg)?;
+  if cmd_id != CMD::LumaPing {
+    return Err("unexpected command id - not a ping response".into());
+  }
+  
   let payload = message_payload(msg)?;
   if payload.len() < 4 {
     return Err("ping message payload too short".into());

@@ -7,19 +7,17 @@
 
 use super::constants::{BoardIndex, CommandId, MANUFACTURER_ID};
 use std::error::Error;
+use num_traits::FromPrimitive;
 
 // index into sysex data of various fields
-mod index {
-  #![allow(dead_code)]
-  pub const MANU_0: usize = 0x0;
-  pub const MANU_1: usize = 0x1;
-  pub const MANU_3: usize = 0x2;
-  pub const BOARD_IND: usize = 0x3;
-  pub const CMD_ID: usize = 0x4;
-  pub const MSG_STATUS: usize = 0x5;
-  pub const CALIB_MODE: usize = 0x5;
-  pub const PAYLOAD_INIT: usize = 0x6;
-}
+pub const MANU_0: usize = 0x0;
+pub const MANU_1: usize = 0x1;
+pub const MANU_3: usize = 0x2;
+pub const BOARD_IND: usize = 0x3;
+pub const CMD_ID: usize = 0x4;
+pub const MSG_STATUS: usize = 0x5;
+pub const CALIB_MODE: usize = 0x5;
+pub const PAYLOAD_INIT: usize = 0x6;
 
 const SYSEX_START: u8 = 0xf0;
 const SYSEX_END: u8 = 0xf7;
@@ -111,8 +109,18 @@ pub fn is_lumatone_message(msg: &[u8]) -> bool {
 
 pub fn message_payload<'a>(msg: &'a [u8]) -> Result<&'a [u8], Box<dyn Error>> {
   let msg = strip_sysex_markers(msg);
-  if msg.len() < index::PAYLOAD_INIT {
+  if msg.len() < PAYLOAD_INIT {
     return Err("message too short, unable to extract payload".into())
   }
-  Ok(&msg[index::PAYLOAD_INIT..])
+  Ok(&msg[PAYLOAD_INIT..])
+}
+
+pub fn message_command_id(msg: &[u8]) -> Result<CommandId, Box<dyn Error>> {
+  let msg = strip_sysex_markers(msg);
+  if msg.len() <= CMD_ID {
+    return Err("message too short - unable to determine command id".into());
+  }
+  let cmd_id = msg[CMD_ID];
+  let cmd: Option<CommandId> = FromPrimitive::from_u8(cmd_id);
+  cmd.ok_or("unknown command id".into())
 }

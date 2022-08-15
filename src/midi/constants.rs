@@ -1,9 +1,13 @@
 #![allow(dead_code)]
+
+use num_derive::FromPrimitive;
+
 pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 
 pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI
 pub const TEST_ECHO: u8 = 0x7f; // should not be returned by lumatone
 
+#[derive(FromPrimitive, PartialEq)]
 pub enum BoardIndex {
     Server = 0,
     Octave1,
@@ -19,6 +23,7 @@ impl Into<u8> for BoardIndex {
     }
 }
 
+#[derive(FromPrimitive, PartialEq)]
 pub enum LumatoneKeyType {
     NoteOnOff = 1,
     ContinuousController = 2,
@@ -32,6 +37,7 @@ impl Into<u8> for LumatoneKeyType {
   }
 }
 
+#[derive(FromPrimitive, PartialEq)]
 pub enum FirmwareAnswerCode {
     Nack = 0x0,   // Not recognized
     Ack = 0x01,   // Acknowledged, OK
@@ -46,6 +52,7 @@ impl Into<u8> for FirmwareAnswerCode {
   }
 }
 
+#[derive(FromPrimitive, PartialEq)]
 pub enum CommandId {
     // Start support at 55-keys firmware version, Developmental versions
     ChangeKeyNote = 0x00,
