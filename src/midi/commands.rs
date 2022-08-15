@@ -1,4 +1,4 @@
-use super::{constants::{BoardIndex, CommandId as CMD, TEST_ECHO}, sysex::{EncodedSysex, create_sysex, create_extended_key_color_sysex}};
+use super::{constants::{BoardIndex, CommandId as CMD, TEST_ECHO}, sysex::{EncodedSysex, create_sysex, create_extended_key_color_sysex, is_lumatone_message, strip_sysex_markers, message_payload}};
 
 use std::error::Error;
 
@@ -17,7 +17,7 @@ pub fn set_key_function_parameters(
   } else {
     key_type
   };
-  create_sysex(board_index, CMD::CHANGE_KEY_NOTE, vec![
+  create_sysex(board_index, CMD::ChangeKeyNote, vec![
     key_index,
     note_or_cc_num,
     channel,
@@ -33,7 +33,7 @@ pub fn set_key_light_parameters(
   green: u8,
   blue: u8
 ) -> EncodedSysex {
-  create_extended_key_color_sysex(board_index, CMD::SET_KEY_COLOUR, key_index, red, green, blue)
+  create_extended_key_color_sysex(board_index, CMD::SetKeyColour, key_index, red, green, blue)
 }
 
 /// CMD 0x02: Save current configuration to a specified preset button index
@@ -43,18 +43,41 @@ pub fn save_program(preset_number: u8) -> Result<EncodedSysex, Box<dyn Error>> {
   }
 
   Ok(
-    create_sysex(board_index, CMD::SAVE_PROGRAM, vec![preset_number])
+    create_sysex(BoardIndex::Server, CMD::SaveProgram, vec![preset_number])
   )
 }
 
 pub fn ping(value: u32) -> EncodedSysex {
   let val = value & 0xfffffff; // limit to 28 bits
-  create_sysex(BoardIndex::SERVER, CMD::LUMA_PING, vec![
+  create_sysex(BoardIndex::Server, CMD::LumaPing, vec![
     TEST_ECHO,
-    (val >> 14) & 0x7f,
-    (val >> 7) & 0x7f,
-    val & 0x7f
+    ((val >> 14) & 0x7f) as u8,
+    ((val >> 7) & 0x7f) as u8,
+    (val & 0x7f) as u8
   ])
 }
+
+pub fn decode_ping(msg: &[u8]) -> Result<u32, Box<dyn Error>> {
+  if !is_lumatone_message(msg) {
+    return Err("ping response is not a valid lumatone message".into());
+  }
+
+  let payload = message_payload(msg)?;
+  if payload.len() < 4 {
+    return Err("ping message payload too short".into());
+  }
+  if payload[0] != CMD::LumaPing.into() {
+    return Err("unexpected command id".into())
+  }
+
+  let value: u32 = 
+    ((payload[1] as u32) << 14) 
+      | ((payload[2] as u32) << 7) 
+      | (payload[3] as u32);
+  Ok(value)
+}
+
+
+
 
 // TODO: add remaining commands

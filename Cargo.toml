@@ -6,5 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dioxus = { version = "0.2.4", features = ["desktop", "ayatana", "web", "liveview", "fermi", "router"] }
+futures = "0.3"
+callback-future = "0.1"
+tokio = { version = "1.20.1", features = ["full"]}
 midir = { version = "0.8.0" }
+
+# UI deps... maybe move this to a separate crate?
+# dioxus = { version = "0.2.4", features = ["desktop", "ayatana", "web", "liveview", "fermi", "router"] }

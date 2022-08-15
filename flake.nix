@@ -24,6 +24,7 @@
           gtk3
           libayatana-appindicator
           openssl.dev
+          alsa-lib.dev
           pkg-config
         ];
       };
