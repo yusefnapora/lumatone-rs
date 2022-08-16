@@ -80,6 +80,6 @@ pub async fn detect_device() -> Result<LumatoneDevice, Box<dyn Error>> {
 
   info!("detected lumatone ports: in: {input_port_name}, out: {output_port_name}");
 
-  let device =  LumatoneDevice::new(output, input, &output_port_name, &input_port_name);
+  let device =  LumatoneDevice::new(&output_port_name, &input_port_name);
   Ok(device)
 }
