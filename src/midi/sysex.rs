@@ -1,12 +1,7 @@
 #![allow(dead_code)]
 
 
-// TODO: 
-// - [ ] structs for lumatone commands
-// - [ ] encoder to convert commands to/from sysex byte stream
-
-use super::constants::{BoardIndex, CommandId, MANUFACTURER_ID};
-use std::error::Error;
+use super::{constants::{BoardIndex, CommandId, MANUFACTURER_ID}, error::LumatoneMidiError};
 use num_traits::FromPrimitive;
 
 // index into sysex data of various fields
@@ -106,20 +101,24 @@ pub fn is_lumatone_message(msg: &[u8]) -> bool {
   return true
 }
 
-pub fn message_payload<'a>(msg: &'a [u8]) -> Result<&'a [u8], Box<dyn Error>> {
+pub fn message_payload<'a>(msg: &'a [u8]) -> Result<&'a [u8], LumatoneMidiError> {
   let msg = strip_sysex_markers(msg);
   if msg.len() < PAYLOAD_INIT {
-    return Err("message too short, unable to extract payload".into())
+    return Err(
+      LumatoneMidiError::MessageTooShort { expected: PAYLOAD_INIT + 1, actual: msg.len() }
+    )
   }
   Ok(&msg[PAYLOAD_INIT..])
 }
 
-pub fn message_command_id(msg: &[u8]) -> Result<CommandId, Box<dyn Error>> {
+pub fn message_command_id(msg: &[u8]) -> Result<CommandId, LumatoneMidiError> {
   let msg = strip_sysex_markers(msg);
   if msg.len() <= CMD_ID {
-    return Err("message too short - unable to determine command id".into());
+    return Err(
+      LumatoneMidiError::MessageTooShort { expected: CMD_ID + 1, actual: msg.len() }
+    );
   }
   let cmd_id = msg[CMD_ID];
   let cmd: Option<CommandId> = FromPrimitive::from_u8(cmd_id);
-  cmd.ok_or("unknown command id".into())
+  cmd.ok_or(LumatoneMidiError::UnknownCommandId(cmd_id))
 }

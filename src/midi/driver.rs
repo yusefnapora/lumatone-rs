@@ -1,7 +1,8 @@
-use std::{error::Error, pin::Pin, time::{Duration, self}};
-use super::{sysex::EncodedSysex, device::{LumatoneDevice, LumatoneIO}};
+#![allow(dead_code)]
+use std::{error::Error, pin::Pin, time::Duration};
+use super::{sysex::EncodedSysex, device::{LumatoneDevice, LumatoneIO}, error::LumatoneMidiError};
 
-use log::{warn, debug, info};
+use log::{warn, debug, info, error};
 use tokio::{sync::{mpsc, oneshot}, time::{sleep, Sleep}};
 
 // state machine design is based around this example: https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0
@@ -13,9 +14,10 @@ enum State {
   ProcessingQueue { send_queue: Vec<EncodedSysex> },
   AwaitingResponse { send_queue: Vec<EncodedSysex>, command_sent: EncodedSysex },
   DeviceBusy { send_queue: Vec<EncodedSysex>, to_retry: EncodedSysex },
-  Failed(Box<dyn Error>),
+  Failed(LumatoneMidiError),
 }
 
+/// Actions are inputs into the state machine. Actions may trigger state transitions.
 #[derive(Debug)]
 enum Action {
   SubmitCommand(EncodedSysex),
@@ -25,14 +27,13 @@ enum Action {
   ReadyToRetry,
 }
 
+/// Effects are requests from the state machine to "do something" in the outside world.
 #[derive(Debug)]
 enum Effect {
   SendMidiMessage(EncodedSysex),
   StartReceiveTimeout,
   StartRetryTimeout,
 }
-
-type EffectRunner = fn (Effect) -> Option<Action>;
 
 
 impl State {
@@ -66,7 +67,7 @@ impl State {
         AwaitingResponse { send_queue: send_queue, command_sent: msg }
       },
 
-      (MessageReceived(msg), AwaitingResponse { send_queue, command_sent }) => {
+      (MessageReceived(_), AwaitingResponse { send_queue, command_sent: _ }) => {
         // TODO: check if received message is in response to command_sent
         //       if so, notify / log success
         //       if not, notify / log unexpected message
@@ -113,12 +114,13 @@ impl State {
 
       (action, state) => {
         let msg = format!("invalid action {:?} for current state {:?}", action, state);
-        Failed(msg.into())
+        Failed(LumatoneMidiError::InvalidStateTransition(msg))
       }
     }
   }
 
-  fn run(&mut self) -> Option<Effect> { 
+  /// Each state can perform an optional Effect when it's entered. Effects may result in new Actions, which can then trigger a new State transition.
+  fn enter(&mut self) -> Option<Effect> { 
     use State::*;
     use Effect::*;
 
@@ -128,10 +130,10 @@ impl State {
         let msg = send_queue[0].clone();
           Some(SendMidiMessage(msg))
         },
-      DeviceBusy { send_queue, to_retry } => {
+      DeviceBusy { send_queue: _, to_retry: _ } => {
         Some(StartRetryTimeout)
       },
-      AwaitingResponse { send_queue, command_sent } => {
+      AwaitingResponse { send_queue: _, command_sent: _ } => {
         Some(StartReceiveTimeout)
       },
       Failed(err) => {
@@ -143,7 +145,7 @@ impl State {
 }
 
 
-struct MidiDriver {
+pub struct MidiDriver {
   device_io: LumatoneIO,
   receive_timeout: Option<Pin<Box<Sleep>>>,
   retry_timeout: Option<Pin<Box<Sleep>>>,
@@ -151,7 +153,7 @@ struct MidiDriver {
 
 impl MidiDriver {
 
-  fn new(device: &LumatoneDevice) -> Result<Self, Box<dyn Error>> {
+  pub fn new(device: &LumatoneDevice) -> Result<Self, LumatoneMidiError> {
     let device_io = device.connect()?;
     Ok(MidiDriver { 
       device_io,
@@ -160,6 +162,7 @@ impl MidiDriver {
     })
   }
 
+  /// Performs some Effect. On success, returns an Option<Action> to potentially trigger a state transition.
   fn perform_effect(&mut self, effect: Effect) -> Result<Option<Action>, Box<dyn Error>> {
     use Effect::*;
     use Action::*;
@@ -186,16 +189,18 @@ impl MidiDriver {
     Ok(action)
   }
 
-  async fn run(&mut self, commands: &mut mpsc::Receiver<EncodedSysex>, done_signal: &mut oneshot::Receiver<()>) -> Result<(), Box<dyn Error>> {
+  pub async fn run(&mut self, commands: &mut mpsc::Receiver<EncodedSysex>, done_signal: &mut oneshot::Receiver<()>) {
 
     let mut state = State::Idle;
     loop {
 
+      // bail out if instructed
       if done_signal.try_recv().is_ok() {
         debug!("done signal received, exiting");
         break;
       }
       
+      // if either timeout is None, use a timeout with Duration::MAX, to make the select! logic a bit simpler
       let mut receive_timeout = &mut Box::pin(sleep(Duration::MAX));
       if let Some(t) = &mut self.receive_timeout {
         receive_timeout = t;
@@ -206,6 +211,12 @@ impl MidiDriver {
         retry_timeout = t;
       }
 
+      // There are two incoming streams of information: incoming midi messages, 
+      // and incoming commands (requests to send out midi messages)
+      // There are also two timeouts: receive_timeout for when we're waiting for a response to a command,
+      // and retry_timeout for when we're waiting to re-send a command (because the device was busy last time).
+      // 
+      // This select pulls whatever is available next and maps it to an Action that will advance the state machine.
       let a = tokio::select! {
         _ = receive_timeout => {
           info!("receive timeout triggered");
@@ -227,23 +238,30 @@ impl MidiDriver {
         }
       };
 
+      // Transition to next state based on action
       state = state.next(a);
 
       if let State::Failed(err) = state { 
-        return Err(err);
+        // return Err(err);
+        error!("state machine error: {err}");
+        break
       }
 
-      if let Some(effect) = state.run() {
+      // The new state's `enter` fn may return an Effect.
+      // If so, run it and apply any Actions returned.
+      if let Some(effect) = state.enter() {
         match self.perform_effect(effect) {
           Ok(Some(action)) => { 
             state = state.next(action);
             if let State::Failed(err) = state { 
-              return Err(err);
+              error!("state machine error: {err}");
+              break;
             }
           },
           Err(err) => {
             // warn!("error performing effect: {}", err);
-            return Err(err);
+            error!("state machine error: {err}");
+            break;
           }
           _ => {
             // No error, but nothing to do
@@ -252,7 +270,7 @@ impl MidiDriver {
       }
     }
 
-    Ok(())
+    // Ok(())
   }
 
 }

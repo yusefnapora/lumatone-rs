@@ -2,14 +2,14 @@ use std::{error::Error, time::Duration};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 
-use super::{device::LumatoneDevice, commands::{ping, decode_ping}};
+use super::{device::LumatoneDevice, commands::{ping, decode_ping}, error::LumatoneMidiError};
 use midir::{MidiOutput, MidiInput};
 
 use log::{debug, warn, info};
 
 const CLIENT_NAME: &'static str = "lumatone_rs";
 
-pub async fn detect_device() -> Result<LumatoneDevice, Box<dyn Error>> {
+pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
   debug!("beginning lumatone device detection");
 
   let output = MidiOutput::new(CLIENT_NAME)?;
@@ -72,7 +72,9 @@ pub async fn detect_device() -> Result<LumatoneDevice, Box<dyn Error>> {
   }
 
   if in_port_idx.is_none() || out_port_idx.is_none() {
-    return Err("unable to detect lumatone ports".into())
+    return Err(
+      LumatoneMidiError::DeviceDetectionFailed("unable to detect midi ports for device".to_string())
+    )
   }
 
   let output_port_name = output.port_name(&out_ports[out_port_idx.unwrap()])?;

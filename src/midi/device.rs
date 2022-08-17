@@ -5,7 +5,7 @@ use log::warn;
 use midir::{MidiInput, MidiOutput, MidiIO, MidiInputConnection, MidiOutputConnection};
 use tokio::sync::mpsc;
 
-use super::sysex::EncodedSysex;
+use super::{sysex::EncodedSysex, error::LumatoneMidiError};
 
 #[derive(Debug)]
 pub struct LumatoneDevice {
@@ -28,7 +28,7 @@ impl LumatoneDevice {
     }
   }
 
-  pub fn connect(&self) -> Result<LumatoneIO, Box<dyn Error>> {
+  pub fn connect(&self) -> Result<LumatoneIO, LumatoneMidiError> {
     let client_name = "lumatone-rs";
     let input = MidiInput::new(client_name)?;
     let output = MidiOutput::new(client_name)?;
@@ -64,12 +64,14 @@ impl LumatoneIO {
   }
 }
 
-fn get_port_by_name<IO: MidiIO> (io: &IO, name: &str) -> Result<IO::Port, Box<dyn Error>> {
+fn get_port_by_name<IO: MidiIO> (io: &IO, name: &str) -> Result<IO::Port, LumatoneMidiError> {
   for p in io.ports() {
     let port_name = io.port_name(&p)?;
     if port_name == name {
       return Ok(p);
     }
   }
-  Err(format!("no port found with name {name}").into())
+  Err(
+    LumatoneMidiError::MidiPortNotFound(name.to_string())
+  )
 }

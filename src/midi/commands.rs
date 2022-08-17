@@ -4,10 +4,9 @@ use crate::midi::sysex::message_command_id;
 
 use super::{
   constants::{BoardIndex, CommandId as CMD, TEST_ECHO}, 
-  sysex::{EncodedSysex, create_sysex, create_extended_key_color_sysex, is_lumatone_message, message_payload}
+  sysex::{EncodedSysex, create_sysex, create_extended_key_color_sysex, is_lumatone_message, message_payload}, error::LumatoneMidiError
 };
 
-use std::error::Error;
 
 /// CMD 0x0: Send a single key's functional configuration
 pub fn set_key_function_parameters(
@@ -44,9 +43,10 @@ pub fn set_key_light_parameters(
 }
 
 /// CMD 0x02: Save current configuration to a specified preset button index
-pub fn save_program(preset_number: u8) -> Result<EncodedSysex, Box<dyn Error>> {
+pub fn save_program(preset_number: u8) -> Result<EncodedSysex, LumatoneMidiError> {
   if preset_number > 9 {
-    return Err("invalid input: max preset number is 9".into());
+    return Err(LumatoneMidiError::InvalidCommandInput(
+      CMD::SaveProgram, "invalid input: max preset number is 9".to_string()));
   }
 
   Ok(
@@ -64,24 +64,32 @@ pub fn ping(value: u32) -> EncodedSysex {
   ])
 }
 
-pub fn decode_ping(msg: &[u8]) -> Result<u32, Box<dyn Error>> {
+pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
   if !is_lumatone_message(msg) {
-    return Err("ping response is not a valid lumatone message".into());
+    return Err(
+      LumatoneMidiError::NotLumatoneMessage(msg.to_vec())
+    );
   }
 
   let cmd_id = message_command_id(msg)?;
   if cmd_id != CMD::LumaPing {
-    return Err("unexpected command id - not a ping response".into());
+    return Err(
+      LumatoneMidiError::UnexpectedCommandId { expected: CMD::LumaPing, actual: cmd_id }
+    );
   }
 
   let payload = message_payload(msg)?;
   if payload.len() < 4 {
-    return Err("ping message payload too short".into());
+    return Err(
+      LumatoneMidiError::MessagePayloadTooShort { expected: 4, actual: payload.len() }
+    );
   }
 
 
   if payload[0] != TEST_ECHO {
-    return Err("unexpected flag in ping response".into())
+    return Err(
+      LumatoneMidiError::InvalidResponseMessage("ping response has invalid echo flag value".to_string())
+    )
   }
 
   let value: u32 = 
