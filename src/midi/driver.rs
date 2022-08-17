@@ -39,6 +39,7 @@ enum State {
   /// We've sent a message to the device, but the device says it's busy, 
   /// so we're hanging onto the outgoing message to try again in a bit.
   /// We may also have messages queued up to send later.
+  // TODO: add a retry counter to avoid infinite retry loop
   DeviceBusy {
     send_queue: Vec<EncodedSysex>,
     to_retry: EncodedSysex,
