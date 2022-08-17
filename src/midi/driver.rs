@@ -42,6 +42,7 @@ impl State {
     use State::*;
     use Action::*;
 
+    debug!("handling action {:?}. current state: {:?}", action, self);
     match (action, self) {
       (SubmitCommand(msg), Idle) => {
         // Queue up message to send, switch to "processing state"
@@ -123,6 +124,8 @@ impl State {
   fn enter(&mut self) -> Option<Effect> { 
     use State::*;
     use Effect::*;
+
+    debug!("entering state {:?}", self);
 
     match &*self {
       Idle => { None },
