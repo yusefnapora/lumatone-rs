@@ -2,7 +2,6 @@
 
 use log::warn;
 use midir::{MidiIO, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
-use std::error::Error;
 use tokio::sync::mpsc;
 
 use super::{error::LumatoneMidiError, sysex::EncodedSysex};

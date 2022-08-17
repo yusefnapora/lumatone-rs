@@ -1,10 +1,13 @@
 #![allow(dead_code)]
+use crate::midi::sysex::{is_response_to_message, message_answer_code, message_command_id};
+
 use super::{
+  constants::FirmwareAnswerCode,
   device::{LumatoneDevice, LumatoneIO},
   error::LumatoneMidiError,
   sysex::EncodedSysex,
 };
-use std::{error::Error, pin::Pin, time::Duration};
+use std::{pin::Pin, time::Duration};
 
 use log::{debug, error, info, warn};
 use tokio::{
@@ -105,23 +108,34 @@ impl State {
       }
 
       (
-        MessageReceived(_),
+        MessageReceived(incoming),
         AwaitingResponse {
           send_queue,
-          command_sent: _,
+          command_sent: outgoing,
         },
       ) => {
-        // TODO: check if received message is in response to command_sent
-        //       if so, notify / log success
-        //       if not, notify / log unexpected message
-        //       if response says device is busy, enter DeviceBusy state
+        use FirmwareAnswerCode::{Busy, State};
+        if !is_response_to_message(&outgoing, &incoming) {
+          warn!("received message that doesn't match expected response. outgoing message: {:?} - incoming: {:?}", outgoing, incoming);
+        }
 
-        if send_queue.is_empty() {
-          Idle
-        } else {
-          ProcessingQueue {
+        let status = message_answer_code(&incoming);
+        log_message_status(&status, &outgoing);
+
+        match (status, send_queue.is_empty()) {
+          (Busy, _) => DeviceBusy {
             send_queue: send_queue,
-          }
+            to_retry: outgoing,
+          },
+
+          (State, _) => DeviceBusy {
+            send_queue: send_queue,
+            to_retry: outgoing,
+          },
+
+          (_, true) => Idle,
+
+          (_, false) => ProcessingQueue { send_queue },
         }
       }
 
@@ -224,7 +238,7 @@ impl MidiDriver {
   }
 
   /// Performs some Effect. On success, returns an Option<Action> to potentially trigger a state transition.
-  fn perform_effect(&mut self, effect: Effect) -> Result<Option<Action>, Box<dyn Error>> {
+  fn perform_effect(&mut self, effect: Effect) -> Result<Option<Action>, LumatoneMidiError> {
     use Action::*;
     use Effect::*;
     let action = match effect {
@@ -334,5 +348,17 @@ impl MidiDriver {
     }
 
     // Ok(())
+  }
+}
+
+fn log_message_status(status: &FirmwareAnswerCode, outgoing: &[u8]) {
+  use FirmwareAnswerCode::*;
+  let cmd_id = message_command_id(outgoing).expect("unable to get outgoing message command id");
+  match *status {
+    Nack => debug!("received NACK response to command {:?}", cmd_id),
+    Ack => {}
+    Busy => debug!("received Busy response to command {:?}", cmd_id),
+    Error => debug!("received Error response to command {:?}", cmd_id),
+    State => debug!("received State response to command {:?}", cmd_id),
   }
 }

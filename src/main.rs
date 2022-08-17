@@ -5,10 +5,10 @@ use std::time::Duration;
 use midi::commands::set_key_light_parameters;
 use midi::constants::BoardIndex;
 use midi::driver::MidiDriver;
-use midi::{detect::detect_device, error::LumatoneMidiError};
+use midi::detect::detect_device;
 
 use env_logger;
-use log::{debug, error, info};
+use log::debug;
 use tokio;
 
 #[tokio::main]

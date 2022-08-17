@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use super::{
-  constants::{BoardIndex, CommandId, MANUFACTURER_ID},
+  constants::{BoardIndex, CommandId, FirmwareAnswerCode, MANUFACTURER_ID},
   error::LumatoneMidiError,
 };
 use num_traits::FromPrimitive;
@@ -103,7 +103,7 @@ pub fn is_lumatone_message(msg: &[u8]) -> bool {
 
 pub fn message_payload<'a>(msg: &'a [u8]) -> Result<&'a [u8], LumatoneMidiError> {
   let msg = strip_sysex_markers(msg);
-  if msg.len() < PAYLOAD_INIT {
+  if msg.len() <= PAYLOAD_INIT {
     return Err(LumatoneMidiError::MessageTooShort {
       expected: PAYLOAD_INIT + 1,
       actual: msg.len(),
@@ -123,4 +123,30 @@ pub fn message_command_id(msg: &[u8]) -> Result<CommandId, LumatoneMidiError> {
   let cmd_id = msg[CMD_ID];
   let cmd: Option<CommandId> = FromPrimitive::from_u8(cmd_id);
   cmd.ok_or(LumatoneMidiError::UnknownCommandId(cmd_id))
+}
+
+pub fn message_answer_code(msg: &[u8]) -> FirmwareAnswerCode {
+  let msg = strip_sysex_markers(msg);
+  if msg.len() <= MSG_STATUS {
+    return FirmwareAnswerCode::Error;
+  }
+
+  let status_byte = msg[MSG_STATUS];
+  let status: Option<FirmwareAnswerCode> = FromPrimitive::from_u8(status_byte);
+  status.unwrap_or(FirmwareAnswerCode::Error)
+}
+
+pub fn is_response_to_message(outgoing: &[u8], incoming: &[u8]) -> bool {
+  let outgoing = strip_sysex_markers(outgoing);
+  let incoming = strip_sysex_markers(incoming);
+
+  if !is_lumatone_message(incoming) {
+    return false;
+  }
+
+  if incoming.len() <= CMD_ID || outgoing.len() < CMD_ID {
+    return false;
+  }
+
+  incoming[CMD_ID] == outgoing[CMD_ID] && incoming[BOARD_IND] == outgoing[BOARD_IND]
 }
