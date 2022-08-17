@@ -7,6 +7,13 @@ pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI
 pub const TEST_ECHO: u8 = 0x7f; // should not be returned by lumatone
 
+
+/// Identifies which "board" a message should be routed to.
+/// 
+/// Commands that set key parameters should be targetted at one of the Octave values,
+/// which control the five 55-key Terpstra boards that comprise the full Lumatone layout.
+/// 
+/// Global operations (ping, macro keys, etc) should be sent to the Server board.
 #[derive(Debug, FromPrimitive, PartialEq)]
 pub enum BoardIndex {
   Server = 0,
@@ -23,11 +30,20 @@ impl Into<u8> for BoardIndex {
   }
 }
 
+/// One of the possible functions for a Lumatone key.
 #[derive(Debug, FromPrimitive, PartialEq)]
 pub enum LumatoneKeyType {
+
+  /// Key sends note on/off events
   NoteOnOff = 1,
+
+  /// Key sends CC messages
   ContinuousController = 2,
+
+  /// Key uses LumaTouch
   LumaTouch = 3,
+
+  /// Key is disabled
   Disabled = 4,
 }
 
@@ -37,21 +53,32 @@ impl Into<u8> for LumatoneKeyType {
   }
 }
 
+/// A status code included in response messages sent by the Lumatone device.
 #[derive(Debug, FromPrimitive, PartialEq)]
-pub enum FirmwareAnswerCode {
-  Nack = 0x0,   // Not recognized
-  Ack = 0x01,   // Acknowledged, OK
-  Busy = 0x02,  // Controller busy
-  Error = 0x03, // Error
-  State = 0x04, // Not in MIDI state (demo mode, still booting, etc)
+pub enum ResponseStatusCode {
+  /// NACK - Command not recognized
+  Nack = 0x0,   
+  /// ACK - Command successful
+  Ack = 0x01,
+  /// BUSY - Device busy, try again later
+  Busy = 0x02,
+  /// ERROR - Command failed
+  Error = 0x03,
+  /// STATE - Device is not in MIDI mode. Usually indicates device is in demo mode.
+  State = 0x04,
+
+  /// Unknown - Not returned by Lumatone device - indicates that the device sent a code we don't understand
+  Unknown = 0xff
 }
 
-impl Into<u8> for FirmwareAnswerCode {
+impl Into<u8> for ResponseStatusCode {
   fn into(self) -> u8 {
     self as u8
   }
 }
 
+
+/// Identifies a Lumatone command.
 #[derive(Debug, FromPrimitive, PartialEq)]
 pub enum CommandId {
   // Start support at 55-keys firmware version, Developmental versions

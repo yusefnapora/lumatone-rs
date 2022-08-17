@@ -60,6 +60,8 @@ pub fn save_program(preset_number: u8) -> Result<EncodedSysex, LumatoneMidiError
   ))
 }
 
+/// Constructs a "ping" message, with the given value encoded into the payload.
+/// Note that value is truncated to 28 bits.
 pub fn ping(value: u32) -> EncodedSysex {
   let val = value & 0xfffffff; // limit to 28 bits
   create_sysex(
@@ -74,6 +76,8 @@ pub fn ping(value: u32) -> EncodedSysex {
   )
 }
 
+/// Attempts to decode a sysex message as a "ping" response,
+/// returning the encoded payload value on success.
 pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
   if !is_lumatone_message(msg) {
     return Err(LumatoneMidiError::NotLumatoneMessage(msg.to_vec()));

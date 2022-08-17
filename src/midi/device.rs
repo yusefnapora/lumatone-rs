@@ -6,17 +6,12 @@ use tokio::sync::mpsc;
 
 use super::{error::LumatoneMidiError, sysex::EncodedSysex};
 
+/// Identifies the MIDI input and output ports that the Lumatone is connected to.
+/// A LumatoneDevice can be used to initiate a connection to the device using [`Self::connect`].
 #[derive(Debug, Clone)]
 pub struct LumatoneDevice {
   out_port_name: String,
   in_port_name: String,
-}
-
-pub struct LumatoneIO {
-  input_conn: MidiInputConnection<()>,
-  output_conn: MidiOutputConnection,
-
-  pub incoming_messages: mpsc::Receiver<EncodedSysex>,
 }
 
 impl LumatoneDevice {
@@ -27,6 +22,8 @@ impl LumatoneDevice {
     }
   }
 
+  /// Connects to the MIDI ports for this LumatoneDevice.
+  /// Returns a [`LumatoneIO`] on success.
   pub fn connect(&self) -> Result<LumatoneIO, LumatoneMidiError> {
     let client_name = "lumatone-rs";
     let input = MidiInput::new(client_name)?;
@@ -61,9 +58,29 @@ impl LumatoneDevice {
   }
 }
 
+/// Represents an open connection to a Lumatone device that can send and receive messages.
+pub struct LumatoneIO {
+  input_conn: MidiInputConnection<()>,
+  output_conn: MidiOutputConnection,
+
+  /// All incoming MIDI messages will be pushed onto this channel.
+  // TODO: should this be a broadcast instead?
+  pub incoming_messages: mpsc::Receiver<EncodedSysex>,
+}
+
+
 impl LumatoneIO {
-  pub fn send(&mut self, msg: &[u8]) -> Result<(), midir::SendError> {
+  /// Sends an encoded sysex message to the Lumatone.
+  pub fn send(&mut self, msg: &[u8]) -> Result<(), LumatoneMidiError> {
     self.output_conn.send(msg)
+     .map_err(|e| e.into())
+  }
+
+  /// Closes MIDI connections and consumes `self`, making this LumatoneIO unusable.
+  /// A new connection can be established using [`LumatoneDevice::connect`].
+  pub fn close(self) {
+    self.input_conn.close();
+    self.output_conn.close();
   }
 }
 

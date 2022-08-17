@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use super::{
-  constants::{BoardIndex, CommandId, FirmwareAnswerCode, MANUFACTURER_ID},
+  constants::{BoardIndex, CommandId, ResponseStatusCode, MANUFACTURER_ID},
   error::LumatoneMidiError,
 };
 use num_traits::FromPrimitive;
@@ -125,15 +125,15 @@ pub fn message_command_id(msg: &[u8]) -> Result<CommandId, LumatoneMidiError> {
   cmd.ok_or(LumatoneMidiError::UnknownCommandId(cmd_id))
 }
 
-pub fn message_answer_code(msg: &[u8]) -> FirmwareAnswerCode {
+pub fn message_answer_code(msg: &[u8]) -> ResponseStatusCode {
   let msg = strip_sysex_markers(msg);
   if msg.len() <= MSG_STATUS {
-    return FirmwareAnswerCode::Error;
+    return ResponseStatusCode::Unknown;
   }
 
   let status_byte = msg[MSG_STATUS];
-  let status: Option<FirmwareAnswerCode> = FromPrimitive::from_u8(status_byte);
-  status.unwrap_or(FirmwareAnswerCode::Error)
+  let status: Option<ResponseStatusCode> = FromPrimitive::from_u8(status_byte);
+  status.unwrap_or(ResponseStatusCode::Unknown)
 }
 
 pub fn is_response_to_message(outgoing: &[u8], incoming: &[u8]) -> bool {

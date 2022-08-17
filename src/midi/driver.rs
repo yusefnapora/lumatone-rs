@@ -2,7 +2,7 @@
 use crate::midi::sysex::{is_response_to_message, message_answer_code, message_command_id};
 
 use super::{
-  constants::FirmwareAnswerCode,
+  constants::ResponseStatusCode,
   device::{LumatoneDevice, LumatoneIO},
   error::LumatoneMidiError,
   sysex::EncodedSysex,
@@ -18,24 +18,39 @@ use tokio::{
 // state machine design is based around this example: https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0
 // linked from "Pretty State Machine Patterns in Rust": https://hoverbear.org/blog/rust-state-machine-pattern/
 
+/// One of the possible states the MIDI driver can be in at any given time.
 #[derive(Debug)]
 enum State {
+  /// We have nothing to send, and are not waiting for anything specific to happen.
   Idle,
+
+  /// We have one or more MIDI messages queued up to send.
   ProcessingQueue {
     send_queue: Vec<EncodedSysex>,
   },
+
+  /// We've sent a message to the device and are waiting for a response.
+  /// We may also have messages queued up to send later.
   AwaitingResponse {
     send_queue: Vec<EncodedSysex>,
     command_sent: EncodedSysex,
   },
+
+  /// We've sent a message to the device, but the device says it's busy, 
+  /// so we're hanging onto the outgoing message to try again in a bit.
+  /// We may also have messages queued up to send later.
   DeviceBusy {
     send_queue: Vec<EncodedSysex>,
     to_retry: EncodedSysex,
   },
+
+  /// Something has gone horribly wrong, and we've shut down the state machine loop.
   Failed(LumatoneMidiError),
 }
 
-/// Actions are inputs into the state machine. Actions may trigger state transitions.
+/// Actions are inputs into the state machine.
+/// An Action may trigger a state transition, but not all actions are applicable to all states.
+/// See the code of [`State::next`] for the valid (action, state) pairings.
 #[derive(Debug)]
 enum Action {
   SubmitCommand(EncodedSysex),
@@ -54,19 +69,24 @@ enum Effect {
 }
 
 impl State {
+  /// Applies an Action to the current State and returns the new State.
+  /// Note that this may be the same as the original state, in cases where the given
+  /// Action does not apply to the current state.
   fn next(self, action: Action) -> State {
     use Action::*;
     use State::*;
 
     debug!("handling action {:?}. current state: {:?}", action, self);
     match (action, self) {
+      // Submitting a command in the Idle state transitions to ProcessingQueue, with the new message as the only queue member.
       (SubmitCommand(msg), Idle) => {
-        // Queue up message to send, switch to "processing state"
         ProcessingQueue {
           send_queue: vec![msg],
         }
       }
 
+      // Submitting a command while we're waiting for a response to a previous command transitions to a new
+      // AwaitingResponse state with the new command pushed onto the send queue.
       (
         SubmitCommand(msg),
         AwaitingResponse {
@@ -75,7 +95,7 @@ impl State {
         },
       ) => {
         // add new command to the send_queue
-        let mut q = send_queue.clone();
+        let mut q = send_queue;
         q.push(msg);
         AwaitingResponse {
           send_queue: q,
@@ -83,6 +103,8 @@ impl State {
         }
       }
 
+      // Submitting a commmand while we're waiting to retry a previous command transitions to a new
+      // DeviceBusy state with the new command pushed onto the send queue.
       (
         SubmitCommand(msg),
         DeviceBusy {
@@ -91,7 +113,7 @@ impl State {
         },
       ) => {
         // add new command to the send queue
-        let mut q = send_queue.clone();
+        let mut q = send_queue;
         q.push(msg);
         DeviceBusy {
           send_queue: q,
@@ -99,6 +121,19 @@ impl State {
         }
       }
 
+      // Submitting a command while we're processing the queue transitions to a new ProcessingQueue state
+      // with the new command pushed onto the queue.
+      (
+        SubmitCommand(msg),
+        ProcessingQueue { send_queue }
+      ) => {
+        let mut q = send_queue;
+        q.push(msg);
+        ProcessingQueue { send_queue: q }
+      }
+
+      // Getting confirmation that a message was sent out while we're processing the queue transitions to
+      // the AwaitingResponse state. 
       (MessageSent(msg), ProcessingQueue { send_queue }) => {
         let send_queue = send_queue[1..].to_vec();
         AwaitingResponse {
@@ -107,6 +142,11 @@ impl State {
         }
       }
 
+      // Receiving a message when we're awaiting a response transitions to one of several states, depending on
+      // the response data:
+      // - If the response indicates that the device is busy or in demo mode, transitions to the DeviceBusy state.
+      // - If the response is not a valid response for the message we sent, logs a warning message drops the response.
+      // - If the response is valid, transitions to ProcessingQueue or Idle (if queue is empty).
       (
         MessageReceived(incoming),
         AwaitingResponse {
@@ -114,7 +154,7 @@ impl State {
           command_sent: outgoing,
         },
       ) => {
-        use FirmwareAnswerCode::{Busy, State};
+        use ResponseStatusCode::{Busy, State};
         if !is_response_to_message(&outgoing, &incoming) {
           warn!("received message that doesn't match expected response. outgoing message: {:?} - incoming: {:?}", outgoing, incoming);
         }
@@ -139,11 +179,14 @@ impl State {
         }
       }
 
+      // Receiving a message when we're not expecting one logs a warning.
       (MessageReceived(msg), state) => {
         warn!("Message received when not awaiting response: {:?}", msg);
         state
       }
 
+      // Getting a ResponseTimedOut action while waiting for a response logs a warning
+      // and transitions to Idle or ProcessingQueue, depending on whether we have messages queued up.
       (
         ResponseTimedOut,
         AwaitingResponse {
@@ -162,11 +205,14 @@ impl State {
         }
       }
 
+      // Getting a ResponseTimedOut when we're not waiting for a response logs a warning.
       (ResponseTimedOut, state) => {
         warn!("Response timeout action received, but not awaiting response");
         state
       }
 
+      // Getting a ReadyToRetry action when we're in the DeviceBusy state transitions to ProcessingQueue,
+      // with the message to retry added to the front of the queue (so it will be sent next).
       (
         ReadyToRetry,
         DeviceBusy {
@@ -180,11 +226,13 @@ impl State {
         ProcessingQueue { send_queue: q }
       }
 
+      // Getting a ReadyToRetry action in any state except DeviceBusy logs a warning.
       (ReadyToRetry, state) => {
         warn!("ReadyToRetry action received but not in DeviceBusy state");
         state
       }
 
+      // All other state transitions are undefined and result in a Failed state, causing the driver loop to exit with an error.
       (action, state) => {
         let msg = format!("invalid action {:?} for current state {:?}", action, state);
         Failed(LumatoneMidiError::InvalidStateTransition(msg))
@@ -192,7 +240,8 @@ impl State {
     }
   }
 
-  /// Each state can perform an optional Effect when it's entered. Effects may result in new Actions, which can then trigger a new State transition.
+  /// Each state can perform an optional Effect when it's entered. 
+  /// Effects may result in new Actions, which are fed into `State::next` and can then trigger a new State transition.
   fn enter(&mut self) -> Option<Effect> {
     use Effect::*;
     use State::*;
@@ -351,8 +400,8 @@ impl MidiDriver {
   }
 }
 
-fn log_message_status(status: &FirmwareAnswerCode, outgoing: &[u8]) {
-  use FirmwareAnswerCode::*;
+fn log_message_status(status: &ResponseStatusCode, outgoing: &[u8]) {
+  use ResponseStatusCode::*;
   let cmd_id = message_command_id(outgoing).expect("unable to get outgoing message command id");
   match *status {
     Nack => debug!("received NACK response to command {:?}", cmd_id),
@@ -360,5 +409,6 @@ fn log_message_status(status: &FirmwareAnswerCode, outgoing: &[u8]) {
     Busy => debug!("received Busy response to command {:?}", cmd_id),
     Error => debug!("received Error response to command {:?}", cmd_id),
     State => debug!("received State response to command {:?}", cmd_id),
+    Unknown => warn!("received unknown response status in response to command: {:?}", cmd_id)
   }
 }
