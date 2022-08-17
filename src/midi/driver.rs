@@ -189,7 +189,7 @@ impl MidiDriver {
     Ok(action)
   }
 
-  pub async fn run(&mut self, commands: &mut mpsc::Receiver<EncodedSysex>, done_signal: &mut oneshot::Receiver<()>) {
+  pub async fn run(mut self, mut commands: mpsc::Receiver<EncodedSysex>, mut done_signal: oneshot::Receiver<()>) {
 
     let mut state = State::Idle;
     loop {

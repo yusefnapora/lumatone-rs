@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 
 use super::{sysex::EncodedSysex, error::LumatoneMidiError};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LumatoneDevice {
   out_port_name: String,
   in_port_name: String, 
