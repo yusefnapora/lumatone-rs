@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
-
-use super::{constants::{BoardIndex, CommandId, MANUFACTURER_ID}, error::LumatoneMidiError};
+use super::{
+  constants::{BoardIndex, CommandId, MANUFACTURER_ID},
+  error::LumatoneMidiError,
+};
 use num_traits::FromPrimitive;
 
 // index into sysex data of various fields
@@ -41,7 +43,7 @@ pub fn create_extended_key_color_sysex(
   key_index: u8,
   red: u8,
   green: u8,
-  blue: u8
+  blue: u8,
 ) -> EncodedSysex {
   let mut colors = encode_rgb(red, green, blue);
   let mut data = vec![key_index];
@@ -53,7 +55,7 @@ pub fn create_extended_macro_color_sysex(
   cmd: CommandId,
   red: u8,
   green: u8,
-  blue: u8
+  blue: u8,
 ) -> EncodedSysex {
   let colors = encode_rgb(red, green, blue);
   create_sysex(BoardIndex::Server, cmd, colors)
@@ -69,10 +71,8 @@ fn encode_rgb(red: u8, green: u8, blue: u8) -> Vec<u8> {
   let green_lo = green & 0xf;
   let blue_hi = blue >> 4;
   let blue_lo = blue & 0xf;
-  vec![ red_hi, red_lo, green_hi, green_lo, blue_hi, blue_lo ]
+  vec![red_hi, red_lo, green_hi, green_lo, blue_hi, blue_lo]
 }
-
-
 
 pub fn strip_sysex_markers<'a>(msg: &'a [u8]) -> &'a [u8] {
   if msg.len() == 0 {
@@ -80,7 +80,7 @@ pub fn strip_sysex_markers<'a>(msg: &'a [u8]) -> &'a [u8] {
   }
 
   let start = if msg[0] == SYSEX_START { 1 } else { 0 };
-  let mut end = msg.len()-1;
+  let mut end = msg.len() - 1;
   if msg[end] == SYSEX_END {
     end -= 1;
   }
@@ -91,22 +91,23 @@ pub fn is_lumatone_message(msg: &[u8]) -> bool {
   let msg = strip_sysex_markers(msg);
 
   if msg.len() < 3 {
-    return false
+    return false;
   }
   for (a, b) in MANUFACTURER_ID.iter().zip(msg.iter()) {
     if *a != *b {
-      return false
+      return false;
     }
   }
-  return true
+  return true;
 }
 
 pub fn message_payload<'a>(msg: &'a [u8]) -> Result<&'a [u8], LumatoneMidiError> {
   let msg = strip_sysex_markers(msg);
   if msg.len() < PAYLOAD_INIT {
-    return Err(
-      LumatoneMidiError::MessageTooShort { expected: PAYLOAD_INIT + 1, actual: msg.len() }
-    )
+    return Err(LumatoneMidiError::MessageTooShort {
+      expected: PAYLOAD_INIT + 1,
+      actual: msg.len(),
+    });
   }
   Ok(&msg[PAYLOAD_INIT..])
 }
@@ -114,9 +115,10 @@ pub fn message_payload<'a>(msg: &'a [u8]) -> Result<&'a [u8], LumatoneMidiError>
 pub fn message_command_id(msg: &[u8]) -> Result<CommandId, LumatoneMidiError> {
   let msg = strip_sysex_markers(msg);
   if msg.len() <= CMD_ID {
-    return Err(
-      LumatoneMidiError::MessageTooShort { expected: CMD_ID + 1, actual: msg.len() }
-    );
+    return Err(LumatoneMidiError::MessageTooShort {
+      expected: CMD_ID + 1,
+      actual: msg.len(),
+    });
   }
   let cmd_id = msg[CMD_ID];
   let cmd: Option<CommandId> = FromPrimitive::from_u8(cmd_id);

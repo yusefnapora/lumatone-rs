@@ -1,9 +1,16 @@
 #![allow(dead_code)]
+use super::{
+  device::{LumatoneDevice, LumatoneIO},
+  error::LumatoneMidiError,
+  sysex::EncodedSysex,
+};
 use std::{error::Error, pin::Pin, time::Duration};
-use super::{sysex::EncodedSysex, device::{LumatoneDevice, LumatoneIO}, error::LumatoneMidiError};
 
-use log::{warn, debug, info, error};
-use tokio::{sync::{mpsc, oneshot}, time::{sleep, Sleep}};
+use log::{debug, error, info, warn};
+use tokio::{
+  sync::{mpsc, oneshot},
+  time::{sleep, Sleep},
+};
 
 // state machine design is based around this example: https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0
 // linked from "Pretty State Machine Patterns in Rust": https://hoverbear.org/blog/rust-state-machine-pattern/
@@ -11,9 +18,17 @@ use tokio::{sync::{mpsc, oneshot}, time::{sleep, Sleep}};
 #[derive(Debug)]
 enum State {
   Idle,
-  ProcessingQueue { send_queue: Vec<EncodedSysex> },
-  AwaitingResponse { send_queue: Vec<EncodedSysex>, command_sent: EncodedSysex },
-  DeviceBusy { send_queue: Vec<EncodedSysex>, to_retry: EncodedSysex },
+  ProcessingQueue {
+    send_queue: Vec<EncodedSysex>,
+  },
+  AwaitingResponse {
+    send_queue: Vec<EncodedSysex>,
+    command_sent: EncodedSysex,
+  },
+  DeviceBusy {
+    send_queue: Vec<EncodedSysex>,
+    to_retry: EncodedSysex,
+  },
   Failed(LumatoneMidiError),
 }
 
@@ -35,40 +50,67 @@ enum Effect {
   StartRetryTimeout,
 }
 
-
 impl State {
-
   fn next(self, action: Action) -> State {
-    use State::*;
     use Action::*;
+    use State::*;
 
     debug!("handling action {:?}. current state: {:?}", action, self);
     match (action, self) {
       (SubmitCommand(msg), Idle) => {
         // Queue up message to send, switch to "processing state"
-        ProcessingQueue { send_queue: vec![msg] }
-      },
+        ProcessingQueue {
+          send_queue: vec![msg],
+        }
+      }
 
-      (SubmitCommand(msg), AwaitingResponse { send_queue , command_sent }) => {
+      (
+        SubmitCommand(msg),
+        AwaitingResponse {
+          send_queue,
+          command_sent,
+        },
+      ) => {
         // add new command to the send_queue
         let mut q = send_queue.clone();
         q.push(msg);
-        AwaitingResponse { send_queue: q, command_sent: command_sent }
-      },
+        AwaitingResponse {
+          send_queue: q,
+          command_sent: command_sent,
+        }
+      }
 
-      (SubmitCommand(msg), DeviceBusy { send_queue, to_retry }) => {
+      (
+        SubmitCommand(msg),
+        DeviceBusy {
+          send_queue,
+          to_retry,
+        },
+      ) => {
         // add new command to the send queue
         let mut q = send_queue.clone();
         q.push(msg);
-        DeviceBusy { send_queue: q, to_retry: to_retry }
-      },
+        DeviceBusy {
+          send_queue: q,
+          to_retry: to_retry,
+        }
+      }
 
       (MessageSent(msg), ProcessingQueue { send_queue }) => {
         let send_queue = send_queue[1..].to_vec();
-        AwaitingResponse { send_queue: send_queue, command_sent: msg }
-      },
+        AwaitingResponse {
+          send_queue: send_queue,
+          command_sent: msg,
+        }
+      }
 
-      (MessageReceived(_), AwaitingResponse { send_queue, command_sent: _ }) => {
+      (
+        MessageReceived(_),
+        AwaitingResponse {
+          send_queue,
+          command_sent: _,
+        },
+      ) => {
         // TODO: check if received message is in response to command_sent
         //       if so, notify / log success
         //       if not, notify / log unexpected message
@@ -77,36 +119,52 @@ impl State {
         if send_queue.is_empty() {
           Idle
         } else {
-          ProcessingQueue { send_queue: send_queue }
+          ProcessingQueue {
+            send_queue: send_queue,
+          }
         }
-      },
+      }
 
       (MessageReceived(msg), state) => {
         warn!("Message received when not awaiting response: {:?}", msg);
         state
-      },
+      }
 
-      (ResponseTimedOut, AwaitingResponse { send_queue, command_sent }) => {
+      (
+        ResponseTimedOut,
+        AwaitingResponse {
+          send_queue,
+          command_sent,
+        },
+      ) => {
         warn!("Timed out waiting for response to msg: {:?}", command_sent);
 
         if send_queue.is_empty() {
           Idle
         } else {
-          ProcessingQueue { send_queue: send_queue }
+          ProcessingQueue {
+            send_queue: send_queue,
+          }
         }
-      },
+      }
 
       (ResponseTimedOut, state) => {
         warn!("Response timeout action received, but not awaiting response");
         state
-      },
+      }
 
-      (ReadyToRetry, DeviceBusy { send_queue, to_retry }) => {
+      (
+        ReadyToRetry,
+        DeviceBusy {
+          send_queue,
+          to_retry,
+        },
+      ) => {
         let mut q = vec![to_retry];
         q.extend(send_queue);
 
         ProcessingQueue { send_queue: q }
-      },
+      }
 
       (ReadyToRetry, state) => {
         warn!("ReadyToRetry action received but not in DeviceBusy state");
@@ -121,24 +179,26 @@ impl State {
   }
 
   /// Each state can perform an optional Effect when it's entered. Effects may result in new Actions, which can then trigger a new State transition.
-  fn enter(&mut self) -> Option<Effect> { 
-    use State::*;
+  fn enter(&mut self) -> Option<Effect> {
     use Effect::*;
+    use State::*;
 
     debug!("entering state {:?}", self);
 
     match &*self {
-      Idle => { None },
+      Idle => None,
       ProcessingQueue { send_queue } => {
         let msg = send_queue[0].clone();
-          Some(SendMidiMessage(msg))
-        },
-      DeviceBusy { send_queue: _, to_retry: _ } => {
-        Some(StartRetryTimeout)
-      },
-      AwaitingResponse { send_queue: _, command_sent: _ } => {
-        Some(StartReceiveTimeout)
-      },
+        Some(SendMidiMessage(msg))
+      }
+      DeviceBusy {
+        send_queue: _,
+        to_retry: _,
+      } => Some(StartRetryTimeout),
+      AwaitingResponse {
+        send_queue: _,
+        command_sent: _,
+      } => Some(StartReceiveTimeout),
       Failed(err) => {
         warn!("midi driver - unrecoverable error: {err}");
         None
@@ -147,7 +207,6 @@ impl State {
   }
 }
 
-
 pub struct MidiDriver {
   device_io: LumatoneIO,
   receive_timeout: Option<Pin<Box<Sleep>>>,
@@ -155,10 +214,9 @@ pub struct MidiDriver {
 }
 
 impl MidiDriver {
-
   pub fn new(device: &LumatoneDevice) -> Result<Self, LumatoneMidiError> {
     let device_io = device.connect()?;
-    Ok(MidiDriver { 
+    Ok(MidiDriver {
       device_io,
       receive_timeout: None,
       retry_timeout: None,
@@ -167,42 +225,44 @@ impl MidiDriver {
 
   /// Performs some Effect. On success, returns an Option<Action> to potentially trigger a state transition.
   fn perform_effect(&mut self, effect: Effect) -> Result<Option<Action>, Box<dyn Error>> {
-    use Effect::*;
     use Action::*;
+    use Effect::*;
     let action = match effect {
       SendMidiMessage(msg) => {
         self.device_io.send(&msg)?;
         Some(MessageSent(msg))
-      },
+      }
 
       StartReceiveTimeout => {
         let timeout_sec = 30;
         let timeout = sleep(Duration::from_secs(timeout_sec));
         self.receive_timeout = Some(Box::pin(timeout));
         None
-      },
+      }
 
       StartRetryTimeout => {
         let timeout_sec = 3;
         let timeout = sleep(Duration::from_secs(timeout_sec));
-        self.retry_timeout = Some(Box::pin(timeout));       
+        self.retry_timeout = Some(Box::pin(timeout));
         None
       }
     };
     Ok(action)
   }
 
-  pub async fn run(mut self, mut commands: mpsc::Receiver<EncodedSysex>, mut done_signal: oneshot::Receiver<()>) {
-
+  pub async fn run(
+    mut self,
+    mut commands: mpsc::Receiver<EncodedSysex>,
+    mut done_signal: oneshot::Receiver<()>,
+  ) {
     let mut state = State::Idle;
     loop {
-
       // bail out if instructed
       if done_signal.try_recv().is_ok() {
         debug!("done signal received, exiting");
         break;
       }
-      
+
       // if either timeout is None, use a timeout with Duration::MAX, to make the select! logic a bit simpler
       let mut receive_timeout = &mut Box::pin(sleep(Duration::MAX));
       if let Some(t) = &mut self.receive_timeout {
@@ -214,11 +274,11 @@ impl MidiDriver {
         retry_timeout = t;
       }
 
-      // There are two incoming streams of information: incoming midi messages, 
+      // There are two incoming streams of information: incoming midi messages,
       // and incoming commands (requests to send out midi messages)
       // There are also two timeouts: receive_timeout for when we're waiting for a response to a command,
       // and retry_timeout for when we're waiting to re-send a command (because the device was busy last time).
-      // 
+      //
       // This select pulls whatever is available next and maps it to an Action that will advance the state machine.
       let a = tokio::select! {
         _ = receive_timeout => {
@@ -244,23 +304,23 @@ impl MidiDriver {
       // Transition to next state based on action
       state = state.next(a);
 
-      if let State::Failed(err) = state { 
+      if let State::Failed(err) = state {
         // return Err(err);
         error!("state machine error: {err}");
-        break
+        break;
       }
 
       // The new state's `enter` fn may return an Effect.
       // If so, run it and apply any Actions returned.
       if let Some(effect) = state.enter() {
         match self.perform_effect(effect) {
-          Ok(Some(action)) => { 
+          Ok(Some(action)) => {
             state = state.next(action);
-            if let State::Failed(err) = state { 
+            if let State::Failed(err) = state {
               error!("state machine error: {err}");
               break;
             }
-          },
+          }
           Err(err) => {
             // warn!("error performing effect: {}", err);
             error!("state machine error: {err}");
@@ -275,5 +335,4 @@ impl MidiDriver {
 
     // Ok(())
   }
-
 }

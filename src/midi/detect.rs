@@ -2,10 +2,14 @@ use std::{error::Error, time::Duration};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 
-use super::{device::LumatoneDevice, commands::{ping, decode_ping}, error::LumatoneMidiError};
-use midir::{MidiOutput, MidiInput};
+use super::{
+  commands::{decode_ping, ping},
+  device::LumatoneDevice,
+  error::LumatoneMidiError,
+};
+use midir::{MidiInput, MidiOutput};
 
-use log::{debug, warn, info};
+use log::{debug, info, warn};
 
 const CLIENT_NAME: &'static str = "lumatone_rs";
 
@@ -17,7 +21,11 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
   let in_ports = input.ports();
   let out_ports = output.ports();
 
-  debug!("found {} input ports and {} output ports", in_ports.len(), out_ports.len());
+  debug!(
+    "found {} input ports and {} output ports",
+    in_ports.len(),
+    out_ports.len()
+  );
 
   let (tx, mut rx) = mpsc::channel(in_ports.len());
 
@@ -28,23 +36,28 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
     let midi_in = MidiInput::new(CLIENT_NAME)?;
     let port_name = midi_in.port_name(p)?;
     let my_tx = tx.clone();
-    let conn_res = midi_in.connect(p, &port_name, move |_, msg, _| {
-
-      match decode_ping(msg) {
-        Ok(output_port_index) => {
-          let _ = my_tx.blocking_send((port_index, output_port_index as usize)); // TODO: don't swallow channel send errors
-        },
-        Err(e) => {
-          warn!("error decoding ping message: {:?}", e);
+    let conn_res = midi_in.connect(
+      p,
+      &port_name,
+      move |_, msg, _| {
+        match decode_ping(msg) {
+          Ok(output_port_index) => {
+            let _ = my_tx.blocking_send((port_index, output_port_index as usize));
+            // TODO: don't swallow channel send errors
+          }
+          Err(e) => {
+            warn!("error decoding ping message: {:?}", e);
+          }
         }
-    }
-    }, ());
-    match conn_res { 
+      },
+      (),
+    );
+    match conn_res {
       Ok(conn) => {
         info!("connected to input port {port_name}");
         input_connections.push(conn);
-      },
-      Err(e) => warn!("input connection error for port {port_name}: {e}")
+      }
+      Err(e) => warn!("input connection error for port {port_name}: {e}"),
     }
   }
 
@@ -72,9 +85,9 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
   }
 
   if in_port_idx.is_none() || out_port_idx.is_none() {
-    return Err(
-      LumatoneMidiError::DeviceDetectionFailed("unable to detect midi ports for device".to_string())
-    )
+    return Err(LumatoneMidiError::DeviceDetectionFailed(
+      "unable to detect midi ports for device".to_string(),
+    ));
   }
 
   let output_port_name = output.port_name(&out_ports[out_port_idx.unwrap()])?;
@@ -82,6 +95,6 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
 
   info!("detected lumatone ports: in: {input_port_name}, out: {output_port_name}");
 
-  let device =  LumatoneDevice::new(&output_port_name, &input_port_name);
+  let device = LumatoneDevice::new(&output_port_name, &input_port_name);
   Ok(device)
 }

@@ -1,16 +1,16 @@
 #![allow(dead_code)]
 
-use std::{error::Error};
 use log::warn;
-use midir::{MidiInput, MidiOutput, MidiIO, MidiInputConnection, MidiOutputConnection};
+use midir::{MidiIO, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
+use std::error::Error;
 use tokio::sync::mpsc;
 
-use super::{sysex::EncodedSysex, error::LumatoneMidiError};
+use super::{error::LumatoneMidiError, sysex::EncodedSysex};
 
 #[derive(Debug, Clone)]
 pub struct LumatoneDevice {
   out_port_name: String,
-  in_port_name: String, 
+  in_port_name: String,
 }
 
 pub struct LumatoneIO {
@@ -39,12 +39,17 @@ impl LumatoneDevice {
     let buf_size = 32;
     let (incoming_tx, incoming_messages) = mpsc::channel(buf_size);
 
-    let input_conn = input.connect(&in_port, &self.in_port_name, move |_,msg,_| {
-      let msg = msg.to_vec();
-      if let Err(err) = incoming_tx.blocking_send(msg) {
-        warn!("error sending incoming message on channel: {err}");
-      }
-    }, ())?;
+    let input_conn = input.connect(
+      &in_port,
+      &self.in_port_name,
+      move |_, msg, _| {
+        let msg = msg.to_vec();
+        if let Err(err) = incoming_tx.blocking_send(msg) {
+          warn!("error sending incoming message on channel: {err}");
+        }
+      },
+      (),
+    )?;
 
     let output_conn = output.connect(&out_port, &self.out_port_name)?;
 
@@ -55,7 +60,6 @@ impl LumatoneDevice {
     };
     Ok(io)
   }
-
 }
 
 impl LumatoneIO {
@@ -64,14 +68,12 @@ impl LumatoneIO {
   }
 }
 
-fn get_port_by_name<IO: MidiIO> (io: &IO, name: &str) -> Result<IO::Port, LumatoneMidiError> {
+fn get_port_by_name<IO: MidiIO>(io: &IO, name: &str) -> Result<IO::Port, LumatoneMidiError> {
   for p in io.ports() {
     let port_name = io.port_name(&p)?;
     if port_name == name {
       return Ok(p);
     }
   }
-  Err(
-    LumatoneMidiError::MidiPortNotFound(name.to_string())
-  )
+  Err(LumatoneMidiError::MidiPortNotFound(name.to_string()))
 }
