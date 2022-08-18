@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use crate::midi::sysex::message_command_id;
 
 use super::{
-  constants::{BoardIndex, CommandId as CMD, TEST_ECHO, LumatoneKeyIndex, LumatoneKeyFunction, MidiChannel, RGBColor },
+  constants::{BoardIndex, CommandId as CMD, TEST_ECHO, LumatoneKeyFunction, RGBColor, LumatoneKeyLocation },
   error::LumatoneMidiError,
   sysex::{
     create_extended_key_color_sysex, create_sysex, is_lumatone_message, message_payload,
@@ -32,10 +32,17 @@ impl Debug for (dyn LumatoneCommand + Send) {
 }
 
 pub struct SetKeyFunction {
-  pub board_index: BoardIndex,
-  pub key_index: LumatoneKeyIndex,
-  pub midi_channel: MidiChannel,
+  pub location: Box<dyn LumatoneKeyLocation + Send>,
   pub function: LumatoneKeyFunction,
+}
+
+impl SetKeyFunction {
+  pub fn new<L: LumatoneKeyLocation + Send + 'static>(
+    location: L,
+    function: LumatoneKeyFunction,
+  ) -> Self {
+    Self { location: Box::new(location), function }
+  }
 }
 
 impl LumatoneCommand for SetKeyFunction {
@@ -44,28 +51,27 @@ impl LumatoneCommand for SetKeyFunction {
   }
 
   fn to_sysex_message(&self) -> EncodedSysex {
-    create_sysex(self.board_index, self.command_id(), vec![
-      self.key_index.into(),
+    let (board_index, key_index) = self.location.as_board_and_key_index();
+    create_sysex(board_index, self.command_id(), vec![
+      key_index.into(),
       self.function.note_or_cc_num(),
-      self.midi_channel.into(),
+      self.function.midi_channel_byte(),
       self.function.type_code(),
     ])
   }
 }
 
 pub struct SetKeyColor {
-  board_index: BoardIndex,
-  key_index: LumatoneKeyIndex,
+  location: Box<dyn LumatoneKeyLocation + Send>,
   color: RGBColor,
 }
 
 impl SetKeyColor {
-  pub fn new(
-    board_index: BoardIndex,
-    key_index: LumatoneKeyIndex,
+  pub fn new<L: LumatoneKeyLocation + Send + 'static>(
+    location: L,
     color: RGBColor,
   ) -> Self {
-    Self { board_index, key_index, color }
+    Self { location: Box::new(location), color }
   }
 } 
 
@@ -75,7 +81,8 @@ impl LumatoneCommand for SetKeyColor {
   }
 
   fn to_sysex_message(&self) -> EncodedSysex {
-    create_extended_key_color_sysex(self.board_index, self.command_id(), self.key_index.into(), self.color)
+    let (board_index, key_index) = self.location.as_board_and_key_index();
+    create_extended_key_color_sysex(board_index, self.command_id(), key_index.into(), self.color)
   }
 }
 

@@ -2,6 +2,7 @@
 
 use bounded_integer::bounded_integer;
 use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 
 pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 
@@ -81,7 +82,7 @@ impl LumatoneKeyIndex {
 /// Identifies which "board" a message should be routed to.
 /// 
 /// Commands that set key parameters should be targetted at one of the Octave values,
-/// which control the five 55-key Terpstra boards that comprise the full Lumatone layout.
+/// which control the five 56-key Terpstra boards that comprise the full Lumatone layout.
 /// 
 /// Global operations (ping, macro keys, etc) should be sent to the Server board.
 #[derive(Debug, FromPrimitive, PartialEq, Clone, Copy)]
@@ -100,13 +101,35 @@ impl Into<u8> for BoardIndex {
   }
 }
 
+/// Uniquely identifies one of the keys on the Lumatone keyboard.
+/// 
+/// Command structs accept Box<dyn LumatoneKeyLocation>, to allow
+/// multiple coordinate systems (to be implemented).
+/// 
+pub trait LumatoneKeyLocation {
+  fn as_board_and_key_index(&self) -> (BoardIndex, LumatoneKeyIndex);
+}
+
+impl LumatoneKeyLocation for (BoardIndex, LumatoneKeyIndex) {
+  fn as_board_and_key_index(&self) -> (BoardIndex, LumatoneKeyIndex) {
+    *self
+  }
+}
+
+/// Returns a (BoardIndex, LumatoneKeyIndex) tuple that identifies a Lumatone key.
+/// Will panic if input is out of range - use only on static / trusted input.
+pub fn key_uncheked(board_index: u8, key_index: u8) -> (BoardIndex, LumatoneKeyIndex) {
+  let board_index = FromPrimitive::from_u8(board_index).unwrap();
+  let key_index = LumatoneKeyIndex::unchecked(key_index);
+  (board_index, key_index)
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum LumatoneKeyFunction {
   /// Key sends note on/off messages
-  NoteOnOff(u8),
-
-  ContinuousController { cc_num: u8, fader_up_is_null: bool },
-  LumaTouch { fader_up_is_null: bool },
+  NoteOnOff { channel: MidiChannel, note_num: u8 },
+  ContinuousController { channel: MidiChannel, cc_num: u8, fader_up_is_null: bool },
+  LumaTouch { channel: MidiChannel, note_num: u8, fader_up_is_null: bool },
   Disabled,
 }
 
@@ -114,21 +137,32 @@ impl LumatoneKeyFunction {
   pub fn type_code(&self) -> u8 {
     use LumatoneKeyFunction::*;
     match *self { 
-      NoteOnOff(_) => 1,
-      ContinuousController { cc_num: _, fader_up_is_null: false } => 2,
-      ContinuousController { cc_num: _, fader_up_is_null: true } => (1 << 4) | 2,
-      LumaTouch { fader_up_is_null: false } => 3,
-      LumaTouch { fader_up_is_null: true } => (1 << 4) | 3,
+      NoteOnOff { .. } => 1,
+      ContinuousController {fader_up_is_null: false, .. } => 2,
+      ContinuousController { fader_up_is_null: true, .. } => (1 << 4) | 2,
+      LumaTouch { fader_up_is_null: false, .. } => 3,
+      LumaTouch { fader_up_is_null: true, .. } => (1 << 4) | 3,
       Disabled => 4
     }
   }
 
   pub fn note_or_cc_num(&self) -> u8 {
-    use LumatoneKeyFunction::{NoteOnOff, ContinuousController};
+    use LumatoneKeyFunction::*;
     match *self {
-      NoteOnOff(note_num) => note_num,
-      ContinuousController { cc_num, fader_up_is_null: _ } => cc_num,
-      _ => 0
+      NoteOnOff { note_num, .. } => note_num,
+      ContinuousController { cc_num, .. } => cc_num,
+      LumaTouch { note_num, ..} => note_num,
+      Disabled => 0
+    }
+  }
+
+  pub fn midi_channel_byte(&self) -> u8 {
+    use LumatoneKeyFunction::*;
+    match *self { 
+      NoteOnOff { channel, .. } => channel.into(),
+      ContinuousController { channel, .. } => channel.into(),
+      LumaTouch { channel, .. } => channel.into(),
+      Disabled => 0,
     }
   }
 }

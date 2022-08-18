@@ -2,16 +2,14 @@ mod midi;
 
 use std::time::Duration;
 
-use midi::commands::SetKeyColor;
-use midi::constants::{BoardIndex, LumatoneKeyIndex};
-use midi::driver::MidiDriver;
-use midi::detect::detect_device;
+use crate::midi::commands::{SetKeyColor, SetKeyFunction};
+use crate::midi::driver::MidiDriver;
+use crate::midi::detect::detect_device;
+use crate::midi::constants::{LumatoneKeyFunction, MidiChannel, RGBColor, key_uncheked};
 
 use env_logger;
 use log::debug;
 use tokio;
-
-use crate::midi::constants::RGBColor;
 
 #[tokio::main]
 async fn main() {
@@ -20,7 +18,6 @@ async fn main() {
 
   env_logger::init_from_env(env);
 
-  // TODO: fix lifetime issues... maybe tokio scopes?
   let device = detect_device().await.expect("device detection failed");
   let driver = MidiDriver::new(&device).expect("driver creation failed");
 
@@ -32,15 +29,29 @@ async fn main() {
   let h = tokio::spawn(f);
   debug!("driver loop spawned");
 
-  let commands = vec![
-    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::unchecked(0), RGBColor::red()),
-    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::unchecked(1), RGBColor::green()),
-    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::unchecked(2), RGBColor::blue()),
+  let channel = MidiChannel::default();
+  // using two vectors for the commands to avoid a bunch of boxing...
+  // maybe LumatoneCommand would be easier to use as an enum with struct variants
+  // instead of a trait...
+  let color_commands = vec![
+    SetKeyColor::new(key_uncheked(1, 0), RGBColor::red()),
+    SetKeyColor::new(key_uncheked(1, 1), RGBColor::green()),
+    SetKeyColor::new(key_uncheked(1, 2), RGBColor::blue()),
+  ];
+
+  let function_commands = vec![
+    SetKeyFunction::new(key_uncheked(1, 0), LumatoneKeyFunction::NoteOnOff { channel, note_num: 50 }),
+    SetKeyFunction::new(key_uncheked(1, 1), LumatoneKeyFunction::NoteOnOff { channel, note_num: 51 }),
+    SetKeyFunction::new(key_uncheked(1, 2), LumatoneKeyFunction::NoteOnOff { channel, note_num: 52 }),
   ];
 
   debug!("sending commands");
-  for c in commands {
+  for c in color_commands {
     debug!("sending command");
+    command_tx.send(Box::new(c)).await.expect("send error");
+  }
+
+  for c in function_commands {
     command_tx.send(Box::new(c)).await.expect("send error");
   }
 
