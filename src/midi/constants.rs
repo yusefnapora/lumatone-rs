@@ -8,13 +8,54 @@ pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI
 pub const TEST_ECHO: u8 = 0x7f; // should not be returned by lumatone
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct RGBColor(u8, u8, u8);
+
+impl RGBColor {
+  pub fn red() -> RGBColor {
+    RGBColor(0xff, 0, 0)
+  }
+
+  pub fn green() -> RGBColor {
+    RGBColor(0, 0xff, 0)
+  }
+
+  pub fn blue() -> RGBColor {
+    RGBColor(0, 0, 0xff)
+  }
+
+  /// Returns the color encoded into 6 u8's with the lower 4 bits set.
+  pub fn to_bytes(&self) -> Vec<u8> {
+    let RGBColor(red, green, blue) = *self;
+    let red_hi = red >> 4;
+    let red_lo = red & 0xf;
+    let green_hi = green >> 4;
+    let green_lo = green & 0xf;
+    let blue_hi = blue >> 4;
+    let blue_lo = blue & 0xf;
+    vec![red_hi, red_lo, green_hi, green_lo, blue_hi, blue_lo]
+  }
+}
+
+impl From<u32> for RGBColor {
+  /// Conversion from u32 ignores the "leftmost" byte.
+  /// e.g. use 0x00ffffff for white.
+  fn from(val: u32) -> Self {
+    let red = ((val >> 16) & 0xff) as u8;
+    let green = ((val >> 8) & 0xff) as u8;
+    let blue = (val & 0xff) as u8;
+    RGBColor(red, green, blue)
+  }
+}
+
 bounded_integer! {
   /// A zero-indexed MIDI channel number, in the range 0 .. 15.
   /// 
   /// Use `MidiChannel::default()` for channel 0.
   /// 
   /// When converting from untrusted / arbitrary input, use `MidiChannel::new`, which returns an `Option`.
-  /// If you know for sure it's in range, use `MidiChannel::new_unchecked`.
+  /// If you're sure your value is in range, use `MidiChannel::unchecked`, which will panic if the input is
+  /// out of bounds.
   pub struct MidiChannel { 0..15 }
 }
 
@@ -23,6 +64,18 @@ bounded_integer! {
   /// 
   /// Covers a single "board"; combine with [`BoardIndex`] to address a physical key.
   pub struct LumatoneKeyIndex { 0..55 }
+}
+
+impl MidiChannel {
+  pub fn unchecked(val: u8) -> Self {
+    Self::new(val).expect(format!("invalid midi channel number: {val}").as_str())
+  }
+}
+
+impl LumatoneKeyIndex {
+  pub fn unchecked(val: u8) -> Self {
+    Self::new(val).expect(format!("invalid lumatone key index: {val}").as_str())
+  }
 }
 
 /// Identifies which "board" a message should be routed to.
@@ -49,7 +102,9 @@ impl Into<u8> for BoardIndex {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum LumatoneKeyFunction {
-  NoteOnOff { note_num: u8 },
+  /// Key sends note on/off messages
+  NoteOnOff(u8),
+
   ContinuousController { cc_num: u8, fader_up_is_null: bool },
   LumaTouch { fader_up_is_null: bool },
   Disabled,
@@ -59,7 +114,7 @@ impl LumatoneKeyFunction {
   pub fn type_code(&self) -> u8 {
     use LumatoneKeyFunction::*;
     match *self { 
-      NoteOnOff { note_num: _} => 1,
+      NoteOnOff(_) => 1,
       ContinuousController { cc_num: _, fader_up_is_null: false } => 2,
       ContinuousController { cc_num: _, fader_up_is_null: true } => (1 << 4) | 2,
       LumaTouch { fader_up_is_null: false } => 3,
@@ -67,30 +122,17 @@ impl LumatoneKeyFunction {
       Disabled => 4
     }
   }
-}
 
-/// One of the possible functions for a Lumatone key.
-#[derive(Debug, FromPrimitive, PartialEq)]
-pub enum LumatoneKeyType {
-
-  /// Key sends note on/off events
-  NoteOnOff = 1,
-
-  /// Key sends CC messages
-  ContinuousController = 2,
-
-  /// Key uses LumaTouch
-  LumaTouch = 3,
-
-  /// Key is disabled
-  Disabled = 4,
-}
-
-impl Into<u8> for LumatoneKeyType {
-  fn into(self) -> u8 {
-    self as u8
+  pub fn note_or_cc_num(&self) -> u8 {
+    use LumatoneKeyFunction::{NoteOnOff, ContinuousController};
+    match *self {
+      NoteOnOff(note_num) => note_num,
+      ContinuousController { cc_num, fader_up_is_null: _ } => cc_num,
+      _ => 0
+    }
   }
 }
+
 
 /// A status code included in response messages sent by the Lumatone device.
 #[derive(Debug, FromPrimitive, PartialEq)]
@@ -235,5 +277,16 @@ pub enum CommandId {
 impl Into<u8> for CommandId {
   fn into(self) -> u8 {
     self as u8
+  }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RGBColor;
+
+  #[test]
+  fn test_rgb_color() {
+    assert_eq!(RGBColor::from(0x00aabbcc), RGBColor(0xaa, 0xbb, 0xcc));
+
   }
 }

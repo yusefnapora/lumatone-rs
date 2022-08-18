@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use crate::midi::sysex::message_command_id;
 
 use super::{
-  constants::{BoardIndex, CommandId as CMD, TEST_ECHO, LumatoneKeyIndex, LumatoneKeyFunction, MidiChannel },
+  constants::{BoardIndex, CommandId as CMD, TEST_ECHO, LumatoneKeyIndex, LumatoneKeyFunction, MidiChannel, RGBColor },
   error::LumatoneMidiError,
   sysex::{
     create_extended_key_color_sysex, create_sysex, is_lumatone_message, message_payload,
@@ -44,16 +44,9 @@ impl LumatoneCommand for SetKeyFunction {
   }
 
   fn to_sysex_message(&self) -> EncodedSysex {
-    use LumatoneKeyFunction::*;
-    let note_or_cc_num = match self.function {
-      NoteOnOff { note_num } => note_num,
-      ContinuousController { cc_num, fader_up_is_null: _ } => cc_num,
-      _ => 0
-    };
-
     create_sysex(self.board_index, self.command_id(), vec![
       self.key_index.into(),
-      note_or_cc_num,
+      self.function.note_or_cc_num(),
       self.midi_channel.into(),
       self.function.type_code(),
     ])
@@ -63,20 +56,16 @@ impl LumatoneCommand for SetKeyFunction {
 pub struct SetKeyColor {
   board_index: BoardIndex,
   key_index: LumatoneKeyIndex,
-  red: u8,
-  green: u8,
-  blue: u8,
+  color: RGBColor,
 }
 
 impl SetKeyColor {
   pub fn new(
     board_index: BoardIndex,
     key_index: LumatoneKeyIndex,
-    red: u8,
-    green: u8,
-    blue: u8
+    color: RGBColor,
   ) -> Self {
-    Self { board_index, key_index, red, green, blue }
+    Self { board_index, key_index, color }
   }
 } 
 
@@ -86,7 +75,7 @@ impl LumatoneCommand for SetKeyColor {
   }
 
   fn to_sysex_message(&self) -> EncodedSysex {
-    create_extended_key_color_sysex(self.board_index, self.command_id(), self.key_index.into(), self.red, self.green, self.blue)
+    create_extended_key_color_sysex(self.board_index, self.command_id(), self.key_index.into(), self.color)
   }
 }
 

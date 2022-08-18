@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use super::{
-  constants::{BoardIndex, CommandId, ResponseStatusCode, MANUFACTURER_ID},
+  constants::{BoardIndex, CommandId, ResponseStatusCode, MANUFACTURER_ID, RGBColor},
   error::LumatoneMidiError,
 };
 use num_traits::FromPrimitive;
@@ -41,38 +41,20 @@ pub fn create_extended_key_color_sysex(
   board_index: BoardIndex,
   cmd: CommandId,
   key_index: u8,
-  red: u8,
-  green: u8,
-  blue: u8,
+  color: RGBColor,
 ) -> EncodedSysex {
-  let mut colors = encode_rgb(red, green, blue);
   let mut data = vec![key_index];
-  data.append(&mut colors);
+  data.extend(color.to_bytes());
   create_sysex(board_index, cmd, data)
 }
 
 pub fn create_extended_macro_color_sysex(
   cmd: CommandId,
-  red: u8,
-  green: u8,
-  blue: u8,
+  color: RGBColor,
 ) -> EncodedSysex {
-  let colors = encode_rgb(red, green, blue);
-  create_sysex(BoardIndex::Server, cmd, colors)
+  create_sysex(BoardIndex::Server, cmd, color.to_bytes())
 }
 
-/**
- * Returns the given RGB values, encoded into 6 u8's with the lower 4 bits set.
- */
-fn encode_rgb(red: u8, green: u8, blue: u8) -> Vec<u8> {
-  let red_hi = red >> 4;
-  let red_lo = red & 0xf;
-  let green_hi = green >> 4;
-  let green_lo = green & 0xf;
-  let blue_hi = blue >> 4;
-  let blue_lo = blue & 0xf;
-  vec![red_hi, red_lo, green_hi, green_lo, blue_hi, blue_lo]
-}
 
 pub fn strip_sysex_markers<'a>(msg: &'a [u8]) -> &'a [u8] {
   if msg.len() == 0 {

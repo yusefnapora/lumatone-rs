@@ -11,6 +11,8 @@ use env_logger;
 use log::debug;
 use tokio;
 
+use crate::midi::constants::RGBColor;
+
 #[tokio::main]
 async fn main() {
   let default_log_level = "debug";
@@ -31,9 +33,9 @@ async fn main() {
   debug!("driver loop spawned");
 
   let commands = vec![
-    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new(0).unwrap(), 0xff, 0, 0),
-    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new(1).unwrap(), 0, 0xff, 0),
-    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new(2).unwrap(), 0, 0, 0xff),
+    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::unchecked(0), RGBColor::red()),
+    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::unchecked(1), RGBColor::green()),
+    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::unchecked(2), RGBColor::blue()),
   ];
 
   debug!("sending commands");
