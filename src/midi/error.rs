@@ -5,7 +5,7 @@ use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum LumatoneMidiError {
-  InvalidCommandInput(CommandId, String),
+  // InvalidCommandInput(CommandId, String),
   NotLumatoneMessage(Vec<u8>),
   MessageTooShort {
     expected: usize,
@@ -68,9 +68,9 @@ impl Display for LumatoneMidiError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     use LumatoneMidiError::*;
     match self {
-      InvalidCommandInput(cmd_id, msg) => {
-        write!(f, "invalid command input for {:?}: {}", cmd_id, msg)
-      }
+      // InvalidCommandInput(cmd_id, msg) => {
+      //   write!(f, "invalid command input for {:?}: {}", cmd_id, msg)
+      // }
 
       NotLumatoneMessage(msg) => write!(f, "message is not a lumatone message: {:?}", msg),
 

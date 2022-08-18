@@ -340,7 +340,7 @@ impl MidiDriver {
   ///       Alternatively, a "command" could be an EncodedSysex + a oneshot channel to report status back.
   pub async fn run(
     mut self,
-    mut commands: mpsc::Receiver<Box<dyn LumatoneCommand>>,
+    mut commands: mpsc::Receiver<Box<dyn LumatoneCommand + Send>>,
     mut done_signal: oneshot::Receiver<()>,
   ) {
     let mut state = State::Idle;

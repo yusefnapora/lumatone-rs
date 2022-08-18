@@ -3,7 +3,7 @@ mod midi;
 use std::time::Duration;
 
 use midi::commands::SetKeyColor;
-use midi::constants::{BoardIndex, LumatoneKeyIndex, MidiChannel};
+use midi::constants::{BoardIndex, LumatoneKeyIndex};
 use midi::driver::MidiDriver;
 use midi::detect::detect_device;
 
@@ -31,9 +31,9 @@ async fn main() {
   debug!("driver loop spawned");
 
   let commands = vec![
-    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new_unchecked(0), 0xff, 0, 0),
-    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new_unchecked(1), 0, 0xff, 0),
-    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new_unchecked(2), 0, 0, 0xff),
+    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new(0).unwrap(), 0xff, 0, 0),
+    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new(1).unwrap(), 0, 0xff, 0),
+    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new(2).unwrap(), 0, 0, 0xff),
   ];
 
   debug!("sending commands");

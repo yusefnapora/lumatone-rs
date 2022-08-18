@@ -21,8 +21,14 @@ pub trait LumatoneCommand {
 
 impl Debug for (dyn LumatoneCommand + 'static) {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "LumatoneCommand[{:?}]", self.command_id())
+    write!(f, "LumatoneCommand: {:?}", self.command_id())
   }
+}
+
+impl Debug for (dyn LumatoneCommand + Send) {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "LumatoneCommand: {:?}", self.command_id())
+  } 
 }
 
 pub struct SetKeyFunction {
