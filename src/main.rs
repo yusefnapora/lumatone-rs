@@ -5,7 +5,7 @@ use std::time::Duration;
 use crate::midi::commands::{set_key_color, set_key_function};
 use crate::midi::driver::MidiDriver;
 use crate::midi::detect::detect_device;
-use crate::midi::constants::{LumatoneKeyFunction, MidiChannel, RGBColor, key_loc_unchecked};
+use crate::midi::constants::{LumatoneKeyFunction::NoteOnOff, MidiChannel, RGBColor, key_loc_unchecked};
 
 use env_logger;
 use log::debug;
@@ -31,7 +31,6 @@ async fn main() {
 
   let channel = MidiChannel::default();
 
-  use LumatoneKeyFunction::NoteOnOff;
   let commands = vec![
     set_key_color(key_loc_unchecked(1, 0), RGBColor::red()),
     set_key_color(key_loc_unchecked(1, 1), RGBColor::green()),
