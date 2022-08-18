@@ -120,7 +120,7 @@ impl LumatoneKeyLocation {
 
 impl Into<LumatoneKeyLocation> for (BoardIndex, LumatoneKeyIndex) {
   fn into(self) -> LumatoneKeyLocation {
-      LumatoneKeyLocation(self.0, self.1)
+    LumatoneKeyLocation(self.0, self.1)
   }
 }
 

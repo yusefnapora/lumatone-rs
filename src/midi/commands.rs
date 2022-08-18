@@ -50,6 +50,8 @@ impl Command {
   }
 }
 
+// region: Command factory fns
+
 pub fn ping(value: u32) -> Command {
   Command::Ping { value }
 }
@@ -61,6 +63,10 @@ pub fn set_key_color(location: LumatoneKeyLocation, color: RGBColor) -> Command 
 pub fn set_key_function(location: LumatoneKeyLocation, function: LumatoneKeyFunction) -> Command {
   Command::SetKeyFunction { location, function }
 }
+
+// endregion
+
+// region: Sysex Encoders
 
 fn encode_ping(value: u32) -> EncodedSysex {
   let val = value & 0xfffffff; // limit to 28 bits
@@ -93,8 +99,17 @@ fn encode_set_key_function(
 }
 
 fn encode_set_key_color(location: &LumatoneKeyLocation, color: &RGBColor) -> EncodedSysex {
-  create_extended_key_color_sysex(location.board_index(), CommandId::SetKeyColour, location.key_index().into(), color)
+  create_extended_key_color_sysex(
+    location.board_index(),
+    CommandId::SetKeyColour,
+    location.key_index().into(),
+    color,
+  )
 }
+
+// endregion
+
+// region: Sysex Decoders
 
 /// Attempts to decode a sysex message as a "ping" response,
 /// returning the encoded payload value on success.
@@ -129,4 +144,4 @@ pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
   Ok(value)
 }
 
-// TODO: add remaining commands
+// endregion
