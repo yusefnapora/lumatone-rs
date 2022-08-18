@@ -103,26 +103,34 @@ impl Into<u8> for BoardIndex {
 
 /// Uniquely identifies one of the keys on the Lumatone keyboard.
 ///
-/// Command structs accept Box<dyn LumatoneKeyLocation>, to allow
-/// multiple coordinate systems (to be implemented).
+/// To convert from another coordinate system, add an `impl Into<LumatoneKeyLocation>` to your coordinate type.
 ///
-pub trait LumatoneKeyLocation {
-  fn as_board_and_key_index(&self) -> (BoardIndex, LumatoneKeyIndex);
+#[derive(Debug, Clone, Copy)]
+pub struct LumatoneKeyLocation(BoardIndex, LumatoneKeyIndex);
+
+impl LumatoneKeyLocation {
+  pub fn board_index(&self) -> BoardIndex {
+    self.0
+  }
+
+  pub fn key_index(&self) -> LumatoneKeyIndex {
+    self.1
+  }
 }
 
-impl LumatoneKeyLocation for (BoardIndex, LumatoneKeyIndex) {
-  fn as_board_and_key_index(&self) -> (BoardIndex, LumatoneKeyIndex) {
-    *self
+impl Into<LumatoneKeyLocation> for (BoardIndex, LumatoneKeyIndex) {
+  fn into(self) -> LumatoneKeyLocation {
+      LumatoneKeyLocation(self.0, self.1)
   }
 }
 
 /// Returns a (BoardIndex, LumatoneKeyIndex) tuple that identifies a Lumatone key.
 /// Will panic if input is out of range - use only on static / trusted input.
-pub fn key_loc_unchecked(board_index: u8, key_index: u8) -> (BoardIndex, LumatoneKeyIndex) {
+pub fn key_loc_unchecked(board_index: u8, key_index: u8) -> LumatoneKeyLocation {
   let board_index = FromPrimitive::from_u8(board_index)
     .expect(format!("invalid board index: {board_index}").as_str());
   let key_index = LumatoneKeyIndex::unchecked(key_index);
-  (board_index, key_index)
+  LumatoneKeyLocation(board_index, key_index)
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

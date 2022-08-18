@@ -6,7 +6,7 @@ use crate::midi::sysex::message_command_id;
 
 use super::{
   constants::{
-    BoardIndex, CommandId as CMD, LumatoneKeyFunction, LumatoneKeyLocation, RGBColor, TEST_ECHO,
+    BoardIndex, CommandId, LumatoneKeyFunction, LumatoneKeyLocation, RGBColor, TEST_ECHO,
   },
   error::LumatoneMidiError,
   sysex::{
@@ -15,37 +15,28 @@ use super::{
   },
 };
 
-pub type BoxedKeyLocation = Box<dyn LumatoneKeyLocation + Send>;
-
-impl std::fmt::Debug for BoxedKeyLocation {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let (board_index, key_index) = self.as_board_and_key_index();
-    write!(f, "BoxedKeyLocation({:?}, {:?})", board_index, key_index)
-  }
-}
-
 #[derive(Debug)]
 pub enum Command {
   Ping {
     value: u32,
   },
   SetKeyFunction {
-    location: BoxedKeyLocation,
+    location: LumatoneKeyLocation,
     function: LumatoneKeyFunction,
   },
   SetKeyColor {
-    location: BoxedKeyLocation,
+    location: LumatoneKeyLocation,
     color: RGBColor,
   },
 }
 
 impl Command {
-  pub fn command_id(&self) -> CMD {
+  pub fn command_id(&self) -> CommandId {
     use Command::*;
     match *self {
-      Ping { .. } => CMD::LumaPing,
-      SetKeyFunction { .. } => CMD::ChangeKeyNote,
-      SetKeyColor { .. } => CMD::SetKeyColour,
+      Ping { .. } => CommandId::LumaPing,
+      SetKeyFunction { .. } => CommandId::ChangeKeyNote,
+      SetKeyColor { .. } => CommandId::SetKeyColour,
     }
   }
 
@@ -63,31 +54,19 @@ pub fn ping(value: u32) -> Command {
   Command::Ping { value }
 }
 
-pub fn set_key_color<L>(location: L, color: RGBColor) -> Command
-where
-  L: LumatoneKeyLocation + Send + 'static,
-{
-  Command::SetKeyColor {
-    location: Box::new(location),
-    color,
-  }
+pub fn set_key_color(location: LumatoneKeyLocation, color: RGBColor) -> Command {
+  Command::SetKeyColor { location, color }
 }
 
-pub fn set_key_function<L>(location: L, function: LumatoneKeyFunction) -> Command
-where
-  L: LumatoneKeyLocation + Send + 'static,
-{
-  Command::SetKeyFunction {
-    location: Box::new(location),
-    function,
-  }
+pub fn set_key_function(location: LumatoneKeyLocation, function: LumatoneKeyFunction) -> Command {
+  Command::SetKeyFunction { location, function }
 }
 
 fn encode_ping(value: u32) -> EncodedSysex {
   let val = value & 0xfffffff; // limit to 28 bits
   create_sysex(
     BoardIndex::Server,
-    CMD::LumaPing,
+    CommandId::LumaPing,
     vec![
       TEST_ECHO,
       ((val >> 14) & 0x7f) as u8,
@@ -98,15 +77,14 @@ fn encode_ping(value: u32) -> EncodedSysex {
 }
 
 fn encode_set_key_function(
-  location: &BoxedKeyLocation,
+  location: &LumatoneKeyLocation,
   function: &LumatoneKeyFunction,
 ) -> EncodedSysex {
-  let (board_index, key_index) = location.as_board_and_key_index();
   create_sysex(
-    board_index,
-    CMD::ChangeKeyNote,
+    location.board_index(),
+    CommandId::ChangeKeyNote,
     vec![
-      key_index.into(),
+      location.key_index().into(),
       function.note_or_cc_num(),
       function.midi_channel_byte(),
       function.type_code(),
@@ -114,9 +92,8 @@ fn encode_set_key_function(
   )
 }
 
-fn encode_set_key_color(location: &BoxedKeyLocation, color: &RGBColor) -> EncodedSysex {
-  let (board_index, key_index) = location.as_board_and_key_index();
-  create_extended_key_color_sysex(board_index, CMD::SetKeyColour, key_index.into(), color)
+fn encode_set_key_color(location: &LumatoneKeyLocation, color: &RGBColor) -> EncodedSysex {
+  create_extended_key_color_sysex(location.board_index(), CommandId::SetKeyColour, location.key_index().into(), color)
 }
 
 /// Attempts to decode a sysex message as a "ping" response,
@@ -127,9 +104,9 @@ pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
   }
 
   let cmd_id = message_command_id(msg)?;
-  if cmd_id != CMD::LumaPing {
+  if cmd_id != CommandId::LumaPing {
     return Err(LumatoneMidiError::UnexpectedCommandId {
-      expected: CMD::LumaPing,
+      expected: CommandId::LumaPing,
       actual: cmd_id,
     });
   }
