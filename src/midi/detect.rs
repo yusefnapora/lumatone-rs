@@ -2,10 +2,9 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 
-use crate::midi::commands::LumatoneCommand;
 
 use super::{
-  commands::Ping,
+  commands::{ping, decode_ping},
   device::LumatoneDevice,
   error::LumatoneMidiError,
 };
@@ -42,7 +41,7 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
       p,
       &port_name,
       move |_, msg, _| {
-        match Ping::decode(msg) {
+        match decode_ping(msg) {
           Ok(output_port_index) => {
             let _ = my_tx.blocking_send((port_index, output_port_index as usize));
             // TODO: don't swallow channel send errors
@@ -68,8 +67,8 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
     let midi_out = MidiOutput::new(CLIENT_NAME)?;
     let port_name = midi_out.port_name(p)?;
     if let Ok(mut conn) = midi_out.connect(p, &port_name) {
-      let msg = Ping::new(port_index as u32);
-      if let Err(send_err) = conn.send(&msg.to_sysex_message()) {
+      let cmd = ping(port_index as u32);
+      if let Err(send_err) = conn.send(&cmd.to_sysex_message()) {
         warn!("send error: {send_err}");
       }
       debug!("sent ping on output {port_index} - {port_name}");

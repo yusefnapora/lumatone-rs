@@ -118,7 +118,7 @@ impl LumatoneKeyLocation for (BoardIndex, LumatoneKeyIndex) {
 
 /// Returns a (BoardIndex, LumatoneKeyIndex) tuple that identifies a Lumatone key.
 /// Will panic if input is out of range - use only on static / trusted input.
-pub fn key_uncheked(board_index: u8, key_index: u8) -> (BoardIndex, LumatoneKeyIndex) {
+pub fn key_loc_unchecked(board_index: u8, key_index: u8) -> (BoardIndex, LumatoneKeyIndex) {
   let board_index = FromPrimitive::from_u8(board_index).unwrap();
   let key_index = LumatoneKeyIndex::unchecked(key_index);
   (board_index, key_index)

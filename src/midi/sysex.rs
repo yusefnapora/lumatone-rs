@@ -41,7 +41,7 @@ pub fn create_extended_key_color_sysex(
   board_index: BoardIndex,
   cmd: CommandId,
   key_index: u8,
-  color: RGBColor,
+  color: &RGBColor,
 ) -> EncodedSysex {
   let mut data = vec![key_index];
   data.extend(color.to_bytes());
@@ -50,7 +50,7 @@ pub fn create_extended_key_color_sysex(
 
 pub fn create_extended_macro_color_sysex(
   cmd: CommandId,
-  color: RGBColor,
+  color: &RGBColor,
 ) -> EncodedSysex {
   create_sysex(BoardIndex::Server, cmd, color.to_bytes())
 }

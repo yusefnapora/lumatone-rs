@@ -5,7 +5,7 @@ use super::{
   constants::ResponseStatusCode,
   device::{LumatoneDevice, LumatoneIO},
   error::LumatoneMidiError,
-  sysex::EncodedSysex, commands::LumatoneCommand,
+  sysex::EncodedSysex, commands::Command,
 };
 use std::{pin::Pin, time::Duration};
 
@@ -54,7 +54,7 @@ enum State {
 #[derive(Debug)]
 enum Action {
   /// A user of the driver has submitted a command to send to the device.
-  SubmitCommand(Box<dyn LumatoneCommand>),
+  SubmitCommand(Command),
 
   /// The driver has sent a command on the MIDI out port.
   MessageSent(EncodedSysex),
@@ -340,7 +340,7 @@ impl MidiDriver {
   ///       Alternatively, a "command" could be an EncodedSysex + a oneshot channel to report status back.
   pub async fn run(
     mut self,
-    mut commands: mpsc::Receiver<Box<dyn LumatoneCommand + Send>>,
+    mut commands: mpsc::Receiver<Command>,
     mut done_signal: oneshot::Receiver<()>,
   ) {
     let mut state = State::Idle;
