@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use super::{
-  constants::{BoardIndex, CommandId, ResponseStatusCode, MANUFACTURER_ID, RGBColor},
+  constants::{BoardIndex, CommandId, RGBColor, ResponseStatusCode, MANUFACTURER_ID},
   error::LumatoneMidiError,
 };
 use num_traits::FromPrimitive;
@@ -48,13 +48,9 @@ pub fn create_extended_key_color_sysex(
   create_sysex(board_index, cmd, data)
 }
 
-pub fn create_extended_macro_color_sysex(
-  cmd: CommandId,
-  color: &RGBColor,
-) -> EncodedSysex {
+pub fn create_extended_macro_color_sysex(cmd: CommandId, color: &RGBColor) -> EncodedSysex {
   create_sysex(BoardIndex::Server, cmd, color.to_bytes())
 }
-
 
 pub fn strip_sysex_markers<'a>(msg: &'a [u8]) -> &'a [u8] {
   if msg.len() == 0 {

@@ -2,10 +2,11 @@
 use crate::midi::sysex::{is_response_to_message, message_answer_code, message_command_id};
 
 use super::{
+  commands::Command,
   constants::ResponseStatusCode,
   device::{LumatoneDevice, LumatoneIO},
   error::LumatoneMidiError,
-  sysex::EncodedSysex, commands::Command,
+  sysex::EncodedSysex,
 };
 use std::{pin::Pin, time::Duration};
 
@@ -25,9 +26,7 @@ enum State {
   Idle,
 
   /// We have one or more MIDI messages queued up to send.
-  ProcessingQueue {
-    send_queue: Vec<EncodedSysex>,
-  },
+  ProcessingQueue { send_queue: Vec<EncodedSysex> },
 
   /// We've sent a message to the device and are waiting for a response.
   /// We may also have messages queued up to send later.
@@ -36,7 +35,7 @@ enum State {
     command_sent: EncodedSysex,
   },
 
-  /// We've sent a message to the device, but the device says it's busy, 
+  /// We've sent a message to the device, but the device says it's busy,
   /// so we're hanging onto the outgoing message to try again in a bit.
   /// We may also have messages queued up to send later.
   DeviceBusy {
@@ -93,11 +92,9 @@ impl State {
     debug!("handling action {:?}. current state: {:?}", action, self);
     match (action, self) {
       // Submitting a command in the Idle state transitions to ProcessingQueue, with the new message as the only queue member.
-      (SubmitCommand(cmd), Idle) => {
-        ProcessingQueue {
-          send_queue: vec![cmd.to_sysex_message()],
-        }
-      }
+      (SubmitCommand(cmd), Idle) => ProcessingQueue {
+        send_queue: vec![cmd.to_sysex_message()],
+      },
 
       // Submitting a command while we're waiting for a response to a previous command transitions to a new
       // AwaitingResponse state with the new command pushed onto the send queue.
@@ -137,17 +134,14 @@ impl State {
 
       // Submitting a command while we're processing the queue transitions to a new ProcessingQueue state
       // with the new command pushed onto the queue.
-      (
-        SubmitCommand(cmd),
-        ProcessingQueue { send_queue }
-      ) => {
+      (SubmitCommand(cmd), ProcessingQueue { send_queue }) => {
         let mut q = send_queue;
         q.push(cmd.to_sysex_message());
         ProcessingQueue { send_queue: q }
       }
 
       // Getting confirmation that a message was sent out while we're processing the queue transitions to
-      // the AwaitingResponse state. 
+      // the AwaitingResponse state.
       (MessageSent(msg), ProcessingQueue { send_queue }) => {
         let send_queue = send_queue[1..].to_vec();
         AwaitingResponse {
@@ -254,7 +248,7 @@ impl State {
     }
   }
 
-  /// Each state can perform an optional Effect when it's entered. 
+  /// Each state can perform an optional Effect when it's entered.
   /// Effects may result in new Actions, which are fed into `State::next` and can then trigger a new State transition.
   fn enter(&mut self) -> Option<Effect> {
     use Effect::*;
@@ -330,11 +324,11 @@ impl MidiDriver {
 
   /// Run the MidiDriver I/O event loop.
   /// Commands to send to the device should be sent on the `commands` channel.
-  /// 
+  ///
   /// To exit the loop, send `()` on the `done_signal` channel.
-  /// 
+  ///
   /// TODO: rethink this API (passing in channels is a bit awkward)
-  /// 
+  ///
   /// TODO: add some kind of feedback mechanism for failed message sends, etc
   ///       e.g. the "listener" interface from the typescript version.
   ///       Alternatively, a "command" could be an EncodedSysex + a oneshot channel to report status back.
@@ -438,6 +432,9 @@ fn log_message_status(status: &ResponseStatusCode, outgoing: &[u8]) {
     Busy => debug!("received Busy response to command {:?}", cmd_id),
     Error => debug!("received Error response to command {:?}", cmd_id),
     State => debug!("received State response to command {:?}", cmd_id),
-    Unknown => warn!("received unknown response status in response to command: {:?}", cmd_id)
+    Unknown => warn!(
+      "received unknown response status in response to command: {:?}",
+      cmd_id
+    ),
   }
 }

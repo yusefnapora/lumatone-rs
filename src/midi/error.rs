@@ -21,7 +21,7 @@ pub enum LumatoneMidiError {
     actual: CommandId,
   },
   InvalidResponseMessage(String),
-  
+
   MidiPortNotFound(String),
   MidiPortInfoError(PortInfoError),
   MidiInitError(InitError),
@@ -71,7 +71,6 @@ impl Display for LumatoneMidiError {
       // InvalidCommandInput(cmd_id, msg) => {
       //   write!(f, "invalid command input for {:?}: {}", cmd_id, msg)
       // }
-
       NotLumatoneMessage(msg) => write!(f, "message is not a lumatone message: {:?}", msg),
 
       MessageTooShort { expected, actual } => write!(

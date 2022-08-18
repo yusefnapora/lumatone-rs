@@ -51,9 +51,9 @@ impl From<u32> for RGBColor {
 
 bounded_integer! {
   /// A zero-indexed MIDI channel number, in the range 0 .. 15.
-  /// 
+  ///
   /// Use `MidiChannel::default()` for channel 0.
-  /// 
+  ///
   /// When converting from untrusted / arbitrary input, use `MidiChannel::new`, which returns an `Option`.
   /// If you're sure your value is in range, use `MidiChannel::unchecked`, which will panic if the input is
   /// out of bounds.
@@ -62,7 +62,7 @@ bounded_integer! {
 
 bounded_integer! {
   /// A zero-indexed Lumatone key index, in the range 0 .. 55.
-  /// 
+  ///
   /// Covers a single "board"; combine with [`BoardIndex`] to address a physical key.
   pub struct LumatoneKeyIndex { 0..55 }
 }
@@ -80,10 +80,10 @@ impl LumatoneKeyIndex {
 }
 
 /// Identifies which "board" a message should be routed to.
-/// 
+///
 /// Commands that set key parameters should be targetted at one of the Octave values,
 /// which control the five 56-key Terpstra boards that comprise the full Lumatone layout.
-/// 
+///
 /// Global operations (ping, macro keys, etc) should be sent to the Server board.
 #[derive(Debug, FromPrimitive, PartialEq, Clone, Copy)]
 pub enum BoardIndex {
@@ -102,10 +102,10 @@ impl Into<u8> for BoardIndex {
 }
 
 /// Uniquely identifies one of the keys on the Lumatone keyboard.
-/// 
+///
 /// Command structs accept Box<dyn LumatoneKeyLocation>, to allow
 /// multiple coordinate systems (to be implemented).
-/// 
+///
 pub trait LumatoneKeyLocation {
   fn as_board_and_key_index(&self) -> (BoardIndex, LumatoneKeyIndex);
 }
@@ -128,22 +128,45 @@ pub fn key_loc_unchecked(board_index: u8, key_index: u8) -> (BoardIndex, Lumaton
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum LumatoneKeyFunction {
   /// Key sends note on/off messages
-  NoteOnOff { channel: MidiChannel, note_num: u8 },
-  ContinuousController { channel: MidiChannel, cc_num: u8, fader_up_is_null: bool },
-  LumaTouch { channel: MidiChannel, note_num: u8, fader_up_is_null: bool },
+  NoteOnOff {
+    channel: MidiChannel,
+    note_num: u8,
+  },
+  ContinuousController {
+    channel: MidiChannel,
+    cc_num: u8,
+    fader_up_is_null: bool,
+  },
+  LumaTouch {
+    channel: MidiChannel,
+    note_num: u8,
+    fader_up_is_null: bool,
+  },
   Disabled,
 }
 
 impl LumatoneKeyFunction {
   pub fn type_code(&self) -> u8 {
     use LumatoneKeyFunction::*;
-    match *self { 
+    match *self {
       NoteOnOff { .. } => 1,
-      ContinuousController {fader_up_is_null: false, .. } => 2,
-      ContinuousController { fader_up_is_null: true, .. } => (1 << 4) | 2,
-      LumaTouch { fader_up_is_null: false, .. } => 3,
-      LumaTouch { fader_up_is_null: true, .. } => (1 << 4) | 3,
-      Disabled => 4
+      ContinuousController {
+        fader_up_is_null: false,
+        ..
+      } => 2,
+      ContinuousController {
+        fader_up_is_null: true,
+        ..
+      } => (1 << 4) | 2,
+      LumaTouch {
+        fader_up_is_null: false,
+        ..
+      } => 3,
+      LumaTouch {
+        fader_up_is_null: true,
+        ..
+      } => (1 << 4) | 3,
+      Disabled => 4,
     }
   }
 
@@ -152,14 +175,14 @@ impl LumatoneKeyFunction {
     match *self {
       NoteOnOff { note_num, .. } => note_num,
       ContinuousController { cc_num, .. } => cc_num,
-      LumaTouch { note_num, ..} => note_num,
-      Disabled => 0
+      LumaTouch { note_num, .. } => note_num,
+      Disabled => 0,
     }
   }
 
   pub fn midi_channel_byte(&self) -> u8 {
     use LumatoneKeyFunction::*;
-    match *self { 
+    match *self {
       NoteOnOff { channel, .. } => channel.into(),
       ContinuousController { channel, .. } => channel.into(),
       LumaTouch { channel, .. } => channel.into(),
@@ -168,12 +191,11 @@ impl LumatoneKeyFunction {
   }
 }
 
-
 /// A status code included in response messages sent by the Lumatone device.
 #[derive(Debug, FromPrimitive, PartialEq)]
 pub enum ResponseStatusCode {
   /// NACK - Command not recognized
-  Nack = 0x0,   
+  Nack = 0x0,
   /// ACK - Command successful
   Ack = 0x01,
   /// BUSY - Device busy, try again later
@@ -184,7 +206,7 @@ pub enum ResponseStatusCode {
   State = 0x04,
 
   /// Unknown - Not returned by Lumatone device - indicates that the device sent a code we don't understand
-  Unknown = 0xff
+  Unknown = 0xff,
 }
 
 impl Into<u8> for ResponseStatusCode {
@@ -192,7 +214,6 @@ impl Into<u8> for ResponseStatusCode {
     self as u8
   }
 }
-
 
 /// Identifies a Lumatone command.
 #[derive(Debug, FromPrimitive, PartialEq)]
@@ -317,11 +338,10 @@ impl Into<u8> for CommandId {
 
 #[cfg(test)]
 mod tests {
-    use super::RGBColor;
+  use super::RGBColor;
 
   #[test]
   fn test_rgb_color() {
     assert_eq!(RGBColor::from(0x00aabbcc), RGBColor(0xaa, 0xbb, 0xcc));
-
   }
 }

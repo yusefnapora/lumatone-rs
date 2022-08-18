@@ -5,7 +5,9 @@ use std::fmt::Debug;
 use crate::midi::sysex::message_command_id;
 
 use super::{
-  constants::{BoardIndex, CommandId as CMD, TEST_ECHO, LumatoneKeyFunction, RGBColor, LumatoneKeyLocation },
+  constants::{
+    BoardIndex, CommandId as CMD, LumatoneKeyFunction, LumatoneKeyLocation, RGBColor, TEST_ECHO,
+  },
   error::LumatoneMidiError,
   sysex::{
     create_extended_key_color_sysex, create_sysex, is_lumatone_message, message_payload,
@@ -24,16 +26,23 @@ impl std::fmt::Debug for BoxedKeyLocation {
 
 #[derive(Debug)]
 pub enum Command {
-  Ping { value: u32 },
-  SetKeyFunction { location: BoxedKeyLocation, function: LumatoneKeyFunction },
-  SetKeyColor { location: BoxedKeyLocation, color: RGBColor },
+  Ping {
+    value: u32,
+  },
+  SetKeyFunction {
+    location: BoxedKeyLocation,
+    function: LumatoneKeyFunction,
+  },
+  SetKeyColor {
+    location: BoxedKeyLocation,
+    color: RGBColor,
+  },
 }
 
 impl Command {
-
   pub fn command_id(&self) -> CMD {
     use Command::*;
-    match *self { 
+    match *self {
       Ping { .. } => CMD::LumaPing,
       SetKeyFunction { .. } => CMD::ChangeKeyNote,
       SetKeyColor { .. } => CMD::SetKeyColour,
@@ -50,31 +59,35 @@ impl Command {
   }
 }
 
-
 pub fn ping(value: u32) -> Command {
   Command::Ping { value }
 }
 
 pub fn set_key_color<L>(location: L, color: RGBColor) -> Command
 where
-  L: LumatoneKeyLocation + Send + 'static
+  L: LumatoneKeyLocation + Send + 'static,
 {
-  Command::SetKeyColor { location: Box::new(location), color }
+  Command::SetKeyColor {
+    location: Box::new(location),
+    color,
+  }
 }
 
 pub fn set_key_function<L>(location: L, function: LumatoneKeyFunction) -> Command
 where
-  L: LumatoneKeyLocation + Send + 'static
+  L: LumatoneKeyLocation + Send + 'static,
 {
-  Command::SetKeyFunction { location: Box::new(location), function }
+  Command::SetKeyFunction {
+    location: Box::new(location),
+    function,
+  }
 }
-
 
 fn encode_ping(value: u32) -> EncodedSysex {
   let val = value & 0xfffffff; // limit to 28 bits
   create_sysex(
     BoardIndex::Server,
-    CMD::LumaPing, 
+    CMD::LumaPing,
     vec![
       TEST_ECHO,
       ((val >> 14) & 0x7f) as u8,
@@ -84,14 +97,21 @@ fn encode_ping(value: u32) -> EncodedSysex {
   )
 }
 
-fn encode_set_key_function(location: &BoxedKeyLocation, function: &LumatoneKeyFunction) -> EncodedSysex {
+fn encode_set_key_function(
+  location: &BoxedKeyLocation,
+  function: &LumatoneKeyFunction,
+) -> EncodedSysex {
   let (board_index, key_index) = location.as_board_and_key_index();
-  create_sysex(board_index, CMD::ChangeKeyNote, vec![
-    key_index.into(),
-    function.note_or_cc_num(),
-    function.midi_channel_byte(),
-    function.type_code(),
-  ])
+  create_sysex(
+    board_index,
+    CMD::ChangeKeyNote,
+    vec![
+      key_index.into(),
+      function.note_or_cc_num(),
+      function.midi_channel_byte(),
+      function.type_code(),
+    ],
+  )
 }
 
 fn encode_set_key_color(location: &BoxedKeyLocation, color: &RGBColor) -> EncodedSysex {
@@ -131,6 +151,5 @@ pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
   let value: u32 = ((payload[1] as u32) << 14) | ((payload[2] as u32) << 7) | (payload[3] as u32);
   Ok(value)
 }
-
 
 // TODO: add remaining commands

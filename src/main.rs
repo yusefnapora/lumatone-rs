@@ -3,9 +3,11 @@ mod midi;
 use std::time::Duration;
 
 use crate::midi::commands::{set_key_color, set_key_function};
-use crate::midi::driver::MidiDriver;
+use crate::midi::constants::{
+  key_loc_unchecked, LumatoneKeyFunction::NoteOnOff, MidiChannel, RGBColor,
+};
 use crate::midi::detect::detect_device;
-use crate::midi::constants::{LumatoneKeyFunction::NoteOnOff, MidiChannel, RGBColor, key_loc_unchecked};
+use crate::midi::driver::MidiDriver;
 
 use env_logger;
 use log::debug;
@@ -35,9 +37,27 @@ async fn main() {
     set_key_color(key_loc_unchecked(1, 0), RGBColor::red()),
     set_key_color(key_loc_unchecked(1, 1), RGBColor::green()),
     set_key_color(key_loc_unchecked(1, 2), RGBColor::blue()),
-    set_key_function(key_loc_unchecked(1, 0), NoteOnOff { channel, note_num: 50 }),
-    set_key_function(key_loc_unchecked(1, 1), NoteOnOff { channel, note_num: 51 }),
-    set_key_function(key_loc_unchecked(1, 2), NoteOnOff { channel, note_num: 52 }),
+    set_key_function(
+      key_loc_unchecked(1, 0),
+      NoteOnOff {
+        channel,
+        note_num: 50,
+      },
+    ),
+    set_key_function(
+      key_loc_unchecked(1, 1),
+      NoteOnOff {
+        channel,
+        note_num: 51,
+      },
+    ),
+    set_key_function(
+      key_loc_unchecked(1, 2),
+      NoteOnOff {
+        channel,
+        note_num: 52,
+      },
+    ),
   ];
 
   debug!("sending commands");

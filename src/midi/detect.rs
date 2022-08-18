@@ -2,9 +2,8 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 
-
 use super::{
-  commands::{ping, decode_ping},
+  commands::{decode_ping, ping},
   device::LumatoneDevice,
   error::LumatoneMidiError,
 };

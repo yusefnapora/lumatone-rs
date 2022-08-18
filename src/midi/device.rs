@@ -68,12 +68,10 @@ pub struct LumatoneIO {
   pub incoming_messages: mpsc::Receiver<EncodedSysex>,
 }
 
-
 impl LumatoneIO {
   /// Sends an encoded sysex message to the Lumatone.
   pub fn send(&mut self, msg: &[u8]) -> Result<(), LumatoneMidiError> {
-    self.output_conn.send(msg)
-     .map_err(|e| e.into())
+    self.output_conn.send(msg).map_err(|e| e.into())
   }
 
   /// Closes MIDI connections and consumes `self`, making this LumatoneIO unusable.
