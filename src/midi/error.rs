@@ -21,7 +21,7 @@ pub enum LumatoneMidiError {
     actual: CommandId,
   },
   InvalidResponseMessage(String),
-
+  
   MidiPortNotFound(String),
   MidiPortInfoError(PortInfoError),
   MidiInitError(InitError),

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use bounded_integer::bounded_integer;
 use num_derive::FromPrimitive;
 
 pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
@@ -7,6 +8,22 @@ pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI
 pub const TEST_ECHO: u8 = 0x7f; // should not be returned by lumatone
 
+bounded_integer! {
+  /// A zero-indexed MIDI channel number, in the range 0 .. 15.
+  /// 
+  /// Use `MidiChannel::default()` for channel 0.
+  /// 
+  /// When converting from untrusted / arbitrary input, use `MidiChannel::new`, which returns an `Option`.
+  /// If you know for sure it's in range, use `MidiChannel::new_unchecked`.
+  pub struct MidiChannel { 0..15 }
+}
+
+bounded_integer! {
+  /// A zero-indexed Lumatone key index, in the range 0 .. 55.
+  /// 
+  /// Covers a single "board"; combine with [`BoardIndex`] to address a physical key.
+  pub struct LumatoneKeyIndex { 0..55 }
+}
 
 /// Identifies which "board" a message should be routed to.
 /// 
@@ -14,7 +31,7 @@ pub const TEST_ECHO: u8 = 0x7f; // should not be returned by lumatone
 /// which control the five 55-key Terpstra boards that comprise the full Lumatone layout.
 /// 
 /// Global operations (ping, macro keys, etc) should be sent to the Server board.
-#[derive(Debug, FromPrimitive, PartialEq)]
+#[derive(Debug, FromPrimitive, PartialEq, Clone, Copy)]
 pub enum BoardIndex {
   Server = 0,
   Octave1,
@@ -27,6 +44,28 @@ pub enum BoardIndex {
 impl Into<u8> for BoardIndex {
   fn into(self) -> u8 {
     self as u8
+  }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum LumatoneKeyFunction {
+  NoteOnOff { note_num: u8 },
+  ContinuousController { cc_num: u8, fader_up_is_null: bool },
+  LumaTouch { fader_up_is_null: bool },
+  Disabled,
+}
+
+impl LumatoneKeyFunction {
+  pub fn type_code(&self) -> u8 {
+    use LumatoneKeyFunction::*;
+    match *self { 
+      NoteOnOff { note_num: _} => 1,
+      ContinuousController { cc_num: _, fader_up_is_null: false } => 2,
+      ContinuousController { cc_num: _, fader_up_is_null: true } => (1 << 4) | 2,
+      LumaTouch { fader_up_is_null: false } => 3,
+      LumaTouch { fader_up_is_null: true } => (1 << 4) | 3,
+      Disabled => 4
+    }
   }
 }
 

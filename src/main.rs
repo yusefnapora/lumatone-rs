@@ -2,8 +2,8 @@ mod midi;
 
 use std::time::Duration;
 
-use midi::commands::set_key_light_parameters;
-use midi::constants::BoardIndex;
+use midi::commands::SetKeyColor;
+use midi::constants::{BoardIndex, LumatoneKeyIndex, MidiChannel};
 use midi::driver::MidiDriver;
 use midi::detect::detect_device;
 
@@ -31,15 +31,15 @@ async fn main() {
   debug!("driver loop spawned");
 
   let commands = vec![
-    set_key_light_parameters(BoardIndex::Octave1, 0, 0xff, 0, 0),
-    set_key_light_parameters(BoardIndex::Octave1, 1, 0, 0xff, 0),
-    set_key_light_parameters(BoardIndex::Octave1, 2, 0, 0, 0xff),
+    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new_unchecked(0), 0xff, 0, 0),
+    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new_unchecked(1), 0, 0xff, 0),
+    SetKeyColor::new(BoardIndex::Octave1, LumatoneKeyIndex::new_unchecked(2), 0, 0, 0xff),
   ];
 
   debug!("sending commands");
   for c in commands {
     debug!("sending command");
-    command_tx.send(c).await.expect("send error");
+    command_tx.send(Box::new(c)).await.expect("send error");
   }
 
   tokio::time::sleep(Duration::from_secs(30)).await;

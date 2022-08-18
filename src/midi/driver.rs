@@ -5,7 +5,7 @@ use super::{
   constants::ResponseStatusCode,
   device::{LumatoneDevice, LumatoneIO},
   error::LumatoneMidiError,
-  sysex::EncodedSysex,
+  sysex::EncodedSysex, commands::LumatoneCommand,
 };
 use std::{pin::Pin, time::Duration};
 
@@ -39,7 +39,6 @@ enum State {
   /// We've sent a message to the device, but the device says it's busy, 
   /// so we're hanging onto the outgoing message to try again in a bit.
   /// We may also have messages queued up to send later.
-  // TODO: add a retry counter to avoid infinite retry loop
   DeviceBusy {
     send_queue: Vec<EncodedSysex>,
     to_retry: EncodedSysex,
@@ -54,18 +53,32 @@ enum State {
 /// See the code of [`State::next`] for the valid (action, state) pairings.
 #[derive(Debug)]
 enum Action {
-  SubmitCommand(EncodedSysex),
+  /// A user of the driver has submitted a command to send to the device.
+  SubmitCommand(Box<dyn LumatoneCommand>),
+
+  /// The driver has sent a command on the MIDI out port.
   MessageSent(EncodedSysex),
+
+  /// The driver has received a message on the MIDI in port.
   MessageReceived(EncodedSysex),
+
+  /// The receive timeout has tripped while waiting for a response.
   ResponseTimedOut,
+
+  /// The retry timeout has tripped while waiting to retry a message send.
   ReadyToRetry,
 }
 
 /// Effects are requests from the state machine to "do something" in the outside world.
 #[derive(Debug)]
 enum Effect {
+  /// The state machine has a message ready to send on the MIDI out port.
   SendMidiMessage(EncodedSysex),
+
+  /// The state machine wants to start the receive timeout.
   StartReceiveTimeout,
+
+  /// The state machine wants to start the busy/retry timeout.
   StartRetryTimeout,
 }
 
@@ -80,16 +93,16 @@ impl State {
     debug!("handling action {:?}. current state: {:?}", action, self);
     match (action, self) {
       // Submitting a command in the Idle state transitions to ProcessingQueue, with the new message as the only queue member.
-      (SubmitCommand(msg), Idle) => {
+      (SubmitCommand(cmd), Idle) => {
         ProcessingQueue {
-          send_queue: vec![msg],
+          send_queue: vec![cmd.to_sysex_message()],
         }
       }
 
       // Submitting a command while we're waiting for a response to a previous command transitions to a new
       // AwaitingResponse state with the new command pushed onto the send queue.
       (
-        SubmitCommand(msg),
+        SubmitCommand(cmd),
         AwaitingResponse {
           send_queue,
           command_sent,
@@ -97,7 +110,7 @@ impl State {
       ) => {
         // add new command to the send_queue
         let mut q = send_queue;
-        q.push(msg);
+        q.push(cmd.to_sysex_message());
         AwaitingResponse {
           send_queue: q,
           command_sent: command_sent,
@@ -107,7 +120,7 @@ impl State {
       // Submitting a commmand while we're waiting to retry a previous command transitions to a new
       // DeviceBusy state with the new command pushed onto the send queue.
       (
-        SubmitCommand(msg),
+        SubmitCommand(cmd),
         DeviceBusy {
           send_queue,
           to_retry,
@@ -115,7 +128,7 @@ impl State {
       ) => {
         // add new command to the send queue
         let mut q = send_queue;
-        q.push(msg);
+        q.push(cmd.to_sysex_message());
         DeviceBusy {
           send_queue: q,
           to_retry: to_retry,
@@ -125,11 +138,11 @@ impl State {
       // Submitting a command while we're processing the queue transitions to a new ProcessingQueue state
       // with the new command pushed onto the queue.
       (
-        SubmitCommand(msg),
+        SubmitCommand(cmd),
         ProcessingQueue { send_queue }
       ) => {
         let mut q = send_queue;
-        q.push(msg);
+        q.push(cmd.to_sysex_message());
         ProcessingQueue { send_queue: q }
       }
 
@@ -271,6 +284,7 @@ impl State {
   }
 }
 
+/// The MidiDriver controls the MIDI I/O event loop / state machine.
 pub struct MidiDriver {
   device_io: LumatoneIO,
   receive_timeout: Option<Pin<Box<Sleep>>>,
@@ -314,9 +328,19 @@ impl MidiDriver {
     Ok(action)
   }
 
+  /// Run the MidiDriver I/O event loop.
+  /// Commands to send to the device should be sent on the `commands` channel.
+  /// 
+  /// To exit the loop, send `()` on the `done_signal` channel.
+  /// 
+  /// TODO: rethink this API (passing in channels is a bit awkward)
+  /// 
+  /// TODO: add some kind of feedback mechanism for failed message sends, etc
+  ///       e.g. the "listener" interface from the typescript version.
+  ///       Alternatively, a "command" could be an EncodedSysex + a oneshot channel to report status back.
   pub async fn run(
     mut self,
-    mut commands: mpsc::Receiver<EncodedSysex>,
+    mut commands: mpsc::Receiver<Box<dyn LumatoneCommand>>,
     mut done_signal: oneshot::Receiver<()>,
   ) {
     let mut state = State::Idle;
@@ -403,6 +427,10 @@ impl MidiDriver {
 
 fn log_message_status(status: &ResponseStatusCode, outgoing: &[u8]) {
   use ResponseStatusCode::*;
+  // TODO: I guess it's only safe to `expect` here if we assume all outgoing messages are constructed by this lib.
+  // In theory someone could pass in an empty vec or something.
+  // Should just map CommandId -> String and use `unwrap_or` to fallback to "unknown"
+  // Alternatively, change API so Commands are first-class types and don't accept raw &[u8]s at the API boundary...
   let cmd_id = message_command_id(outgoing).expect("unable to get outgoing message command id");
   match *status {
     Nack => debug!("received NACK response to command {:?}", cmd_id),
