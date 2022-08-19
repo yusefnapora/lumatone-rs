@@ -1,4 +1,5 @@
 mod midi;
+mod keymap;
 
 use std::time::Duration;
 

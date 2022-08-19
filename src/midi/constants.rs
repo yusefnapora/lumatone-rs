@@ -25,6 +25,11 @@ impl RGBColor {
     RGBColor(0, 0, 0xff)
   }
 
+  pub fn to_hex_string(&self) -> String {
+    let RGBColor(r,g,b) = self;
+    format!("{r:02x}{g:02x}{b:02x}")
+  }
+
   /// Returns the color encoded into 6 u8's with the lower 4 bits set.
   pub fn to_bytes(&self) -> Vec<u8> {
     let RGBColor(red, green, blue) = *self;
@@ -85,7 +90,7 @@ impl LumatoneKeyIndex {
 /// which control the five 56-key Terpstra boards that comprise the full Lumatone layout.
 ///
 /// Global operations (ping, macro keys, etc) should be sent to the Server board.
-#[derive(Debug, FromPrimitive, PartialEq, Clone, Copy)]
+#[derive(Debug, FromPrimitive, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum BoardIndex {
   Server = 0,
   Octave1,
@@ -105,7 +110,7 @@ impl Into<u8> for BoardIndex {
 ///
 /// To convert from another coordinate system, add an `impl Into<LumatoneKeyLocation>` to your coordinate type.
 ///
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LumatoneKeyLocation(BoardIndex, LumatoneKeyIndex);
 
 impl LumatoneKeyLocation {
@@ -175,6 +180,16 @@ impl LumatoneKeyFunction {
         ..
       } => (1 << 4) | 3,
       Disabled => 4,
+    }
+  }
+
+  pub fn key_type_code(&self) -> u8 {
+    use LumatoneKeyFunction::*;
+    match *self { 
+      NoteOnOff { .. } => 1,
+      ContinuousController { .. } => 2,
+      LumaTouch { .. } => 3,
+      Disabled { .. } => 4,
     }
   }
 
