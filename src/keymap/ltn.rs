@@ -1,23 +1,24 @@
+#![allow(unused)]
 /// Utilities for working with the .ltn Lumatone preset file format.
 /// 
 
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 use crate::midi::constants::{LumatoneKeyLocation, LumatoneKeyFunction, RGBColor, BoardIndex};
 
 use ini::Ini;
 use num_traits::FromPrimitive;
 
 pub struct KeyDefinition {
-  function: LumatoneKeyFunction,
-  color: RGBColor,
+  pub function: LumatoneKeyFunction,
+  pub color: RGBColor,
 }
 
 pub struct GeneralOptions {
-  after_touch_active: bool,
-  light_on_key_strokes: bool,
-  invert_foot_controller: bool,
-  invert_sustain: bool,
-  expression_controller_sensitivity: u8,
+  pub after_touch_active: bool,
+  pub light_on_key_strokes: bool,
+  pub invert_foot_controller: bool,
+  pub invert_sustain: bool,
+  pub expression_controller_sensitivity: u8,
 
   // TODO: velocity curves
   // TODO: fader config
@@ -29,7 +30,7 @@ impl Default for GeneralOptions {
   fn default() -> Self {
     GeneralOptions { 
       after_touch_active: false, 
-      light_on_key_strokes: true, 
+      light_on_key_strokes: false, 
       invert_foot_controller: false, 
       invert_sustain: false, 
       expression_controller_sensitivity: 0,
@@ -60,6 +61,7 @@ impl LumatoneKeyMap {
     self
   }
 
+  
 
   pub fn as_ini(&self) -> Ini {
     let mut conf = Ini::new();
@@ -98,4 +100,71 @@ impl LumatoneKeyMap {
 
     conf
   }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::midi::constants::{LumatoneKeyFunction, MidiChannel, key_loc_unchecked, RGBColor};
+
+    use super::{LumatoneKeyMap, KeyDefinition, GeneralOptions};
+
+
+  #[test]
+  fn test_keymap_to_ini() {
+
+    let mut keymap = LumatoneKeyMap::new();
+
+    keymap
+      .set_key(key_loc_unchecked(1, 0), KeyDefinition { 
+        function: LumatoneKeyFunction::NoteOnOff { channel: MidiChannel::default(), note_num: 60 },
+        color: RGBColor(0xff, 0, 0)
+      })
+      .set_key(key_loc_unchecked(2, 0), KeyDefinition {
+        function: LumatoneKeyFunction::LumaTouch { channel: MidiChannel::unchecked(1), note_num: 70, fader_up_is_null: false },
+        color: RGBColor::green()
+      });
+
+    let ini = keymap.as_ini();
+    let board_1 = ini.section(Some("Board1".to_string())).unwrap();
+    assert_eq!(board_1.get("Key_0"), Some("60"));
+    assert_eq!(board_1.get("Chan_0"), Some("0"));
+    assert_eq!(board_1.get("Col_0"), Some("ff0000"));
+    assert_eq!(board_1.get("KTyp_0"), None); // KTyp is only set if keytype is not NoteOnOff
+
+    let board_2 = ini.section(Some("Board2".to_string())).unwrap();
+    assert_eq!(board_2.get("Key_0"), Some("70"));
+    assert_eq!(board_2.get("Chan_0"), Some("1"));
+    assert_eq!(board_2.get("Col_0"), Some("00ff00"));
+    assert_eq!(board_2.get("KTyp_0"), Some("3"));
+
+    let general = ini.general_section();
+    assert_eq!(general.get("AfterTouchActive"), Some("0"));
+    assert_eq!(general.get("LightOnKeyStrokes"), Some("0"));
+    assert_eq!(general.get("InvertFootController"), Some("0"));
+    assert_eq!(general.get("InvertSustain"), Some("0"));
+    assert_eq!(general.get("ExprCtrlSensivity"), Some("0"));
+
+  }
+
+  #[test]
+  fn test_general_opts_to_ini() {
+    let mut keymap = LumatoneKeyMap::new();
+
+    keymap.set_global_options(GeneralOptions {
+      after_touch_active: true,
+      light_on_key_strokes: true,
+      invert_foot_controller: true,
+      invert_sustain: true,
+      expression_controller_sensitivity: 100,
+    });
+
+    let ini = keymap.as_ini();
+    let general = ini.general_section();
+    assert_eq!(general.get("AfterTouchActive"), Some("1"));
+    assert_eq!(general.get("LightOnKeyStrokes"), Some("1"));
+    assert_eq!(general.get("InvertFootController"), Some("1"));
+    assert_eq!(general.get("InvertSustain"), Some("1"));
+    assert_eq!(general.get("ExprCtrlSensivity"), Some("100"));
+  }
+
 }

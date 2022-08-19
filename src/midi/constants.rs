@@ -10,7 +10,7 @@ pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI
 pub const TEST_ECHO: u8 = 0x7f; // should not be returned by lumatone
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct RGBColor(u8, u8, u8);
+pub struct RGBColor(pub u8, pub u8, pub u8);
 
 impl RGBColor {
   pub fn red() -> RGBColor {
