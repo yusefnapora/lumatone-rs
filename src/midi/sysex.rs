@@ -21,6 +21,19 @@ const SYSEX_END: u8 = 0xf7;
 
 pub type EncodedSysex = Vec<u8>;
 
+/// Some commands send "tables" of config data (e.g. key velocity, etc).
+/// Tables are always 128 elements long.
+pub type SysexTable = [u8; 128];
+
+/// The velocity interval table contains 127 12-bit values.
+pub type VelocityIntervalTable = [u16; 127];
+
+pub fn reverse_table(t: &SysexTable) -> SysexTable {
+  let mut r = t.clone();
+  r.reverse();
+  r
+}
+
 pub fn create_sysex(board_index: BoardIndex, cmd: CommandId, data: Vec<u8>) -> EncodedSysex {
   // FIXME: add sysex start / end bytes
   let mut sysex: Vec<u8> = vec![SYSEX_START];
@@ -37,6 +50,18 @@ pub fn create_sysex_toggle(board_index: BoardIndex, cmd: CommandId, state: bool)
   create_sysex(board_index, cmd, vec![s])
 }
 
+pub fn create_zero_arg_sysex(board_index: BoardIndex, cmd: CommandId) -> EncodedSysex {
+  create_sysex(board_index, cmd, vec![])
+}
+
+pub fn create_zero_arg_server_sysex(cmd: CommandId) -> EncodedSysex {
+  create_sysex(BoardIndex::Server, cmd, vec![])
+}
+
+pub fn create_single_arg_server_sysex(cmd: CommandId, value: u8) -> EncodedSysex {
+  create_sysex(BoardIndex::Server, cmd, vec![value])
+}
+
 pub fn create_extended_key_color_sysex(
   board_index: BoardIndex,
   cmd: CommandId,
@@ -50,6 +75,10 @@ pub fn create_extended_key_color_sysex(
 
 pub fn create_extended_macro_color_sysex(cmd: CommandId, color: &RGBColor) -> EncodedSysex {
   create_sysex(BoardIndex::Server, cmd, color.to_bytes())
+}
+
+pub fn create_table_sysex(cmd: CommandId, table: &SysexTable) -> EncodedSysex {
+  create_sysex(BoardIndex::Server, cmd, table.to_vec())
 }
 
 pub fn strip_sysex_markers<'a>(msg: &'a [u8]) -> &'a [u8] {

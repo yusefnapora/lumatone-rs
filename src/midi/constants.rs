@@ -111,7 +111,7 @@ impl Into<u8> for BoardIndex {
 /// To convert from another coordinate system, add an `impl Into<LumatoneKeyLocation>` to your coordinate type.
 ///
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LumatoneKeyLocation(BoardIndex, LumatoneKeyIndex);
+pub struct LumatoneKeyLocation(pub BoardIndex, pub LumatoneKeyIndex);
 
 impl LumatoneKeyLocation {
   pub fn board_index(&self) -> BoardIndex {

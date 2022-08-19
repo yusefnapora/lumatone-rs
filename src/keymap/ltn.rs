@@ -3,7 +3,7 @@
 /// 
 
 use std::collections::HashMap;
-use crate::midi::constants::{LumatoneKeyLocation, LumatoneKeyFunction, RGBColor, BoardIndex};
+use crate::midi::constants::{LumatoneKeyLocation, LumatoneKeyFunction, LumatoneKeyIndex, RGBColor, BoardIndex};
 
 use ini::Ini;
 use num_traits::FromPrimitive;
@@ -81,22 +81,34 @@ impl LumatoneKeyMap {
       let keys = self.keys.iter()
         .filter(|(loc, _)| loc.board_index() == board_index);
 
+      let section_name = format!("Board{b}");
       for (loc, def) in keys {
         let key_index: u8 = loc.key_index().into();
         let key_type = def.function.key_type_code();
-        let sec = format!("Board{b}");
         
-        conf.with_section(Some(sec.clone()))
+        conf.with_section(Some(section_name.clone()))
           .set(format!("Key_{key_index}"), def.function.note_or_cc_num().to_string())
           .set(format!("Chan_{key_index}"), def.function.midi_channel_byte().to_string())
           .set(format!("Col_{key_index}"), def.color.to_hex_string());
 
         if key_type != 1 {
-          conf.with_section(Some(sec))
+          conf.with_section(Some(section_name.clone()))
             .set(format!("KTyp_{key_index}"), key_type.to_string());
         }
       }     
+
+      // explicitly set any missing keys to "disabled"
+      for k in LumatoneKeyIndex::MIN_VALUE ..= LumatoneKeyIndex::MAX_VALUE {
+        let key_index = LumatoneKeyIndex::unchecked(k);
+        let loc = LumatoneKeyLocation(board_index, key_index);
+        if self.keys.contains_key(&loc) {
+          continue;
+        }
+        conf.with_section(Some(section_name.clone()))
+          .set(format!("KTyp_{key_index}"), "4");
+      }
     }
+
 
     conf
   }
@@ -136,6 +148,11 @@ mod tests {
     assert_eq!(board_2.get("Chan_0"), Some("1"));
     assert_eq!(board_2.get("Col_0"), Some("00ff00"));
     assert_eq!(board_2.get("KTyp_0"), Some("3"));
+
+    // missing keys should have just a KTyp_ entry with value "4" (disabled)
+    let board_3 = ini.section(Some("Board3".to_string())).unwrap();
+    assert_eq!(board_3.get("Key_10"), None);
+    assert_eq!(board_3.get("KTyp_10"), Some("4"));
 
     let general = ini.general_section();
     assert_eq!(general.get("AfterTouchActive"), Some("0"));
