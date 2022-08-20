@@ -55,21 +55,26 @@ impl From<u32> for RGBColor {
 }
 
 bounded_integer! {
-  /// A zero-indexed MIDI channel number, in the range 0 .. 15.
+  /// A zero-indexed MIDI channel number, in the range 0 ..= 15.
   ///
   /// Use `MidiChannel::default()` for channel 0.
   ///
   /// When converting from untrusted / arbitrary input, use `MidiChannel::new`, which returns an `Option`.
   /// If you're sure your value is in range, use `MidiChannel::unchecked`, which will panic if the input is
   /// out of bounds.
-  pub struct MidiChannel { 0..15 }
+  pub struct MidiChannel { 0..=15 }
 }
 
 bounded_integer! {
-  /// A zero-indexed Lumatone key index, in the range 0 .. 55.
+  /// A zero-indexed Lumatone key index, in the range 0 ..= 55.
   ///
   /// Covers a single "board"; combine with [`BoardIndex`] to address a physical key.
-  pub struct LumatoneKeyIndex { 0..55 }
+  pub struct LumatoneKeyIndex { 0..=55 }
+}
+
+bounded_integer! {
+  /// A zero-indexed Lumatone preset number (identifies the macro / preset keys above the keyboard)
+  pub struct PresetNumber { 0 ..= 9 }
 }
 
 impl MidiChannel {
@@ -81,6 +86,12 @@ impl MidiChannel {
 impl LumatoneKeyIndex {
   pub fn unchecked(val: u8) -> Self {
     Self::new(val).expect(format!("invalid lumatone key index: {val}").as_str())
+  }
+}
+
+impl PresetNumber {
+  pub fn uncheked(val: u8) -> Self {
+    Self::new(val).expect(format!("invalid preset numer: {val}").as_str())
   }
 }
 
@@ -319,7 +330,7 @@ pub enum CommandId {
   GetFirmwareRevision = 0x31,
 
   // Firmware Version 1.0.9
-  SetCcActiveThreshold = 0x32,
+  SetCCActiveThreshold = 0x32,
   LumaPing = 0x33,
 
   // Firmware Version 1.0.10

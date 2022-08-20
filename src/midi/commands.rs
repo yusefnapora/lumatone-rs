@@ -6,7 +6,7 @@ use crate::midi::sysex::{message_command_id, create_single_arg_server_sysex, cre
 
 use super::{
   constants::{
-    BoardIndex, CommandId, LumatoneKeyFunction, LumatoneKeyLocation, RGBColor, TEST_ECHO,
+    BoardIndex, CommandId, LumatoneKeyFunction, LumatoneKeyLocation, PresetNumber, RGBColor, TEST_ECHO,
   },
   error::LumatoneMidiError,
   sysex::{
@@ -17,74 +17,143 @@ use super::{
 
 #[derive(Debug)]
 pub enum Command {
-  Ping {
-    value: u32,
-  },
+  /// Echo the payload, 0x00-0x7f, for use in connection monitoring
+  Ping(u32),
+  /// Send a single key's functionctional configuration
   SetKeyFunction {
     location: LumatoneKeyLocation,
     function: LumatoneKeyFunction,
   },
+  /// Send a single key's LED channel intensities
   SetKeyColor {
     location: LumatoneKeyLocation,
     color: RGBColor,
   },
+  /// Save current configuration to specified preset index
+  SaveProgram(PresetNumber),
+  /// Send expression pedal sensitivity
   SetExpressionPedalSensitivity(u8),
+  /// Set mod wheel sensitivity
   SetModWheelSensitivity(u8),
+  /// Set pitch wheel sensitivity
   SetPitchWheelSensitivity(u16),
+  /// Set the foot controller direction to inverted (`true`), or normal (`false`)
   InvertFootController(bool),
+  /// Set whether to light up keys on press
   SetLightOnKeystrokes(bool),
+  /// Enable or disable aftertouch functionality
   SetAftertouchEnabled(bool),
+  /// Enable demo mode with `true`, or exit by sending `false`
   EnableDemoMode(bool),
+  /// Initiate the pitch and mod wheel calibration routine, pass in false to stop
   EnablePitchModWheelCalibrationMode(bool),
+  /// Set color for macro button in active state
   SetMacroButtonActiveColor(RGBColor),
+  /// Set color for macro button in inactive state
   SetMacroButtonInactiveColor(RGBColor),
 
+  /// Set the velocity lookup table
   SetVelocityConfig(SysexTable),
+  /// Adjust the internal fader lookup table
   SetFaderConfig(SysexTable),
+  /// Adjust the internal aftertouch lookup table
   SetAftertouchConfig(SysexTable),
+  /// Adjust the Lumatouch table, a 128 byte array with value of 127 being a key fully pressed
+  SetLumatouchConfig(SysexTable),
+  /// Set the velocity interval table, 127 12-bit values
   SetVelocityIntervals(VelocityIntervalTable),
 
-  // The RequestThing commands ask the target board to read back the values for all keys on that board.
+  /// Set abs. distance from max value to trigger CA-004 submodule key events, ranging from 0x00 to 0xFE
+  SetKeyMaximumThreshold { board_index: BoardIndex, max_threshold: u8, aftertouch_max: u8 },
+
+  /// Set abs. distance from min value to trigger CA-004 submodule key events, ranging from 0x00 to 0xFE
+  SetKeyMinimumThreshold { board_index: BoardIndex, threshold_high: u8, threshold_low: u8 },
+
+  /// Set the sensitivity for CC events, ranging from 0x00 to 0xFE
+  SetKeyFaderSensitivity(BoardIndex, u8),
+  /// Set the target board sensitivity for aftertouch events, ranging from 0x00 to 0xFE
+  SetKeyAftertouchSensitivity(BoardIndex, u8),
+  /// Set the thresold from key’s min value to trigger CA - 004 submodule CC events, ranging from 0x00 to 0xFE
+  SetCCActiveThreshold(BoardIndex, u8),
+  /// Reset the thresholds for events and sensitivity for CC & aftertouch on the target board
+  ResetBoardThresholds(BoardIndex),
+
+  /// Read back the current red intensity of all the keys of the target board.
   RequestRedLEDConfig(BoardIndex),
+  /// Read back the current green intensity of all the keys of the target board.
   RequestGreenLEDConfig(BoardIndex),
+  /// Read back the current blue intensity of all the keys of the target board.
   RequestBlueLEDConfig(BoardIndex),
+  /// Read back the current channel configuration of all the keys of the target board.
   RequestMidiChannelConfig(BoardIndex),
+  /// Read back the current note configuration of all the keys of the target board.
   RequestNoteConfig(BoardIndex),
+  /// Read back the current key type configuration of all the keys of the target board.
   RequestKeyTypeConfig(BoardIndex),
+  /// Read back the maximum fader threshold of all the keys of the target board.
   RequestMaxFaderThreshold(BoardIndex),
+  /// Read back the minimum fader threshold of all the keys of the target board.
   RequestMinFaderThreshold(BoardIndex),
+  /// Read back the aftertouch maximum threshold of all the keys of the target board
   RequestMaxAftertouchThreshold(BoardIndex),
+  /// Get back flag whether or not each key of target board meets minimum threshold
   RequestKeyValidity(BoardIndex),
+  /// Read back the fader type of all keys on the targeted board.
   RequestFaderTypeConfig(BoardIndex),
   
-
+  /// Read back the current velocity look up table of the keyboard.
   RequestVelocityConfig,
+  /// Read back the velocity interval table
   RequestVelocityIntervalConfig,
+  /// Read back the current fader look up table of the keyboard.
   RequestFaderConfig,
+  /// Read back the current aftertouch look up table of the keyboard.
   RequestAftertouchConfig,
-  RequestSerialId,
+  /// Read back the Lumatouch table
+  RequestLumatouchConfig,
 
+  /// Read back the serial identification number of the keyboard.
+  RequestSerialId,
+  /// Read back the current Lumatone firmware revision.
+  RequestFirmwareRevision,
+
+  /// Initiate aftertouch calibration routine
   StartAftertouchCalibration,
+  /// Initiate the key calibration routine. Each pair of macro buttons
+  /// on each octave must be pressed to return to normal state
   StartKeyCalibration,
 
-  // the SaveThingConfig commands save the current config to eeprom.
-  // the ResetThingConfig commands restore to factory default
-
+  /// Save velocity config to EEPROM
   SaveVelocityConfig,
+  /// Reset the velocity config to value from EEPROM
   ResetVelocityConfig,
+  /// Save the changes made to the fader look-up table
   SaveFaderConfig,
+  /// Reset the fader lookup table back to its factory fader settings.
   ResetFaderConfig,
+  /// Save the changes made to the aftertouch look-up table
   SaveAftertouchConfig,
+  /// Reset the aftertouch lookup table back to its factory aftertouch settings.
   ResetAftertouchConfig,
+  /// Save Lumatouch table changes
+  SaveLumatouchConfig,
+  /// Reset the Lumatouch table back to factory settings
+  ResetLumatouchConfig,
+  /// Set thresholds for the pitch and modulation wheel to factory settings
+  ResetWheelThresholds,
+
+  /// Enable/disable key sampling over SSH for the target key and board
+  EnableKeySampling(BoardIndex, bool),
 }
 
 impl Command {
   pub fn command_id(&self) -> CommandId {
     use Command::*;
     match *self {
-      Ping { .. } => CommandId::LumaPing,
+      Ping(_) => CommandId::LumaPing,
       SetKeyFunction { .. } => CommandId::ChangeKeyNote,
       SetKeyColor { .. } => CommandId::SetKeyColour,
+      SaveProgram(_) => CommandId::SaveProgram,
       SetExpressionPedalSensitivity(_) => CommandId::SetFootControllerSensitivity,
       SetModWheelSensitivity(_) => CommandId::SetModWheelSensitivity,
       SetPitchWheelSensitivity(_) => CommandId::SetPitchWheelSensitivity,
@@ -101,7 +170,15 @@ impl Command {
       SetVelocityConfig(_) => CommandId::SetVelocityConfig,
       SetFaderConfig(_) => CommandId::SetFaderConfig,
       SetAftertouchConfig(_) => CommandId::SetAftertouchConfig,
+      SetLumatouchConfig(_) => CommandId::SetLumatouchConfig,
       SetVelocityIntervals(_) => CommandId::SetVelocityIntervals,
+
+      SetKeyMaximumThreshold { .. } => CommandId::SetKeyMaxThreshold,
+      SetKeyMinimumThreshold { .. } => CommandId::SetKeyMinThreshold,
+      SetKeyFaderSensitivity(..) => CommandId::SetKeyFaderSensitivity,
+      SetKeyAftertouchSensitivity(..) => CommandId::SetKeyAftertouchSensitivity,
+      SetCCActiveThreshold(..) => CommandId::SetCCActiveThreshold,
+      ResetBoardThresholds(_) => CommandId::ResetBoardThresholds,
 
       RequestRedLEDConfig(_) => CommandId::GetRedLedConfig,
       RequestGreenLEDConfig(_) => CommandId::GetGreenLedConfig,
@@ -119,7 +196,10 @@ impl Command {
       RequestVelocityIntervalConfig => CommandId::GetVelocityIntervals,
       RequestFaderConfig => CommandId::GetFaderConfig,
       RequestAftertouchConfig => CommandId::GetAftertouchConfig,
+      RequestLumatouchConfig => CommandId::GetLumatouchConfig,
+
       RequestSerialId => CommandId::GetSerialIdentity,
+      RequestFirmwareRevision => CommandId::GetFirmwareRevision,
 
       StartAftertouchCalibration => CommandId::CalibrateAftertouch,
       StartKeyCalibration => CommandId::CalibrateKeys,
@@ -130,20 +210,27 @@ impl Command {
       ResetFaderConfig => CommandId::ResetFaderConfig,
       SaveAftertouchConfig => CommandId::SaveAftertouchConfig,
       ResetAftertouchConfig => CommandId::ResetAftertouchConfig,
+      SaveLumatouchConfig => CommandId::SaveLumatouchConfig,
+      ResetLumatouchConfig => CommandId::ResetLumatouchConfig,
+      ResetWheelThresholds => CommandId::ResetWheelsThreshold,
 
+      EnableKeySampling(..) => CommandId::SetKeySampling,
     }
   }
 
   pub fn to_sysex_message(&self) -> EncodedSysex {
     use Command::*;
     match self {
-      Ping { value } => encode_ping(*value),
+      Ping(value) => encode_ping(*value),
       
       SetKeyFunction { location, function } => 
         encode_set_key_function(location, function),
 
       SetKeyColor { location, color } => 
         encode_set_key_color(location, color),
+
+      SaveProgram(preset_number) =>
+        create_single_arg_server_sysex(self.command_id(), (*preset_number).into()),
 
       SetExpressionPedalSensitivity(value) => 
         create_single_arg_server_sysex(self.command_id(), *value),
@@ -190,9 +277,30 @@ impl Command {
 
       SetAftertouchConfig(table) =>
         create_table_sysex(self.command_id(), table),
-
+      
+      SetLumatouchConfig(table) =>
+        create_table_sysex(self.command_id(), table),
+      
       SetVelocityIntervals(table) =>
         encode_set_velocity_interval_table(table),
+
+      SetKeyMaximumThreshold { board_index, max_threshold, aftertouch_max } =>
+        encode_set_key_thresholds(*board_index, self.command_id(), *max_threshold, *aftertouch_max),
+      
+      SetKeyMinimumThreshold { board_index, threshold_high, threshold_low } =>
+        encode_set_key_thresholds(*board_index, self.command_id(), *threshold_high, *threshold_low),
+      
+      SetKeyFaderSensitivity(board_index, value) =>
+        encode_set_key_sensitivity(*board_index, self.command_id(), *value),
+      
+      SetKeyAftertouchSensitivity(board_index, value) =>
+        encode_set_key_sensitivity(*board_index, self.command_id(), *value),
+
+      SetCCActiveThreshold(board_index, value) =>
+        encode_set_key_sensitivity(*board_index, self.command_id(), *value),
+
+      ResetBoardThresholds(board_index) =>
+        create_zero_arg_sysex(*board_index, self.command_id()),
 
       RequestRedLEDConfig(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()),
@@ -224,7 +332,9 @@ impl Command {
       RequestVelocityIntervalConfig => create_zero_arg_server_sysex(self.command_id()),
       RequestFaderConfig => create_zero_arg_server_sysex(self.command_id()),
       RequestAftertouchConfig => create_zero_arg_server_sysex(self.command_id()),
+      RequestLumatouchConfig => create_zero_arg_server_sysex(self.command_id()),
       RequestSerialId => create_zero_arg_server_sysex(self.command_id()),
+      RequestFirmwareRevision => create_zero_arg_server_sysex(self.command_id()),
       StartAftertouchCalibration => create_zero_arg_server_sysex(self.command_id()),
       StartKeyCalibration => create_zero_arg_server_sysex(self.command_id()),
       
@@ -234,7 +344,12 @@ impl Command {
       ResetFaderConfig => create_zero_arg_server_sysex(self.command_id()),
       SaveAftertouchConfig => create_zero_arg_server_sysex(self.command_id()),
       ResetAftertouchConfig => create_zero_arg_server_sysex(self.command_id()),      
-      
+      SaveLumatouchConfig => create_zero_arg_server_sysex(self.command_id()),
+      ResetLumatouchConfig => create_zero_arg_server_sysex(self.command_id()),
+      ResetWheelThresholds => create_zero_arg_server_sysex(self.command_id()),
+
+      EnableKeySampling(board_index, enable) =>
+        create_sysex_toggle(*board_index, self.command_id(), *enable)
     }
   }
 }
@@ -242,7 +357,7 @@ impl Command {
 // region: Command factory fns
 
 pub fn ping(value: u32) -> Command {
-  Command::Ping { value }
+  Command::Ping(value)
 }
 
 pub fn set_key_color(location: LumatoneKeyLocation, color: RGBColor) -> Command {
@@ -305,6 +420,27 @@ fn encode_set_velocity_interval_table(table: &VelocityIntervalTable) -> EncodedS
   };
   let bytes: Vec<u8> = table.iter().flat_map(split_u16).collect();
   create_sysex(BoardIndex::Server, CommandId::SetVelocityIntervals, bytes)
+}
+
+fn encode_set_key_thresholds(board_index: BoardIndex, cmd: CommandId, t1: u8, t2: u8) -> EncodedSysex {
+  let t1 = t1 & 0xfe;
+  let t2 = t2 & 0xfe;
+  let data = vec![
+    t1 >> 4,
+    t1 & 0xf,
+    t2 >> 4,
+    t2 & 0xf,
+  ];
+  create_sysex(board_index, cmd, data)
+}
+
+fn encode_set_key_sensitivity(board_index: BoardIndex, cmd: CommandId, value: u8) -> EncodedSysex {
+  let value = value & 0xfe;
+  let data = vec![
+    value >> 4,
+    value & 0xf,
+  ];
+  create_sysex(board_index, cmd, data)
 }
 
 // endregion
