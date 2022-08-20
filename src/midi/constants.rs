@@ -4,6 +4,8 @@ use bounded_integer::bounded_integer;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
+use super::driver::MidiDriver;
+
 pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 
 pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI
@@ -55,14 +57,14 @@ impl From<u32> for RGBColor {
 }
 
 bounded_integer! {
-  /// A zero-indexed MIDI channel number, in the range 0 ..= 15.
+  /// A zero-indexed MIDI channel number, in the range 1 ..= 16.
   ///
-  /// Use `MidiChannel::default()` for channel 0.
+  /// Use `MidiChannel::default()` for channel 1.
   ///
   /// When converting from untrusted / arbitrary input, use `MidiChannel::new`, which returns an `Option`.
   /// If you're sure your value is in range, use `MidiChannel::unchecked`, which will panic if the input is
   /// out of bounds.
-  pub struct MidiChannel { 0..=15 }
+  pub struct MidiChannel { 1..=16 }
 }
 
 bounded_integer! {
@@ -80,6 +82,12 @@ bounded_integer! {
 impl MidiChannel {
   pub fn unchecked(val: u8) -> Self {
     Self::new(val).expect(format!("invalid midi channel number: {val}").as_str())
+  }
+}
+
+impl Default for MidiChannel {
+  fn default() -> Self {
+    MidiChannel::MIN
   }
 }
 

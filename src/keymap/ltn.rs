@@ -105,6 +105,9 @@ impl LumatoneKeyMap {
           continue;
         }
         conf.with_section(Some(section_name.clone()))
+          .set(format!("Key_{key_index}"), "0")
+          .set(format!("Chan_{key_index}"), "1")
+          .set(format!("Col_{key_index}"), "000000")
           .set(format!("KTyp_{key_index}"), "4");
       }
     }
@@ -132,26 +135,28 @@ mod tests {
         color: RGBColor(0xff, 0, 0)
       })
       .set_key(key_loc_unchecked(2, 0), KeyDefinition {
-        function: LumatoneKeyFunction::LumaTouch { channel: MidiChannel::unchecked(1), note_num: 70, fader_up_is_null: false },
+        function: LumatoneKeyFunction::LumaTouch { channel: MidiChannel::unchecked(2), note_num: 70, fader_up_is_null: false },
         color: RGBColor::green()
       });
 
     let ini = keymap.as_ini();
     let board_1 = ini.section(Some("Board1".to_string())).unwrap();
     assert_eq!(board_1.get("Key_0"), Some("60"));
-    assert_eq!(board_1.get("Chan_0"), Some("0"));
+    assert_eq!(board_1.get("Chan_0"), Some("1"));
     assert_eq!(board_1.get("Col_0"), Some("ff0000"));
     assert_eq!(board_1.get("KTyp_0"), None); // KTyp is only set if keytype is not NoteOnOff
 
     let board_2 = ini.section(Some("Board2".to_string())).unwrap();
     assert_eq!(board_2.get("Key_0"), Some("70"));
-    assert_eq!(board_2.get("Chan_0"), Some("1"));
+    assert_eq!(board_2.get("Chan_0"), Some("2"));
     assert_eq!(board_2.get("Col_0"), Some("00ff00"));
     assert_eq!(board_2.get("KTyp_0"), Some("3"));
 
-    // missing keys should have just a KTyp_ entry with value "4" (disabled)
+    // missing keys should have KTyp == 4 (disabled), Key = 0, Chan = 1, Col = 000000
     let board_3 = ini.section(Some("Board3".to_string())).unwrap();
-    assert_eq!(board_3.get("Key_10"), None);
+    assert_eq!(board_3.get("Key_10"), Some("0"));
+    assert_eq!(board_3.get("Chan_10"), Some("1"));
+    assert_eq!(board_3.get("Col_10"), Some("000000"));
     assert_eq!(board_3.get("KTyp_10"), Some("4"));
 
     let general = ini.general_section();
