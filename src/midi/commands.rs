@@ -6,7 +6,7 @@ use crate::midi::sysex::{message_command_id, create_single_arg_server_sysex, cre
 
 use super::{
   constants::{
-    BoardIndex, CommandId, LumatoneKeyFunction, LumatoneKeyLocation, PresetNumber, RGBColor, TEST_ECHO,
+    BoardIndex, CommandId, LumatoneKeyFunction, LumatoneKeyLocation, MidiChannel, PresetNumber, RGBColor, TEST_ECHO,
   },
   error::LumatoneMidiError,
   sysex::{
@@ -39,6 +39,8 @@ pub enum Command {
   SetPitchWheelSensitivity(u16),
   /// Set the foot controller direction to inverted (`true`), or normal (`false`)
   InvertFootController(bool),
+  /// Sets whether to invert the sustain pedal
+  InvertSustainPedal(bool),
   /// Set whether to light up keys on press
   SetLightOnKeystrokes(bool),
   /// Enable or disable aftertouch functionality
@@ -47,6 +49,8 @@ pub enum Command {
   EnableDemoMode(bool),
   /// Initiate the pitch and mod wheel calibration routine, pass in false to stop
   EnablePitchModWheelCalibrationMode(bool),
+  /// Pass in true to initiate the expression pedal calibration routine, or false to stop
+  EnableExpressionPedalCalibrationMode(bool),
   /// Set color for macro button in active state
   SetMacroButtonActiveColor(RGBColor),
   /// Set color for macro button in inactive state
@@ -69,6 +73,9 @@ pub enum Command {
   /// Set abs. distance from min value to trigger CA-004 submodule key events, ranging from 0x00 to 0xFE
   SetKeyMinimumThreshold { board_index: BoardIndex, threshold_high: u8, threshold_low: u8 },
 
+  /// Set the bounds from the calibrated zero adc value of the pitch wheel, 0x00 to 0x7f
+  SetPitchWheelZeroThreshold(u8),
+
   /// Set the sensitivity for CC events, ranging from 0x00 to 0xFE
   SetKeyFaderSensitivity(BoardIndex, u8),
   /// Set the target board sensitivity for aftertouch events, ranging from 0x00 to 0xFE
@@ -78,44 +85,60 @@ pub enum Command {
   /// Reset the thresholds for events and sensitivity for CC & aftertouch on the target board
   ResetBoardThresholds(BoardIndex),
 
+  /// Set the 8-bit aftertouch trigger delay value,
+  /// the time between a note on event and the initialization of aftertouch events
+  /// TODO: see if units are documented / obvious in Lumatone Editor source. Assuming millisec...
+  SetAftertouchTriggerDelay(BoardIndex, u8),
+  /// Retrieve the aftertouch trigger delay of the given board
+  GetAftertouchTriggerDelay(BoardIndex),
+  /// Set the Lumatouch note-off delay value, an 11-bit integer representing the amount of 1.1ms ticks before
+  /// sending a note-off event after a Lumatone-configured key is released.  
+  SetLumatouchNoteOffDelay(BoardIndex, u16),
+  /// Retrieve the note-off delay value of the given board
+  GetLumatouchNoteOffDelay(BoardIndex),
+
   /// Read back the current red intensity of all the keys of the target board.
-  RequestRedLEDConfig(BoardIndex),
+  GetRedLEDConfig(BoardIndex),
   /// Read back the current green intensity of all the keys of the target board.
-  RequestGreenLEDConfig(BoardIndex),
+  GetGreenLEDConfig(BoardIndex),
   /// Read back the current blue intensity of all the keys of the target board.
-  RequestBlueLEDConfig(BoardIndex),
+  GetBlueLEDConfig(BoardIndex),
   /// Read back the current channel configuration of all the keys of the target board.
-  RequestMidiChannelConfig(BoardIndex),
+  GetMidiChannelConfig(BoardIndex),
   /// Read back the current note configuration of all the keys of the target board.
-  RequestNoteConfig(BoardIndex),
+  GetNoteConfig(BoardIndex),
   /// Read back the current key type configuration of all the keys of the target board.
-  RequestKeyTypeConfig(BoardIndex),
+  GetKeyTypeConfig(BoardIndex),
   /// Read back the maximum fader threshold of all the keys of the target board.
-  RequestMaxFaderThreshold(BoardIndex),
+  GetMaxFaderThreshold(BoardIndex),
   /// Read back the minimum fader threshold of all the keys of the target board.
-  RequestMinFaderThreshold(BoardIndex),
+  GetMinFaderThreshold(BoardIndex),
   /// Read back the aftertouch maximum threshold of all the keys of the target board
-  RequestMaxAftertouchThreshold(BoardIndex),
+  GetMaxAftertouchThreshold(BoardIndex),
   /// Get back flag whether or not each key of target board meets minimum threshold
-  RequestKeyValidity(BoardIndex),
+  GetKeyValidity(BoardIndex),
   /// Read back the fader type of all keys on the targeted board.
-  RequestFaderTypeConfig(BoardIndex),
+  GetFaderTypeConfig(BoardIndex),
+  /// Retrieve the threshold values of target board
+  GetBoardThresholdValues(BoardIndex),
+  /// Retrieve the sensitivity values of target board
+  GetBoardSensitivityValues(BoardIndex),
   
   /// Read back the current velocity look up table of the keyboard.
-  RequestVelocityConfig,
+  GetVelocityConfig,
   /// Read back the velocity interval table
-  RequestVelocityIntervalConfig,
+  GetVelocityIntervalConfig,
   /// Read back the current fader look up table of the keyboard.
-  RequestFaderConfig,
+  GetFaderConfig,
   /// Read back the current aftertouch look up table of the keyboard.
-  RequestAftertouchConfig,
+  GetAftertouchConfig,
   /// Read back the Lumatouch table
-  RequestLumatouchConfig,
+  GetLumatouchConfig,
 
   /// Read back the serial identification number of the keyboard.
-  RequestSerialId,
+  GetSerialId,
   /// Read back the current Lumatone firmware revision.
-  RequestFirmwareRevision,
+  GetFirmwareRevision,
 
   /// Initiate aftertouch calibration routine
   StartAftertouchCalibration,
@@ -141,9 +164,22 @@ pub enum Command {
   ResetLumatouchConfig,
   /// Set thresholds for the pitch and modulation wheel to factory settings
   ResetWheelThresholds,
+  /// Reset expression pedal minimum and maximum bounds to factory settings
+  ResetExpressionPedalBounds,
 
   /// Enable/disable key sampling over SSH for the target key and board
   EnableKeySampling(BoardIndex, bool),
+
+  /// Set the MIDI channels for peripheral controllers
+  SetPeripheralChannels { pitch_wheel: MidiChannel, mod_wheel: MidiChannel, expression: MidiChannel, sustain: MidiChannel },
+  /// Retrieve the MIDI channels for peripheral controllers
+  GetPeripheralChannels,
+
+  /// Set expression pedal ADC threshold value, a 12-bit integer
+  SetExpressionPedalADCThreshold(u16),
+
+  /// Get the current expression pedal ADC threshold value
+  GetExpressionPedalADCThreshold,
 }
 
 impl Command {
@@ -159,6 +195,8 @@ impl Command {
       SetPitchWheelSensitivity(_) => CommandId::SetPitchWheelSensitivity,
 
       InvertFootController(_) => CommandId::InvertFootController,
+      InvertSustainPedal(_) => CommandId::InvertSustainPedal,
+
       SetMacroButtonActiveColor(_) => CommandId::MacrobuttonColourOn,
       SetMacroButtonInactiveColor(_) => CommandId::MacrobuttonColourOff,
       SetLightOnKeystrokes(_) => CommandId::SetLightOnKeystrokes,
@@ -180,26 +218,26 @@ impl Command {
       SetCCActiveThreshold(..) => CommandId::SetCCActiveThreshold,
       ResetBoardThresholds(_) => CommandId::ResetBoardThresholds,
 
-      RequestRedLEDConfig(_) => CommandId::GetRedLedConfig,
-      RequestGreenLEDConfig(_) => CommandId::GetGreenLedConfig,
-      RequestBlueLEDConfig(_) => CommandId::GetBlueLedConfig,
-      RequestMidiChannelConfig(_) => CommandId::GetChannelConfig,
-      RequestNoteConfig(_) => CommandId::GetNoteConfig,
-      RequestKeyTypeConfig(_) => CommandId::GetKeytypeConfig,
-      RequestMaxFaderThreshold(_) => CommandId::GetMaxThreshold,
-      RequestMinFaderThreshold(_) => CommandId::GetMinThreshold,
-      RequestMaxAftertouchThreshold(_) => CommandId::GetAftertouchMax,
-      RequestKeyValidity(_) => CommandId::GetKeyValidity,
-      RequestFaderTypeConfig(_) => CommandId::GetFaderTypeConfiguration,
+      GetRedLEDConfig(_) => CommandId::GetRedLedConfig,
+      GetGreenLEDConfig(_) => CommandId::GetGreenLedConfig,
+      GetBlueLEDConfig(_) => CommandId::GetBlueLedConfig,
+      GetMidiChannelConfig(_) => CommandId::GetChannelConfig,
+      GetNoteConfig(_) => CommandId::GetNoteConfig,
+      GetKeyTypeConfig(_) => CommandId::GetKeytypeConfig,
+      GetMaxFaderThreshold(_) => CommandId::GetMaxThreshold,
+      GetMinFaderThreshold(_) => CommandId::GetMinThreshold,
+      GetMaxAftertouchThreshold(_) => CommandId::GetAftertouchMax,
+      GetKeyValidity(_) => CommandId::GetKeyValidity,
+      GetFaderTypeConfig(_) => CommandId::GetFaderTypeConfiguration,
 
-      RequestVelocityConfig => CommandId::GetVelocityConfig,
-      RequestVelocityIntervalConfig => CommandId::GetVelocityIntervals,
-      RequestFaderConfig => CommandId::GetFaderConfig,
-      RequestAftertouchConfig => CommandId::GetAftertouchConfig,
-      RequestLumatouchConfig => CommandId::GetLumatouchConfig,
+      GetVelocityConfig => CommandId::GetVelocityConfig,
+      GetVelocityIntervalConfig => CommandId::GetVelocityIntervals,
+      GetFaderConfig => CommandId::GetFaderConfig,
+      GetAftertouchConfig => CommandId::GetAftertouchConfig,
+      GetLumatouchConfig => CommandId::GetLumatouchConfig,
 
-      RequestSerialId => CommandId::GetSerialIdentity,
-      RequestFirmwareRevision => CommandId::GetFirmwareRevision,
+      GetSerialId => CommandId::GetSerialIdentity,
+      GetFirmwareRevision => CommandId::GetFirmwareRevision,
 
       StartAftertouchCalibration => CommandId::CalibrateAftertouch,
       StartKeyCalibration => CommandId::CalibrateKeys,
@@ -215,6 +253,21 @@ impl Command {
       ResetWheelThresholds => CommandId::ResetWheelsThreshold,
 
       EnableKeySampling(..) => CommandId::SetKeySampling,
+
+      EnableExpressionPedalCalibrationMode(_) => CommandId::CallibrateExpressionPedal,
+      SetPitchWheelZeroThreshold(_) => CommandId::SetPitchWheelCenterThreshold,
+      GetBoardThresholdValues(_) => CommandId::GetBoardThresholdValues,
+      GetBoardSensitivityValues(_) => CommandId::GetBoardSensitivityValues,
+      ResetExpressionPedalBounds => CommandId::ResetExpressionPedalBounds,
+      SetPeripheralChannels { .. } => CommandId::SetPeripheralChannels,
+      GetPeripheralChannels => CommandId::GetPeripheralChannels,
+      SetAftertouchTriggerDelay(..) => CommandId::SetAftertouchTriggerDelay,
+      GetAftertouchTriggerDelay(_) => CommandId::GetAftertouchTriggerDelay,
+
+      SetLumatouchNoteOffDelay(..) => CommandId::SetLumatouchNoteOffDelay,
+      GetLumatouchNoteOffDelay(_) => CommandId::GetLumatouchNoteOffDelay,
+      SetExpressionPedalADCThreshold(_) => CommandId::SetExpressionPedalThreshold,
+      GetExpressionPedalADCThreshold => CommandId::GetExpressionPedalThreshold,
     }
   }
 
@@ -247,6 +300,9 @@ impl Command {
       },
 
       InvertFootController(invert) => 
+        create_sysex_toggle(BoardIndex::Server, self.command_id(), *invert),
+
+      InvertSustainPedal(invert) => 
         create_sysex_toggle(BoardIndex::Server, self.command_id(), *invert),
 
       SetAftertouchEnabled(enabled) =>
@@ -302,39 +358,39 @@ impl Command {
       ResetBoardThresholds(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()),
 
-      RequestRedLEDConfig(board_index) =>
+      GetRedLEDConfig(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()),
 
-      RequestGreenLEDConfig(board_index) =>
+      GetGreenLEDConfig(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()),
  
-      RequestBlueLEDConfig(board_index) =>
+      GetBlueLEDConfig(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()),
 
-      RequestMidiChannelConfig(board_index) =>
+      GetMidiChannelConfig(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()), 
-      RequestNoteConfig(board_index) =>
+      GetNoteConfig(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()), 
-      RequestKeyTypeConfig(board_index) =>
+      GetKeyTypeConfig(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()), 
-      RequestMaxFaderThreshold(board_index) =>
+      GetMaxFaderThreshold(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()), 
-      RequestMinFaderThreshold(board_index) =>
+      GetMinFaderThreshold(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()), 
-      RequestMaxAftertouchThreshold(board_index) =>
+      GetMaxAftertouchThreshold(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()), 
-      RequestKeyValidity(board_index) =>
+      GetKeyValidity(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()),       
-      RequestFaderTypeConfig(board_index) =>
+      GetFaderTypeConfig(board_index) =>
         create_zero_arg_sysex(*board_index, self.command_id()),
         
-      RequestVelocityConfig => create_zero_arg_server_sysex(self.command_id()),
-      RequestVelocityIntervalConfig => create_zero_arg_server_sysex(self.command_id()),
-      RequestFaderConfig => create_zero_arg_server_sysex(self.command_id()),
-      RequestAftertouchConfig => create_zero_arg_server_sysex(self.command_id()),
-      RequestLumatouchConfig => create_zero_arg_server_sysex(self.command_id()),
-      RequestSerialId => create_zero_arg_server_sysex(self.command_id()),
-      RequestFirmwareRevision => create_zero_arg_server_sysex(self.command_id()),
+      GetVelocityConfig => create_zero_arg_server_sysex(self.command_id()),
+      GetVelocityIntervalConfig => create_zero_arg_server_sysex(self.command_id()),
+      GetFaderConfig => create_zero_arg_server_sysex(self.command_id()),
+      GetAftertouchConfig => create_zero_arg_server_sysex(self.command_id()),
+      GetLumatouchConfig => create_zero_arg_server_sysex(self.command_id()),
+      GetSerialId => create_zero_arg_server_sysex(self.command_id()),
+      GetFirmwareRevision => create_zero_arg_server_sysex(self.command_id()),
       StartAftertouchCalibration => create_zero_arg_server_sysex(self.command_id()),
       StartKeyCalibration => create_zero_arg_server_sysex(self.command_id()),
       
@@ -347,9 +403,58 @@ impl Command {
       SaveLumatouchConfig => create_zero_arg_server_sysex(self.command_id()),
       ResetLumatouchConfig => create_zero_arg_server_sysex(self.command_id()),
       ResetWheelThresholds => create_zero_arg_server_sysex(self.command_id()),
-
+      ResetExpressionPedalBounds => create_zero_arg_server_sysex(self.command_id()),
+      
       EnableKeySampling(board_index, enable) =>
-        create_sysex_toggle(*board_index, self.command_id(), *enable)
+        create_sysex_toggle(*board_index, self.command_id(), *enable),
+
+      EnableExpressionPedalCalibrationMode(enable) => 
+        create_sysex_toggle(BoardIndex::Server, self.command_id(), *enable),
+
+      SetPitchWheelZeroThreshold(value) => 
+        create_single_arg_server_sysex(self.command_id(), value & 0x7f),
+
+      GetBoardThresholdValues(board_index) => 
+        create_zero_arg_sysex(*board_index, self.command_id()),
+
+      GetBoardSensitivityValues(board_index) => 
+        create_zero_arg_sysex(*board_index, self.command_id()),
+      
+
+      SetPeripheralChannels { pitch_wheel, mod_wheel, expression, sustain } => 
+        create_sysex(BoardIndex::Server, self.command_id(), vec![
+          (*pitch_wheel).into(),
+          (*mod_wheel).into(),
+          (*expression).into(),
+          (*sustain).into(),
+        ]),
+
+      GetPeripheralChannels => create_zero_arg_server_sysex(self.command_id()),
+
+      SetAftertouchTriggerDelay(board_index, value) => 
+        create_sysex(*board_index, self.command_id(), vec![value >> 4, value & 0xf]),
+
+      GetAftertouchTriggerDelay(board_index) => 
+        create_zero_arg_sysex(*board_index, self.command_id()),
+     
+      SetLumatouchNoteOffDelay(board_index, value) => 
+        create_sysex(*board_index, self.command_id(), vec![
+          ((value >> 8) & 0xf) as u8,
+          ((value >> 4) & 0xf) as u8,
+          (value & 0xf) as u8,
+        ]),
+      
+      GetLumatouchNoteOffDelay(board_index) => 
+        create_zero_arg_sysex(*board_index, self.command_id()),
+      
+      SetExpressionPedalADCThreshold(value) =>
+        create_sysex(BoardIndex::Server, self.command_id(), vec![
+          ((value >> 8) & 0xf) as u8,
+          ((value >> 4) & 0xf) as u8,
+          (value & 0xf) as u8,
+        ]),
+      
+      GetExpressionPedalADCThreshold => create_zero_arg_server_sysex(self.command_id())
     }
   }
 }
