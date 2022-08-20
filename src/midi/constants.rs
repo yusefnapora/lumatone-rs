@@ -4,8 +4,6 @@ use bounded_integer::bounded_integer;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use super::driver::MidiDriver;
-
 pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 
 pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI
@@ -28,7 +26,7 @@ impl RGBColor {
   }
 
   pub fn to_hex_string(&self) -> String {
-    let RGBColor(r,g,b) = self;
+    let RGBColor(r, g, b) = self;
     format!("{r:02x}{g:02x}{b:02x}")
   }
 
@@ -204,7 +202,7 @@ impl LumatoneKeyFunction {
 
   pub fn key_type_code(&self) -> u8 {
     use LumatoneKeyFunction::*;
-    match *self { 
+    match *self {
       NoteOnOff { .. } => 1,
       ContinuousController { .. } => 2,
       LumaTouch { .. } => 3,

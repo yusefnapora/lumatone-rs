@@ -1,11 +1,31 @@
-use super::error::LumatoneKeymapError;
+#![allow(unused)]
+use super::{error::LumatoneKeymapError, table_defaults::*};
 use crate::midi::sysex::{SysexTable, VelocityIntervalTable};
-
 
 pub enum EditingStrategy {
   FreeDrawing,
   LinearSegments,
   QuadraticCurves,
+}
+
+pub struct ConfigurationTables {
+  pub on_off_velocity: ConfigTableDefinition,
+  pub fader_velocity: ConfigTableDefinition,
+  pub aftertouch_velocity: ConfigTableDefinition,
+  pub lumatouch_velocity: ConfigTableDefinition,
+  pub velocity_intervals: VelocityIntervalTable,
+}
+
+impl Default for ConfigurationTables {
+  fn default() -> Self {
+    ConfigurationTables { 
+      on_off_velocity: ConfigTableDefinition::new(DEFAULT_ON_OFF_VELOCITY_TABLE),
+      fader_velocity: ConfigTableDefinition::new(DEFAULT_FADER_VELOCITY_TABLE),
+      aftertouch_velocity: ConfigTableDefinition::new(DEFAULT_AFTERTOUCH_VELOCITY_TABLE),
+      lumatouch_velocity: ConfigTableDefinition::new(DEFAULT_LUMATOUCH_VELOCITY_TABLE),
+      velocity_intervals: DEFAULT_VELOCITY_INTERVAL_TABLE, 
+    }
+  }
 }
 
 pub struct ConfigTableDefinition {
@@ -14,8 +34,18 @@ pub struct ConfigTableDefinition {
 }
 
 impl ConfigTableDefinition {
+  pub fn new(table: SysexTable) -> Self {
+    ConfigTableDefinition { table, edit_strategy: EditingStrategy::FreeDrawing }
+  }
+
+  pub fn new_with_edit_strategy(table: SysexTable, edit_strategy: EditingStrategy) -> Self {
+    ConfigTableDefinition { table: table, edit_strategy: edit_strategy }
+  }
+
   pub fn to_string(&self) -> String {
-    let table_str = self.table.iter()
+    let table_str = self
+      .table
+      .iter()
       .map(u8::to_string)
       .collect::<Vec<String>>()
       .join(" ");
@@ -23,8 +53,9 @@ impl ConfigTableDefinition {
     let prefix = match self.edit_strategy {
       EditingStrategy::LinearSegments => "LINEAR",
       EditingStrategy::QuadraticCurves => "Quadratic",
-      _ => "" 
-    }.to_string();
+      _ => "",
+    }
+    .to_string();
 
     String::from(prefix + table_str.as_str())
   }
@@ -33,32 +64,60 @@ impl ConfigTableDefinition {
     use EditingStrategy::*;
     use LumatoneKeymapError::InvalidTableDefinition;
 
-    let (edit_strategy, start_index) = 
-      if s.starts_with("LINEAR") {
-        (LinearSegments, "LINEAR".len())
-      } else if s.starts_with("Quadratic") {
-        (QuadraticCurves, "Quadratic".len())
-      } else {
-        (FreeDrawing, 0)
-      };
+    let (edit_strategy, start_index) = if s.starts_with("LINEAR") {
+      (LinearSegments, "LINEAR".len())
+    } else if s.starts_with("Quadratic") {
+      (QuadraticCurves, "Quadratic".len())
+    } else {
+      (FreeDrawing, 0)
+    };
+
+    let s = &s[start_index..];
 
     let tokens: Vec<&str> = s.split(char::is_whitespace).collect();
-    if tokens.len() == 0 {
-      return Err(InvalidTableDefinition("table definition is empty, cannot parse".to_string()));
-    }
-
-    let value_strings = &tokens[start_index..];
-    if value_strings.len() < 128 {
-      return Err(InvalidTableDefinition(format!("table requires 128 values, but definition contains {}", value_strings.len())));
+    if tokens.len() < 128 {
+      return Err(InvalidTableDefinition(format!(
+        "table requires 128 values, but definition contains {}",
+        tokens.len()
+      )));
     }
 
     let mut table: SysexTable = [0; 128];
-    for (i, s) in value_strings.iter().enumerate() {
-      table[i] = u8::from_str_radix(*s, 10)
-        .map_err(|e| InvalidTableDefinition(format!("unable to parse int in table definition: {e}")))?;
+    for (i, s) in tokens.iter().enumerate() {
+      table[i] = u8::from_str_radix(*s, 10).map_err(|e| {
+        InvalidTableDefinition(format!("unable to parse int in table definition: {e}"))
+      })?;
     }
-    
-    Ok(ConfigTableDefinition { table, edit_strategy })
+
+    Ok(ConfigTableDefinition {
+      table,
+      edit_strategy,
+    })
   }
 }
 
+
+pub fn parse_velocity_intervals(s: &str) -> Result<VelocityIntervalTable, LumatoneKeymapError> {
+  use LumatoneKeymapError::InvalidTableDefinition;
+  let tokens: Vec<&str> = s.split(char::is_whitespace).collect();
+
+  if tokens.len() < 127 {
+    return Err(InvalidTableDefinition(format!("velocity interval table is 127 elements long, but string has {}", tokens.len())));
+  }
+
+  let mut table: VelocityIntervalTable = [0; 127];
+  for (i, s) in tokens.iter().enumerate() {
+    let val = u16::from_str_radix(s, 10)
+      .map_err(|e| InvalidTableDefinition(format!("unable to parse in in table definition: {e}")))?;
+    table[i] = val;
+  }
+  Ok(table)
+}
+
+pub fn velocity_intervals_to_string(table: &VelocityIntervalTable) -> String {
+  table
+    .iter()
+    .map(u16::to_string)
+    .collect::<Vec<String>>()
+    .join(" ")
+}

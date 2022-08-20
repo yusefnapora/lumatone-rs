@@ -2,16 +2,21 @@
 
 use std::fmt::Debug;
 
-use crate::midi::sysex::{message_command_id, create_single_arg_server_sysex, create_table_sysex, reverse_table, create_zero_arg_server_sysex, create_zero_arg_sysex};
+use crate::midi::sysex::{
+  create_single_arg_server_sysex, create_table_sysex, create_zero_arg_server_sysex,
+  create_zero_arg_sysex, message_command_id, reverse_table,
+};
 
 use super::{
   constants::{
-    BoardIndex, CommandId, LumatoneKeyFunction, LumatoneKeyLocation, MidiChannel, PresetNumber, RGBColor, TEST_ECHO,
+    BoardIndex, CommandId, LumatoneKeyFunction, LumatoneKeyLocation, MidiChannel, PresetNumber,
+    RGBColor, TEST_ECHO,
   },
   error::LumatoneMidiError,
   sysex::{
-    create_extended_key_color_sysex, create_sysex, is_lumatone_message, message_payload,
-    EncodedSysex, create_sysex_toggle, create_extended_macro_color_sysex, SysexTable, VelocityIntervalTable,
+    create_extended_key_color_sysex, create_extended_macro_color_sysex, create_sysex,
+    create_sysex_toggle, is_lumatone_message, message_payload, EncodedSysex, SysexTable,
+    VelocityIntervalTable,
   },
 };
 
@@ -57,21 +62,29 @@ pub enum Command {
   SetMacroButtonInactiveColor(RGBColor),
 
   /// Set the velocity lookup table
-  SetVelocityConfig(SysexTable),
+  SetVelocityConfig(Box<SysexTable>),
   /// Adjust the internal fader lookup table
-  SetFaderConfig(SysexTable),
+  SetFaderConfig(Box<SysexTable>),
   /// Adjust the internal aftertouch lookup table
-  SetAftertouchConfig(SysexTable),
+  SetAftertouchConfig(Box<SysexTable>),
   /// Adjust the Lumatouch table, a 128 byte array with value of 127 being a key fully pressed
-  SetLumatouchConfig(SysexTable),
+  SetLumatouchConfig(Box<SysexTable>),
   /// Set the velocity interval table, 127 12-bit values
-  SetVelocityIntervals(VelocityIntervalTable),
+  SetVelocityIntervals(Box<VelocityIntervalTable>),
 
   /// Set abs. distance from max value to trigger CA-004 submodule key events, ranging from 0x00 to 0xFE
-  SetKeyMaximumThreshold { board_index: BoardIndex, max_threshold: u8, aftertouch_max: u8 },
+  SetKeyMaximumThreshold {
+    board_index: BoardIndex,
+    max_threshold: u8,
+    aftertouch_max: u8,
+  },
 
   /// Set abs. distance from min value to trigger CA-004 submodule key events, ranging from 0x00 to 0xFE
-  SetKeyMinimumThreshold { board_index: BoardIndex, threshold_high: u8, threshold_low: u8 },
+  SetKeyMinimumThreshold {
+    board_index: BoardIndex,
+    threshold_high: u8,
+    threshold_low: u8,
+  },
 
   /// Set the bounds from the calibrated zero adc value of the pitch wheel, 0x00 to 0x7f
   SetPitchWheelZeroThreshold(u8),
@@ -123,7 +136,7 @@ pub enum Command {
   GetBoardThresholdValues(BoardIndex),
   /// Retrieve the sensitivity values of target board
   GetBoardSensitivityValues(BoardIndex),
-  
+
   /// Read back the current velocity look up table of the keyboard.
   GetVelocityConfig,
   /// Read back the velocity interval table
@@ -171,7 +184,12 @@ pub enum Command {
   EnableKeySampling(BoardIndex, bool),
 
   /// Set the MIDI channels for peripheral controllers
-  SetPeripheralChannels { pitch_wheel: MidiChannel, mod_wheel: MidiChannel, expression: MidiChannel, sustain: MidiChannel },
+  SetPeripheralChannels {
+    pitch_wheel: MidiChannel,
+    mod_wheel: MidiChannel,
+    expression: MidiChannel,
+    sustain: MidiChannel,
+  },
   /// Retrieve the MIDI channels for peripheral controllers
   GetPeripheralChannels,
 
@@ -275,21 +293,22 @@ impl Command {
     use Command::*;
     match self {
       Ping(value) => encode_ping(*value),
-      
-      SetKeyFunction { location, function } => 
-        encode_set_key_function(location, function),
 
-      SetKeyColor { location, color } => 
-        encode_set_key_color(location, color),
+      SetKeyFunction { location, function } => encode_set_key_function(location, function),
 
-      SaveProgram(preset_number) =>
-        create_single_arg_server_sysex(self.command_id(), (*preset_number).into()),
+      SetKeyColor { location, color } => encode_set_key_color(location, color),
 
-      SetExpressionPedalSensitivity(value) => 
-        create_single_arg_server_sysex(self.command_id(), *value),
+      SaveProgram(preset_number) => {
+        create_single_arg_server_sysex(self.command_id(), (*preset_number).into())
+      }
 
-      SetModWheelSensitivity(value) =>
-        create_single_arg_server_sysex(self.command_id(), clamp_u8(*value, 1, 0x7f)),
+      SetExpressionPedalSensitivity(value) => {
+        create_single_arg_server_sysex(self.command_id(), *value)
+      }
+
+      SetModWheelSensitivity(value) => {
+        create_single_arg_server_sysex(self.command_id(), clamp_u8(*value, 1, 0x7f))
+      }
 
       SetPitchWheelSensitivity(value) => {
         let val = clamp_u16(*value, 1, 0x3fff);
@@ -297,93 +316,108 @@ impl Command {
         let lo = (val & 0x7f) as u8;
 
         create_sysex(BoardIndex::Server, self.command_id(), vec![hi, lo])
-      },
+      }
 
-      InvertFootController(invert) => 
-        create_sysex_toggle(BoardIndex::Server, self.command_id(), *invert),
+      InvertFootController(invert) => {
+        create_sysex_toggle(BoardIndex::Server, self.command_id(), *invert)
+      }
 
-      InvertSustainPedal(invert) => 
-        create_sysex_toggle(BoardIndex::Server, self.command_id(), *invert),
+      InvertSustainPedal(invert) => {
+        create_sysex_toggle(BoardIndex::Server, self.command_id(), *invert)
+      }
 
-      SetAftertouchEnabled(enabled) =>
-        create_sysex_toggle(BoardIndex::Server, self.command_id(), *enabled),
+      SetAftertouchEnabled(enabled) => {
+        create_sysex_toggle(BoardIndex::Server, self.command_id(), *enabled)
+      }
 
-      EnableDemoMode(enabled) =>
-        create_sysex_toggle(BoardIndex::Server, self.command_id(), *enabled),
+      EnableDemoMode(enabled) => {
+        create_sysex_toggle(BoardIndex::Server, self.command_id(), *enabled)
+      }
 
-      EnablePitchModWheelCalibrationMode(enabled) =>
-        create_sysex_toggle(BoardIndex::Server, self.command_id(), *enabled),
+      EnablePitchModWheelCalibrationMode(enabled) => {
+        create_sysex_toggle(BoardIndex::Server, self.command_id(), *enabled)
+      }
 
-      SetMacroButtonActiveColor(color) => 
-        create_extended_macro_color_sysex(self.command_id(), color),
+      SetMacroButtonActiveColor(color) => {
+        create_extended_macro_color_sysex(self.command_id(), color)
+      }
 
-      SetMacroButtonInactiveColor(color) => 
-        create_extended_macro_color_sysex(self.command_id(), color),
+      SetMacroButtonInactiveColor(color) => {
+        create_extended_macro_color_sysex(self.command_id(), color)
+      }
 
-      SetLightOnKeystrokes(active) => 
-        create_sysex_toggle(BoardIndex::Server, self.command_id(), *active),
+      SetLightOnKeystrokes(active) => {
+        create_sysex_toggle(BoardIndex::Server, self.command_id(), *active)
+      }
 
-      SetVelocityConfig(table) => 
-        // the velocity config is in the reverse order (compared to how it's specified in keymap files)
-        // so we reverse it before sending
-        create_table_sysex(self.command_id(), &reverse_table(table)),
+      SetVelocityConfig(table) =>
+      // the velocity config is in the reverse order (compared to how it's specified in keymap files)
+      // so we reverse it before sending
+      {
+        create_table_sysex(self.command_id(), &reverse_table(table))
+      }
 
-      SetFaderConfig(table) =>
-        create_table_sysex(self.command_id(), table),
+      SetFaderConfig(table) => create_table_sysex(self.command_id(), table),
 
-      SetAftertouchConfig(table) =>
-        create_table_sysex(self.command_id(), table),
-      
-      SetLumatouchConfig(table) =>
-        create_table_sysex(self.command_id(), table),
-      
-      SetVelocityIntervals(table) =>
-        encode_set_velocity_interval_table(table),
+      SetAftertouchConfig(table) => create_table_sysex(self.command_id(), table),
 
-      SetKeyMaximumThreshold { board_index, max_threshold, aftertouch_max } =>
-        encode_set_key_thresholds(*board_index, self.command_id(), *max_threshold, *aftertouch_max),
-      
-      SetKeyMinimumThreshold { board_index, threshold_high, threshold_low } =>
-        encode_set_key_thresholds(*board_index, self.command_id(), *threshold_high, *threshold_low),
-      
-      SetKeyFaderSensitivity(board_index, value) =>
-        encode_set_key_sensitivity(*board_index, self.command_id(), *value),
-      
-      SetKeyAftertouchSensitivity(board_index, value) =>
-        encode_set_key_sensitivity(*board_index, self.command_id(), *value),
+      SetLumatouchConfig(table) => create_table_sysex(self.command_id(), table),
 
-      SetCCActiveThreshold(board_index, value) =>
-        encode_set_key_sensitivity(*board_index, self.command_id(), *value),
+      SetVelocityIntervals(table) => encode_set_velocity_interval_table(table),
 
-      ResetBoardThresholds(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()),
+      SetKeyMaximumThreshold {
+        board_index,
+        max_threshold,
+        aftertouch_max,
+      } => encode_set_key_thresholds(
+        *board_index,
+        self.command_id(),
+        *max_threshold,
+        *aftertouch_max,
+      ),
 
-      GetRedLEDConfig(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()),
+      SetKeyMinimumThreshold {
+        board_index,
+        threshold_high,
+        threshold_low,
+      } => encode_set_key_thresholds(
+        *board_index,
+        self.command_id(),
+        *threshold_high,
+        *threshold_low,
+      ),
 
-      GetGreenLEDConfig(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()),
- 
-      GetBlueLEDConfig(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()),
+      SetKeyFaderSensitivity(board_index, value) => {
+        encode_set_key_sensitivity(*board_index, self.command_id(), *value)
+      }
 
-      GetMidiChannelConfig(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()), 
-      GetNoteConfig(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()), 
-      GetKeyTypeConfig(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()), 
-      GetMaxFaderThreshold(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()), 
-      GetMinFaderThreshold(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()), 
-      GetMaxAftertouchThreshold(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()), 
-      GetKeyValidity(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()),       
-      GetFaderTypeConfig(board_index) =>
-        create_zero_arg_sysex(*board_index, self.command_id()),
-        
+      SetKeyAftertouchSensitivity(board_index, value) => {
+        encode_set_key_sensitivity(*board_index, self.command_id(), *value)
+      }
+
+      SetCCActiveThreshold(board_index, value) => {
+        encode_set_key_sensitivity(*board_index, self.command_id(), *value)
+      }
+
+      ResetBoardThresholds(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+
+      GetRedLEDConfig(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+
+      GetGreenLEDConfig(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+
+      GetBlueLEDConfig(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+
+      GetMidiChannelConfig(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+      GetNoteConfig(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+      GetKeyTypeConfig(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+      GetMaxFaderThreshold(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+      GetMinFaderThreshold(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+      GetMaxAftertouchThreshold(board_index) => {
+        create_zero_arg_sysex(*board_index, self.command_id())
+      }
+      GetKeyValidity(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+      GetFaderTypeConfig(board_index) => create_zero_arg_sysex(*board_index, self.command_id()),
+
       GetVelocityConfig => create_zero_arg_server_sysex(self.command_id()),
       GetVelocityIntervalConfig => create_zero_arg_server_sysex(self.command_id()),
       GetFaderConfig => create_zero_arg_server_sysex(self.command_id()),
@@ -393,68 +427,91 @@ impl Command {
       GetFirmwareRevision => create_zero_arg_server_sysex(self.command_id()),
       StartAftertouchCalibration => create_zero_arg_server_sysex(self.command_id()),
       StartKeyCalibration => create_zero_arg_server_sysex(self.command_id()),
-      
+
       SaveVelocityConfig => create_zero_arg_server_sysex(self.command_id()),
-      ResetVelocityConfig => create_zero_arg_server_sysex(self.command_id()),      
+      ResetVelocityConfig => create_zero_arg_server_sysex(self.command_id()),
       SaveFaderConfig => create_zero_arg_server_sysex(self.command_id()),
       ResetFaderConfig => create_zero_arg_server_sysex(self.command_id()),
       SaveAftertouchConfig => create_zero_arg_server_sysex(self.command_id()),
-      ResetAftertouchConfig => create_zero_arg_server_sysex(self.command_id()),      
+      ResetAftertouchConfig => create_zero_arg_server_sysex(self.command_id()),
       SaveLumatouchConfig => create_zero_arg_server_sysex(self.command_id()),
       ResetLumatouchConfig => create_zero_arg_server_sysex(self.command_id()),
       ResetWheelThresholds => create_zero_arg_server_sysex(self.command_id()),
       ResetExpressionPedalBounds => create_zero_arg_server_sysex(self.command_id()),
-      
-      EnableKeySampling(board_index, enable) =>
-        create_sysex_toggle(*board_index, self.command_id(), *enable),
 
-      EnableExpressionPedalCalibrationMode(enable) => 
-        create_sysex_toggle(BoardIndex::Server, self.command_id(), *enable),
+      EnableKeySampling(board_index, enable) => {
+        create_sysex_toggle(*board_index, self.command_id(), *enable)
+      }
 
-      SetPitchWheelZeroThreshold(value) => 
-        create_single_arg_server_sysex(self.command_id(), value & 0x7f),
+      EnableExpressionPedalCalibrationMode(enable) => {
+        create_sysex_toggle(BoardIndex::Server, self.command_id(), *enable)
+      }
 
-      GetBoardThresholdValues(board_index) => 
-        create_zero_arg_sysex(*board_index, self.command_id()),
+      SetPitchWheelZeroThreshold(value) => {
+        create_single_arg_server_sysex(self.command_id(), value & 0x7f)
+      }
 
-      GetBoardSensitivityValues(board_index) => 
-        create_zero_arg_sysex(*board_index, self.command_id()),
-      
+      GetBoardThresholdValues(board_index) => {
+        create_zero_arg_sysex(*board_index, self.command_id())
+      }
 
-      SetPeripheralChannels { pitch_wheel, mod_wheel, expression, sustain } => 
-        create_sysex(BoardIndex::Server, self.command_id(), vec![
+      GetBoardSensitivityValues(board_index) => {
+        create_zero_arg_sysex(*board_index, self.command_id())
+      }
+
+      SetPeripheralChannels {
+        pitch_wheel,
+        mod_wheel,
+        expression,
+        sustain,
+      } => create_sysex(
+        BoardIndex::Server,
+        self.command_id(),
+        vec![
           (*pitch_wheel).into(),
           (*mod_wheel).into(),
           (*expression).into(),
           (*sustain).into(),
-        ]),
+        ],
+      ),
 
       GetPeripheralChannels => create_zero_arg_server_sysex(self.command_id()),
 
-      SetAftertouchTriggerDelay(board_index, value) => 
-        create_sysex(*board_index, self.command_id(), vec![value >> 4, value & 0xf]),
+      SetAftertouchTriggerDelay(board_index, value) => create_sysex(
+        *board_index,
+        self.command_id(),
+        vec![value >> 4, value & 0xf],
+      ),
 
-      GetAftertouchTriggerDelay(board_index) => 
-        create_zero_arg_sysex(*board_index, self.command_id()),
-     
-      SetLumatouchNoteOffDelay(board_index, value) => 
-        create_sysex(*board_index, self.command_id(), vec![
+      GetAftertouchTriggerDelay(board_index) => {
+        create_zero_arg_sysex(*board_index, self.command_id())
+      }
+
+      SetLumatouchNoteOffDelay(board_index, value) => create_sysex(
+        *board_index,
+        self.command_id(),
+        vec![
           ((value >> 8) & 0xf) as u8,
           ((value >> 4) & 0xf) as u8,
           (value & 0xf) as u8,
-        ]),
-      
-      GetLumatouchNoteOffDelay(board_index) => 
-        create_zero_arg_sysex(*board_index, self.command_id()),
-      
-      SetExpressionPedalADCThreshold(value) =>
-        create_sysex(BoardIndex::Server, self.command_id(), vec![
+        ],
+      ),
+
+      GetLumatouchNoteOffDelay(board_index) => {
+        create_zero_arg_sysex(*board_index, self.command_id())
+      }
+
+      SetExpressionPedalADCThreshold(value) => create_sysex(
+        BoardIndex::Server,
+        self.command_id(),
+        vec![
           ((value >> 8) & 0xf) as u8,
           ((value >> 4) & 0xf) as u8,
           (value & 0xf) as u8,
-        ]),
-      
-      GetExpressionPedalADCThreshold => create_zero_arg_server_sysex(self.command_id())
+        ],
+      ),
+
+      GetExpressionPedalADCThreshold => create_zero_arg_server_sysex(self.command_id()),
     }
   }
 }
@@ -527,24 +584,21 @@ fn encode_set_velocity_interval_table(table: &VelocityIntervalTable) -> EncodedS
   create_sysex(BoardIndex::Server, CommandId::SetVelocityIntervals, bytes)
 }
 
-fn encode_set_key_thresholds(board_index: BoardIndex, cmd: CommandId, t1: u8, t2: u8) -> EncodedSysex {
+fn encode_set_key_thresholds(
+  board_index: BoardIndex,
+  cmd: CommandId,
+  t1: u8,
+  t2: u8,
+) -> EncodedSysex {
   let t1 = t1 & 0xfe;
   let t2 = t2 & 0xfe;
-  let data = vec![
-    t1 >> 4,
-    t1 & 0xf,
-    t2 >> 4,
-    t2 & 0xf,
-  ];
+  let data = vec![t1 >> 4, t1 & 0xf, t2 >> 4, t2 & 0xf];
   create_sysex(board_index, cmd, data)
 }
 
 fn encode_set_key_sensitivity(board_index: BoardIndex, cmd: CommandId, value: u8) -> EncodedSysex {
   let value = value & 0xfe;
-  let data = vec![
-    value >> 4,
-    value & 0xf,
-  ];
+  let data = vec![value >> 4, value & 0xf];
   create_sysex(board_index, cmd, data)
 }
 
@@ -586,7 +640,6 @@ pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
 }
 
 // endregion
-
 
 // region: helpers
 
