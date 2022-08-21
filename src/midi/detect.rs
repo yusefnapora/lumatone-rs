@@ -3,7 +3,8 @@ use tokio::sync::mpsc;
 use tokio::time::timeout;
 
 use super::{
-  commands::{decode_ping, ping},
+  commands::ping,
+  responses::decode_ping,
   device::LumatoneDevice,
   error::LumatoneMidiError,
 };

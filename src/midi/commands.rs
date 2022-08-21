@@ -4,7 +4,7 @@ use std::fmt::Debug;
 
 use crate::midi::sysex::{
   create_single_arg_server_sysex, create_table_sysex, create_zero_arg_server_sysex,
-  create_zero_arg_sysex, message_command_id, reverse_table,
+  create_zero_arg_sysex, reverse_table,
 };
 
 use super::{
@@ -12,10 +12,9 @@ use super::{
     BoardIndex, CommandId, LumatoneKeyFunction, LumatoneKeyLocation, MidiChannel, PresetNumber,
     RGBColor, TEST_ECHO,
   },
-  error::LumatoneMidiError,
   sysex::{
     create_extended_key_color_sysex, create_extended_macro_color_sysex, create_sysex,
-    create_sysex_toggle, is_lumatone_message, message_payload, EncodedSysex, SysexTable,
+    create_sysex_toggle, EncodedSysex, SysexTable,
     VelocityIntervalTable,
   },
 };
@@ -468,10 +467,10 @@ impl Command {
         BoardIndex::Server,
         self.command_id(),
         vec![
-          (*pitch_wheel).into(),
-          (*mod_wheel).into(),
-          (*expression).into(),
-          (*sustain).into(),
+          pitch_wheel.get_as_zero_indexed(),
+          mod_wheel.get_as_zero_indexed(),
+          expression.get_as_zero_indexed(),
+          sustain.get_as_zero_indexed(),
         ],
       ),
 

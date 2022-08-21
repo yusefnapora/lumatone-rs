@@ -1,3 +1,4 @@
+#![allow(unused)]
 use super::{
   constants::{BoardIndex, CommandId, MidiChannel, TEST_ECHO},
   error::LumatoneMidiError,
@@ -78,6 +79,13 @@ pub enum Response {
     cc: u8,
   },
 
+  /// The continuous controller and aftertouch sensitivity values for a given board
+  BoardSensitivity {
+    board_index: BoardIndex,
+    cc: u8,
+    aftertouch: u8,
+  },
+
   /// The MIDI channel numbers for all peripherals
   PeripheralChannels {
     pitch_wheel: MidiChannel,
@@ -88,22 +96,22 @@ pub enum Response {
 
   /// 12-bit expression pedal calibration status values, automatically sent every 100ms when in expression calibration mode
   ExpressionCalibrationStatus {
-    min_bound: u8,
-    max_bound: u8,
+    min_bound: u16,
+    max_bound: u16,
     valid: bool,
   },
 
-  /// 12-bit pitch & mod wheel calibration status values, automatically sent every 100ms when in pitch/mod calibration
-  PitchModCalibrationStatus {
-    center_pitch: u8,
-    min_pitch: u8,
-    max_pitch: u8,
-    min_mod: u8,
-    max_mod: u8,
+  /// 12-bit pitch & mod wheel calibration status values, automatically sent every 100ms when in pitch/mod calibration mode
+  WheelCalibrationStatus {
+    center_pitch: u16,
+    min_pitch: u16,
+    max_pitch: u16,
+    min_mod: u16,
+    max_mod: u16,
   },
 
   /// Aftertouch trigger delay value for a given board
-  AftertouchTriggerDelayResponse(BoardIndex, u8),
+  AftertouchTriggerDelay(BoardIndex, u8),
 
   /// 12-bit Lumatouch note off delay of a certain board
   LumatouchNoteOffDelay(BoardIndex, u16),
@@ -127,7 +135,7 @@ impl Response {
 
       GetBlueLedConfig => unpack_octave_data_8bit(msg).map(|(b, d)| Response::BlueLEDConfig(b, d)),
 
-      GetChannelConfig => unpack_channel_config_response(msg),
+      GetChannelConfig => unpack_channel_config(msg),
 
       GetNoteConfig => unpack_octave_data_7bit(msg).map(|(b, d)| Response::NoteConfig(b, d)),
 
@@ -139,7 +147,7 @@ impl Response {
 
       GetAftertouchMax => unpack_octave_data_8bit(msg).map(|(b, d)| Response::AftertouchMaxThresholds(b, d)),
 
-      GetKeyValidity => unpack_key_validity_response(msg),
+      GetKeyValidity => unpack_key_validity(msg),
 
       GetVelocityConfig => unpack_sysex_config_table(msg).map( Response::OnOffVelocityConfig),
 
@@ -149,28 +157,28 @@ impl Response {
 
       GetLumatouchConfig => unpack_sysex_config_table(msg).map(Response::LumatouchConfig),
 
-      GetVelocityIntervals => todo!(),
+      GetVelocityIntervals => unpack_velocity_intervals(msg),
 
-      GetSerialIdentity => todo!(),
+      GetSerialIdentity => unpack_serial_id(msg),
 
-      GetFirmwareRevision => todo!(),
+      GetFirmwareRevision => unpack_firmware_revision(msg),
 
-      GetBoardThresholdValues => todo!(),
+      GetBoardThresholdValues => unpack_board_thresholds(msg),
 
-      GetBoardSensitivityValues => todo!(),
+      GetBoardSensitivityValues => unpack_board_sensitivity(msg),
 
-      GetPeripheralChannels => todo!(),
+      GetPeripheralChannels => unpack_peripheral_channels(msg),
 
-      CalibrateExpressionPedal => todo!(),
+      CalibrateExpressionPedal => unpack_expression_calibration_status(msg),
 
-      CalibratePitchModWheel => todo!(),
+      CalibratePitchModWheel => unpack_wheel_calibration_status(msg),
 
-      GetAftertouchTriggerDelay => todo!(),
+      GetAftertouchTriggerDelay => unpack_aftertouch_trigger_delay(msg),
 
-      GetLumatouchNoteOffDelay => todo!(),
+      GetLumatouchNoteOffDelay => unpack_lumatouch_on_off_delay(msg), 
 
-      GetExpressionPedalThreshold => todo!(),
-      
+      GetExpressionPedalThreshold => unpack_expression_threshold(msg),
+
       _ => Err(LumatoneMidiError::UnsupportedCommandId(
         cmd_id,
         "no response decoder".to_string(),
@@ -228,35 +236,47 @@ pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
 // endregion
 
 // region: data unpacking helper fns
+fn valid_lumatone_msg<'a>(msg: &'a [u8]) -> Result<&'a [u8], LumatoneMidiError> {
+  let msg = strip_sysex_markers(msg);
+  if !is_lumatone_message(msg) {
+    Err(LumatoneMidiError::NotLumatoneMessage(msg.to_vec()))
+  } else {
+    Ok(msg)
+  }
+}
+
+fn payload_with_len<'a>(msg: &'a [u8], len: usize) -> Result<&'a [u8], LumatoneMidiError> {
+  let msg = valid_lumatone_msg(msg)?;
+
+  let payload = message_payload(msg)?;
+  if payload.len() < len {
+    return Err(LumatoneMidiError::MessagePayloadTooShort { expected: len, actual: payload.len() });
+  }
+  return Ok(&payload[0..len])
+}
 
 fn unpack_sysex_config_table(msg: &[u8]) -> Result<Box<SysexTable>, LumatoneMidiError> {
-  let payload = message_payload(msg)?;
-  if payload.len() < 128 {
-    return Err(LumatoneMidiError::MessagePayloadTooShort { expected: 128, actual: payload.len() });
-  }
-
-  let mut table = [0; 128];
-  for (i, n) in payload.iter().enumerate() {
-    table[i] = *n;
-  }
+  let payload = payload_with_len(msg, 128)?;
+  let table: SysexTable = payload.try_into().unwrap();
   Ok(Box::new(table))
 }
 
 fn unpack_octave_data_8bit(msg: &[u8]) -> Result<(BoardIndex, Vec<u8>), LumatoneMidiError> {
-  let msg = strip_sysex_markers(msg);
+  let msg = valid_lumatone_msg(msg)?;
   let board_index = message_board_index(msg)?;
   let payload = message_payload(msg)?;
   Ok((board_index, unpack_8bit(payload)))
 }
 
 fn unpack_octave_data_7bit(msg: &[u8]) -> Result<(BoardIndex, Vec<u8>), LumatoneMidiError> {
-  let msg = strip_sysex_markers(msg);
+  let msg = valid_lumatone_msg(msg)?;
   let board_index = message_board_index(msg)?;
   let payload = message_payload(msg)?;
   Ok((board_index, payload.to_vec()))
 }
 
-fn unpack_channel_config_response(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+fn unpack_channel_config(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let msg = valid_lumatone_msg(msg)?;
   let board_index = message_board_index(msg)?;
   let payload = message_payload(msg)?;
   let mut channels = Vec::with_capacity(payload.len());
@@ -268,11 +288,109 @@ fn unpack_channel_config_response(msg: &[u8]) -> Result<Response, LumatoneMidiEr
   Ok(response)
 }
 
-fn unpack_key_validity_response(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+fn unpack_key_validity(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let msg = valid_lumatone_msg(msg)?;
   let board_index = message_board_index(msg)?;
   let payload = message_payload(msg)?;
   let bools = payload.iter().map(|n| *n != 0).collect();
   Ok(Response::KeyValidity(board_index, bools))
+}
+
+fn unpack_velocity_intervals(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 254)?;
+  let data = unpack_12bit_from_7bit(payload);
+  let table: VelocityIntervalTable = data.try_into().unwrap();
+  Ok(Response::VelocityIntervalConfig(Box::new(table)))
+}
+
+fn unpack_serial_id(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  // TODO: the C++ driver has a check for msg[MSG_STATUS] == TEST_ECHO
+  // add that if it seems necessary.
+
+  // Also note that we're not handling early firmware versions that respond with an ACK but no serial number.
+
+  let payload = payload_with_len(msg, 6)?;
+  let serial: [u8; 6] = payload.try_into().unwrap();
+  Ok(Response::SerialId(serial))
+}
+
+fn unpack_firmware_revision(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 3)?;
+  Ok(Response::FirmwareRevision { major: payload[0], minor: payload[1], revision: payload[2] })
+}
+
+fn unpack_board_thresholds(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 10)?;
+  let (board_index, data) = unpack_octave_data_8bit(payload)?;
+  Ok(Response::BoardThresholds { board_index, min_high: data[0], min_low: data[1], max: data[2], aftertouch: data[3], cc: data[4] })
+}
+
+fn unpack_board_sensitivity(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 4)?;
+  let (board_index, data) = unpack_octave_data_8bit(msg)?;
+  Ok(Response::BoardSensitivity { board_index, cc: data[0], aftertouch: data[1] })
+}
+
+fn unpack_peripheral_channels(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 4)?;
+  let (board_index, data) = unpack_octave_data_7bit(msg)?;
+
+  let pitch_wheel = MidiChannel::try_from_zero_indexed(data[0])?;
+  let mod_wheel = MidiChannel::try_from_zero_indexed(data[1])?;
+  let expression = MidiChannel::try_from_zero_indexed(data[2])?;
+  let sustain = MidiChannel::try_from_zero_indexed(data[3])?;
+
+  Ok(Response::PeripheralChannels { pitch_wheel, mod_wheel, expression, sustain })
+}
+
+fn unpack_expression_calibration_status(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 15)?;
+
+  // the min and max bounds are encoded into the first six bytes of the payload
+  let bounds_data = unpack_12bit_from_4bit(payload);
+  let min_bound = bounds_data[0];
+  let max_bound = bounds_data[1];
+
+  // The C++ version looks incorrect to me... they have:
+  // ```
+  // valid = response.getSysExData()[PAYLOAD_INIT + 3];
+  // ```
+  // but the max bound is at [PAYLOAD_INIT + 3], since each 12bit value takes 3 bytes.
+  // I'm going to assume this is supposed to be PAYLOAD_INIT + 6
+  let valid = payload[6] != 0;
+  Ok(Response::ExpressionCalibrationStatus { min_bound, max_bound, valid })
+}
+
+fn unpack_wheel_calibration_status(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 15)?;
+  let data = unpack_12bit_from_4bit(payload);
+  let center_pitch = data[0];
+  let min_pitch = data[1];
+  let max_pitch = data[2];
+  let min_mod = data[3];
+  let max_mod = data[4];
+  Ok(Response::WheelCalibrationStatus { center_pitch, min_pitch, max_pitch, min_mod, max_mod })
+}
+
+fn unpack_aftertouch_trigger_delay(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 2)?;
+  let (board_index, data) = unpack_octave_data_8bit(payload)?;
+  Ok(Response::AftertouchTriggerDelay(board_index, data[0]))
+}
+
+fn unpack_lumatouch_on_off_delay(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 3)?;
+  let board_index = message_board_index(msg)?;
+  let data = unpack_12bit_from_4bit(payload);
+  let delay = data[0];
+  Ok(Response::LumatouchNoteOffDelay(board_index, delay))
+}
+
+fn unpack_expression_threshold(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
+  let payload = payload_with_len(msg, 3)?;
+  let data = unpack_12bit_from_4bit(payload);
+  let threshold = data[0];
+  Ok(Response::ExpressionPedalThreshold(threshold))
 }
 
 /// Generic unpacking of 8-bit data from a SysEx message payload

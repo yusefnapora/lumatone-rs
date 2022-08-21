@@ -4,7 +4,7 @@ use bounded_integer::bounded_integer;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use super::{driver::MidiDriver, error::LumatoneMidiError};
+use super::error::LumatoneMidiError;
 
 pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 
@@ -82,6 +82,14 @@ bounded_integer! {
 impl MidiChannel {
   pub fn unchecked(val: u8) -> Self {
     Self::new(val).expect(format!("invalid midi channel number: {val}").as_str())
+  }
+
+  pub fn try_from_zero_indexed(val: u8) -> Result<Self, LumatoneMidiError> {
+    Self::try_from(val + 1)
+  }
+
+  pub fn get_as_zero_indexed(&self) -> u8 {
+    self.get() - 1
   }
 }
 

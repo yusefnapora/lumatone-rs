@@ -15,6 +15,7 @@ pub enum LumatoneMidiError {
     expected: usize,
     actual: usize,
   },
+  MessagePayloadInvalid(String),
   UnknownCommandId(u8),
   UnexpectedCommandId {
     expected: CommandId,
@@ -86,6 +87,8 @@ impl Display for LumatoneMidiError {
         f,
         "expected message payload to have length of {expected}, but received {actual}"
       ),
+
+      MessagePayloadInvalid(msg) => write!(f, "invalid message payload: {msg}"),
 
       UnknownCommandId(id) => write!(f, "unknown command id {:x}", id),
 
