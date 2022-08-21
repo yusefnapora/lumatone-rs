@@ -1,7 +1,8 @@
 use super::constants::CommandId;
 
-use midir::{ConnectError, InitError, MidiInput, MidiOutput, PortInfoError, SendError};
+use error_stack::Context;
 use std::fmt::Display;
+
 
 #[derive(Debug)]
 pub enum LumatoneMidiError {
@@ -24,50 +25,18 @@ pub enum LumatoneMidiError {
   UnsupportedCommandId(CommandId, String),
   InvalidResponseMessage(String),
 
-  MidiPortNotFound(String),
-  MidiPortInfoError(PortInfoError),
-  MidiInitError(InitError),
-  MidiSendError(SendError),
-  MidiInputConnectError(ConnectError<MidiInput>),
-  MidiOutputConnectError(ConnectError<MidiOutput>),
-
   InvalidStateTransition(String),
-  DeviceDetectionFailed(String),
+  DeviceDetectionFailed,
+  DeviceConnectionError,
+  DeviceSendError,
+
   InvalidBoardIndex(u8),
   InvalidMidiChannel(u8),
   InvalidLumatoneKeyIndex(u8),
   InvalidPresetIndex(u8),
 }
 
-impl From<InitError> for LumatoneMidiError {
-  fn from(e: InitError) -> Self {
-    LumatoneMidiError::MidiInitError(e)
-  }
-}
-
-impl From<SendError> for LumatoneMidiError {
-  fn from(e: SendError) -> Self {
-    LumatoneMidiError::MidiSendError(e)
-  }
-}
-
-impl From<PortInfoError> for LumatoneMidiError {
-  fn from(e: PortInfoError) -> Self {
-    LumatoneMidiError::MidiPortInfoError(e)
-  }
-}
-
-impl From<ConnectError<MidiInput>> for LumatoneMidiError {
-  fn from(e: ConnectError<MidiInput>) -> Self {
-    LumatoneMidiError::MidiInputConnectError(e)
-  }
-}
-
-impl From<ConnectError<MidiOutput>> for LumatoneMidiError {
-  fn from(e: ConnectError<MidiOutput>) -> Self {
-    LumatoneMidiError::MidiOutputConnectError(e)
-  }
-}
+impl Context for LumatoneMidiError { }
 
 impl Display for LumatoneMidiError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -100,21 +69,13 @@ impl Display for LumatoneMidiError {
 
       InvalidResponseMessage(msg) => write!(f, "received invalid response: {msg}"),
 
-      MidiPortNotFound(name) => write!(f, "unable to find midi port with name: {name}"),
-
-      MidiPortInfoError(err) => write!(f, "error getting midi port info: {err}"),
-
-      MidiInitError(err) => write!(f, "midi init error: {err}"),
-
-      MidiSendError(err) => write!(f, "midi send error: {err}"),
-
-      MidiInputConnectError(err) => write!(f, "midi input connection error: {err}"),
-
-      MidiOutputConnectError(err) => write!(f, "midi output connection error: {err}"),
-
       InvalidStateTransition(msg) => write!(f, "invalid state transition: {msg}"),
 
-      DeviceDetectionFailed(msg) => write!(f, "device detection failed: {msg}"),
+      DeviceDetectionFailed => write!(f, "device detection failed"),
+
+      DeviceConnectionError => write!(f, "failed to connect to device"),
+
+      DeviceSendError => write!(f, "failed to send message to device"),
 
       InvalidBoardIndex(n) => write!(f, "invalid board index: {n}"),
 

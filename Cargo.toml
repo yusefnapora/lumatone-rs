@@ -16,6 +16,7 @@ num-derive = "0.3"
 log = "0.4.0"
 env_logger = "0.8.4"
 rust-ini = "0.18.0"
+error-stack = "0.1.1"
 bounded-integer = { version = "0.5.2", features = ["std", "macro"] }
 # UI deps... maybe move this to a separate crate?
 # dioxus = { version = "0.2.4", features = ["desktop", "ayatana", "web", "liveview", "fermi", "router"] }

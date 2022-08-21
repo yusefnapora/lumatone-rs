@@ -5,6 +5,7 @@ use midir::{MidiIO, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnec
 use tokio::sync::mpsc;
 
 use super::{error::LumatoneMidiError, sysex::EncodedSysex};
+use error_stack::{Result, IntoReport, ResultExt, report};
 
 /// Identifies the MIDI input and output ports that the Lumatone is connected to.
 /// A LumatoneDevice can be used to initiate a connection to the device using [`Self::connect`].
@@ -25,12 +26,14 @@ impl LumatoneDevice {
   /// Connects to the MIDI ports for this LumatoneDevice.
   /// Returns a [`LumatoneIO`] on success.
   pub fn connect(&self) -> Result<LumatoneIO, LumatoneMidiError> {
-    let client_name = "lumatone-rs";
-    let input = MidiInput::new(client_name)?;
-    let output = MidiOutput::new(client_name)?;
+    use LumatoneMidiError::DeviceConnectionError;
 
-    let in_port = get_port_by_name(&input, &self.in_port_name)?;
-    let out_port = get_port_by_name(&output, &self.out_port_name)?;
+    let client_name = "lumatone-rs";
+    let input = MidiInput::new(client_name).report().change_context(DeviceConnectionError)?;
+    let output = MidiOutput::new(client_name).report().change_context(DeviceConnectionError)?;
+
+    let in_port = get_port_by_name(&input, &self.in_port_name).change_context(DeviceConnectionError)?;
+    let out_port = get_port_by_name(&output, &self.out_port_name).change_context(DeviceConnectionError)?;
 
     let buf_size = 32;
     let (incoming_tx, incoming_messages) = mpsc::channel(buf_size);
@@ -45,9 +48,17 @@ impl LumatoneDevice {
         }
       },
       (),
-    )?;
+    ).map_err(|e|
+        // The ConnectError<MidiInput> type is not thread-safe, so we stringify instead of report()-ing directly
+        report!(DeviceConnectionError)
+          .attach_printable(format!("midi input connection error: {e}"))
+      )?;
 
-    let output_conn = output.connect(&out_port, &self.out_port_name)?;
+    let output_conn = output.connect(&out_port, &self.out_port_name).map_err(|e|
+        // The ConnectError<MidiOutput> type is not thread-safe, so we stringify instead of report()-ing directly
+        report!(DeviceConnectionError)
+          .attach_printable(format!("midi input connection error: {e}"))
+      )?;
 
     let io = LumatoneIO {
       input_conn,
@@ -71,7 +82,8 @@ pub struct LumatoneIO {
 impl LumatoneIO {
   /// Sends an encoded sysex message to the Lumatone.
   pub fn send(&mut self, msg: &[u8]) -> Result<(), LumatoneMidiError> {
-    self.output_conn.send(msg).map_err(|e| e.into())
+    self.output_conn.send(msg).report()
+      .change_context(LumatoneMidiError::DeviceSendError)
   }
 
   /// Closes MIDI connections and consumes `self`, making this LumatoneIO unusable.
@@ -84,10 +96,12 @@ impl LumatoneIO {
 
 fn get_port_by_name<IO: MidiIO>(io: &IO, name: &str) -> Result<IO::Port, LumatoneMidiError> {
   for p in io.ports() {
-    let port_name = io.port_name(&p)?;
+    let port_name = io.port_name(&p)
+      .map_err(|e| report!(LumatoneMidiError::DeviceConnectionError)
+      .attach_printable(format!("unable to get port with name '{name}': {e}")))?;
     if port_name == name {
       return Ok(p);
     }
   }
-  Err(LumatoneMidiError::MidiPortNotFound(name.to_string()))
+  Err(report!(LumatoneMidiError::DeviceConnectionError).attach_printable(format!("unable to get port with name: {name}")))
 }
