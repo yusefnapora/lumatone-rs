@@ -41,6 +41,15 @@ pub fn create_sysex(board_index: BoardIndex, cmd: CommandId, data: Vec<u8>) -> E
   sysex.push(board_index.into());
   sysex.push(cmd.into());
   sysex.extend(data.iter());
+
+  // The C++ driver seems to always send a minimum of 9 bytes, not counting the SYSEX_START marker
+  // So we add a little padding if we're sending less than 9 bytes.
+  if sysex.len() < 10 {
+    let pad = 10 - sysex.len();
+    for _ in 0..pad {
+      sysex.push(0);
+    }
+  }
   sysex.push(SYSEX_END);
   sysex
 }

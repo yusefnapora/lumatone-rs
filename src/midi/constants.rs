@@ -4,6 +4,8 @@ use bounded_integer::bounded_integer;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
+use super::{driver::MidiDriver, error::LumatoneMidiError};
+
 pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 
 pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI
@@ -83,6 +85,13 @@ impl MidiChannel {
   }
 }
 
+impl TryFrom<u8> for MidiChannel {
+  type Error = LumatoneMidiError;
+  fn try_from(value: u8) -> Result<Self, Self::Error> {
+    Self::new(value).ok_or(LumatoneMidiError::InvalidMidiChannel(value))
+  }
+}
+
 impl Default for MidiChannel {
   fn default() -> Self {
     MidiChannel::MIN
@@ -120,6 +129,14 @@ pub enum BoardIndex {
 impl Into<u8> for BoardIndex {
   fn into(self) -> u8 {
     self as u8
+  }
+}
+
+impl TryFrom<u8> for BoardIndex {
+  type Error = LumatoneMidiError;
+
+  fn try_from(value: u8) -> Result<Self, Self::Error> {
+    FromPrimitive::from_u8(value).ok_or(LumatoneMidiError::InvalidBoardIndex(value))
   }
 }
 
@@ -346,7 +363,7 @@ pub enum CommandId {
   // Firmware Version 1.0.11
   ResetWheelsThreshold = 0x36,
   SetPitchWheelCenterThreshold = 0x37,
-  CallibrateExpressionPedal = 0x38,
+  CalibrateExpressionPedal = 0x38,
   ResetExpressionPedalBounds = 0x39,
 
   // Firmware Version 1.0.12

@@ -18,12 +18,12 @@ pub struct ConfigurationTables {
 
 impl Default for ConfigurationTables {
   fn default() -> Self {
-    ConfigurationTables { 
+    ConfigurationTables {
       on_off_velocity: ConfigTableDefinition::new(DEFAULT_ON_OFF_VELOCITY_TABLE),
       fader_velocity: ConfigTableDefinition::new(DEFAULT_FADER_VELOCITY_TABLE),
       aftertouch_velocity: ConfigTableDefinition::new(DEFAULT_AFTERTOUCH_VELOCITY_TABLE),
       lumatouch_velocity: ConfigTableDefinition::new(DEFAULT_LUMATOUCH_VELOCITY_TABLE),
-      velocity_intervals: DEFAULT_VELOCITY_INTERVAL_TABLE, 
+      velocity_intervals: DEFAULT_VELOCITY_INTERVAL_TABLE,
     }
   }
 }
@@ -35,11 +35,17 @@ pub struct ConfigTableDefinition {
 
 impl ConfigTableDefinition {
   pub fn new(table: SysexTable) -> Self {
-    ConfigTableDefinition { table, edit_strategy: EditingStrategy::FreeDrawing }
+    ConfigTableDefinition {
+      table,
+      edit_strategy: EditingStrategy::FreeDrawing,
+    }
   }
 
   pub fn new_with_edit_strategy(table: SysexTable, edit_strategy: EditingStrategy) -> Self {
-    ConfigTableDefinition { table: table, edit_strategy: edit_strategy }
+    ConfigTableDefinition {
+      table: table,
+      edit_strategy: edit_strategy,
+    }
   }
 
   pub fn to_string(&self) -> String {
@@ -96,19 +102,22 @@ impl ConfigTableDefinition {
   }
 }
 
-
 pub fn parse_velocity_intervals(s: &str) -> Result<VelocityIntervalTable, LumatoneKeymapError> {
   use LumatoneKeymapError::InvalidTableDefinition;
   let tokens: Vec<&str> = s.split(char::is_whitespace).collect();
 
   if tokens.len() < 127 {
-    return Err(InvalidTableDefinition(format!("velocity interval table is 127 elements long, but string has {}", tokens.len())));
+    return Err(InvalidTableDefinition(format!(
+      "velocity interval table is 127 elements long, but string has {}",
+      tokens.len()
+    )));
   }
 
   let mut table: VelocityIntervalTable = [0; 127];
   for (i, s) in tokens.iter().enumerate() {
-    let val = u16::from_str_radix(s, 10)
-      .map_err(|e| InvalidTableDefinition(format!("unable to parse in in table definition: {e}")))?;
+    let val = u16::from_str_radix(s, 10).map_err(|e| {
+      InvalidTableDefinition(format!("unable to parse in in table definition: {e}"))
+    })?;
     table[i] = val;
   }
   Ok(table)

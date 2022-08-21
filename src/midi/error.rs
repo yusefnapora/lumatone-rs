@@ -20,6 +20,7 @@ pub enum LumatoneMidiError {
     expected: CommandId,
     actual: CommandId,
   },
+  UnsupportedCommandId(CommandId, String),
   InvalidResponseMessage(String),
 
   MidiPortNotFound(String),
@@ -30,8 +31,11 @@ pub enum LumatoneMidiError {
   MidiOutputConnectError(ConnectError<MidiOutput>),
 
   InvalidStateTransition(String),
-
   DeviceDetectionFailed(String),
+  InvalidBoardIndex(u8),
+  InvalidMidiChannel(u8),
+  InvalidLumatoneKeyIndex(u8),
+  InvalidPresetIndex(u8),
 }
 
 impl From<InitError> for LumatoneMidiError {
@@ -108,6 +112,20 @@ impl Display for LumatoneMidiError {
       InvalidStateTransition(msg) => write!(f, "invalid state transition: {msg}"),
 
       DeviceDetectionFailed(msg) => write!(f, "device detection failed: {msg}"),
+
+      InvalidBoardIndex(n) => write!(f, "invalid board index: {n}"),
+
+      UnsupportedCommandId(cmd_id, context) => {
+        write!(f, "unsupported command id: {cmd_id:?}: {context}")
+      }
+
+      InvalidMidiChannel(n) => write!(f, "invalid midi channel {n}. Valid range is 1 ..= 16"),
+
+      InvalidLumatoneKeyIndex(n) => {
+        write!(f, "invalid lumatone key index {n}. Valid range is 0 ..= 55")
+      }
+
+      InvalidPresetIndex(n) => write!(f, "invalid preset index {n}. Valid range is 0 ..= 9"),
     }
   }
 }

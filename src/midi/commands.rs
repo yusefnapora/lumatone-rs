@@ -272,7 +272,7 @@ impl Command {
 
       EnableKeySampling(..) => CommandId::SetKeySampling,
 
-      EnableExpressionPedalCalibrationMode(_) => CommandId::CallibrateExpressionPedal,
+      EnableExpressionPedalCalibrationMode(_) => CommandId::CalibrateExpressionPedal,
       SetPitchWheelZeroThreshold(_) => CommandId::SetPitchWheelCenterThreshold,
       GetBoardThresholdValues(_) => CommandId::GetBoardThresholdValues,
       GetBoardSensitivityValues(_) => CommandId::GetBoardSensitivityValues,
@@ -604,42 +604,7 @@ fn encode_set_key_sensitivity(board_index: BoardIndex, cmd: CommandId, value: u8
 
 // endregion
 
-// region: Sysex Decoders
 
-/// Attempts to decode a sysex message as a "ping" response,
-/// returning the encoded payload value on success.
-pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
-  if !is_lumatone_message(msg) {
-    return Err(LumatoneMidiError::NotLumatoneMessage(msg.to_vec()));
-  }
-
-  let cmd_id = message_command_id(msg)?;
-  if cmd_id != CommandId::LumaPing {
-    return Err(LumatoneMidiError::UnexpectedCommandId {
-      expected: CommandId::LumaPing,
-      actual: cmd_id,
-    });
-  }
-
-  let payload = message_payload(msg)?;
-  if payload.len() < 4 {
-    return Err(LumatoneMidiError::MessagePayloadTooShort {
-      expected: 4,
-      actual: payload.len(),
-    });
-  }
-
-  if payload[0] != TEST_ECHO {
-    return Err(LumatoneMidiError::InvalidResponseMessage(
-      "ping response has invalid echo flag value".to_string(),
-    ));
-  }
-
-  let value: u32 = ((payload[1] as u32) << 14) | ((payload[2] as u32) << 7) | (payload[3] as u32);
-  Ok(value)
-}
-
-// endregion
 
 // region: helpers
 

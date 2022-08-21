@@ -9,7 +9,10 @@ use std::collections::HashMap;
 use ini::Ini;
 use num_traits::FromPrimitive;
 
-use super::{tables::{ConfigurationTables, velocity_intervals_to_string}, error::LumatoneKeymapError};
+use super::{
+  error::LumatoneKeymapError,
+  tables::{velocity_intervals_to_string, ConfigurationTables},
+};
 
 pub struct KeyDefinition {
   pub function: LumatoneKeyFunction,
@@ -22,7 +25,7 @@ pub struct GeneralOptions {
   pub invert_foot_controller: bool,
   pub invert_sustain: bool,
   pub expression_controller_sensitivity: u8,
-  
+
   pub config_tables: ConfigurationTables,
 }
 
@@ -92,11 +95,26 @@ impl LumatoneKeyMap {
         "ExprCtrlSensivity",
         self.general.expression_controller_sensitivity.to_string(),
       )
-      .set("VelocityIntrvlTbl", velocity_intervals_to_string(&self.general.config_tables.velocity_intervals))
-      .set("NoteOnOffVelocityCrvTbl", self.general.config_tables.on_off_velocity.to_string())
-      .set("FaderConfig", self.general.config_tables.fader_velocity.to_string())
-      .set("afterTouchConfig", self.general.config_tables.aftertouch_velocity.to_string())
-      .set("LumaTouchConfig", self.general.config_tables.lumatouch_velocity.to_string());
+      .set(
+        "VelocityIntrvlTbl",
+        velocity_intervals_to_string(&self.general.config_tables.velocity_intervals),
+      )
+      .set(
+        "NoteOnOffVelocityCrvTbl",
+        self.general.config_tables.on_off_velocity.to_string(),
+      )
+      .set(
+        "FaderConfig",
+        self.general.config_tables.fader_velocity.to_string(),
+      )
+      .set(
+        "afterTouchConfig",
+        self.general.config_tables.aftertouch_velocity.to_string(),
+      )
+      .set(
+        "LumaTouchConfig",
+        self.general.config_tables.lumatouch_velocity.to_string(),
+      );
 
     // Key definitions are split into sections, one for each board / octave
     for b in 1..=5 {

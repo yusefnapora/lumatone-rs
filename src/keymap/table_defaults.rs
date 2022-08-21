@@ -9,7 +9,6 @@ pub const DEFAULT_VELOCITY_INTERVAL_TABLE: VelocityIntervalTable = [
   250, 255, 260, 265, 270, 275, 280, 285, 290, 295, 300, 305, 310,
 ];
 
-
 pub const DEFAULT_ON_OFF_VELOCITY_TABLE: SysexTable = [
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,
   3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
