@@ -306,11 +306,11 @@ impl Command {
       }
 
       SetModWheelSensitivity(value) => {
-        create_single_arg_server_sysex(self.command_id(), clamp_u8(*value, 1, 0x7f))
+        create_single_arg_server_sysex(self.command_id(), (*value).clamp(1, 0x7f))
       }
 
       SetPitchWheelSensitivity(value) => {
-        let val = clamp_u16(*value, 1, 0x3fff);
+        let val = (*value).clamp(1, 0x3fff);
         let hi = (val >> 7) as u8;
         let lo = (val & 0x7f) as u8;
 
@@ -599,32 +599,6 @@ fn encode_set_key_sensitivity(board_index: BoardIndex, cmd: CommandId, value: u8
   let value = value & 0xfe;
   let data = vec![value >> 4, value & 0xf];
   create_sysex(board_index, cmd, data)
-}
-
-// endregion
-
-
-
-// region: helpers
-
-fn clamp_u8(val: u8, min: u8, max: u8) -> u8 {
-  if val < min {
-    min
-  } else if val > max {
-    max
-  } else {
-    val
-  }
-}
-
-fn clamp_u16(val: u16, min: u16, max: u16) -> u16 {
-  if val < min {
-    min
-  } else if val > max {
-    max
-  } else {
-    val
-  }
 }
 
 // endregion
