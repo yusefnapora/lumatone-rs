@@ -30,6 +30,8 @@ pub enum LumatoneMidiError {
   DeviceConnectionError,
   DeviceSendError,
 
+  ResponseDecodingError,
+
   InvalidBoardIndex(u8),
   InvalidMidiChannel(u8),
   InvalidLumatoneKeyIndex(u8),
@@ -42,9 +44,7 @@ impl Display for LumatoneMidiError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     use LumatoneMidiError::*;
     match self {
-      // InvalidCommandInput(cmd_id, msg) => {
-      //   write!(f, "invalid command input for {:?}: {}", cmd_id, msg)
-      // }
+
       NotLumatoneMessage(msg) => write!(f, "message is not a lumatone message: {:?}", msg),
 
       MessageTooShort { expected, actual } => write!(
@@ -77,6 +77,8 @@ impl Display for LumatoneMidiError {
 
       DeviceSendError => write!(f, "failed to send message to device"),
 
+      ResponseDecodingError => write!(f, "failed to decode response from device"),
+
       InvalidBoardIndex(n) => write!(f, "invalid board index: {n}"),
 
       UnsupportedCommandId(cmd_id, context) => {
@@ -90,6 +92,7 @@ impl Display for LumatoneMidiError {
       }
 
       InvalidPresetIndex(n) => write!(f, "invalid preset index {n}. Valid range is 0 ..= 9"),
+
     }
   }
 }
