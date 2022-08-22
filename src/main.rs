@@ -27,7 +27,7 @@ async fn main() {
   debug!("driver loop spawned");
 
   let commands = LumatoneKeyLocation::all().into_iter()
-    .map(|loc| set_key_color(loc, RGBColor::green()));
+    .map(|loc| set_key_color(loc, RGBColor::random()));
 
   debug!("sending commands");
   for c in commands {

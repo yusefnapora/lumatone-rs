@@ -3,6 +3,7 @@
 use bounded_integer::bounded_integer;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use rand;
 
 use super::error::LumatoneMidiError;
 
@@ -25,6 +26,10 @@ impl RGBColor {
 
   pub fn blue() -> RGBColor {
     RGBColor(0, 0, 0xff)
+  }
+
+  pub fn random() -> RGBColor {
+    RGBColor(rand::random(), rand::random(), rand::random())
   }
 
   pub fn to_hex_string(&self) -> String {
