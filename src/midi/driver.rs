@@ -10,13 +10,14 @@ use super::{
 };
 use std::{pin::Pin, time::Duration};
 
+use futures::Future;
 use log::{debug, error, info, warn};
 use tokio::{
   sync::{mpsc, oneshot},
   time::{sleep, Sleep},
 };
 
-use error_stack::Result;
+use error_stack::{Result, IntoReport, ResultExt};
 
 // state machine design is based around this example: https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0
 // linked from "Pretty State Machine Patterns in Rust": https://hoverbear.org/blog/rust-state-machine-pattern/
@@ -281,16 +282,55 @@ impl State {
 }
 
 /// The MidiDriver controls the MIDI I/O event loop / state machine.
-pub struct MidiDriver {
+struct MidiDriverInternal {
   device_io: LumatoneIO,
   receive_timeout: Option<Pin<Box<Sleep>>>,
   retry_timeout: Option<Pin<Box<Sleep>>>,
 }
 
+
+pub struct MidiDriver {
+  command_tx: mpsc::Sender<Command>,
+  done_tx: mpsc::Sender<()>,
+}
+
 impl MidiDriver {
-  pub fn new(device: &LumatoneDevice) -> Result<Self, LumatoneMidiError> {
+  pub async fn send(&self, cmd: Command) -> Result<(), LumatoneMidiError> {
+    self.command_tx.send(cmd).await
+      .report()
+      .change_context(LumatoneMidiError::DeviceSendError)
+  }
+
+  pub fn blocking_send(&self, cmd: Command) -> Result<(), LumatoneMidiError> {
+    self.command_tx.blocking_send(cmd)
+      .report()
+      .change_context(LumatoneMidiError::DeviceSendError)
+  }
+
+  pub async fn done(&self) -> Result<(), LumatoneMidiError> {
+    self.done_tx.send(()).await
+      .report()
+      .change_context(LumatoneMidiError::DeviceSendError)
+  }
+}
+
+
+impl MidiDriver {
+  pub fn new(device: &LumatoneDevice) -> Result<(MidiDriver, impl Future<Output = ()>), LumatoneMidiError> {
+    let internal = MidiDriverInternal::new(device)?;
+    let (command_tx, command_rx) = mpsc::channel(128);
+    let (done_tx, done_rx) = mpsc::channel(1);
+    
+    let driver = MidiDriver { command_tx, done_tx };
+    Ok((driver, internal.run(command_rx, done_rx)))
+  }
+}
+
+
+impl MidiDriverInternal {
+  fn new(device: &LumatoneDevice) -> Result<Self, LumatoneMidiError> {
     let device_io = device.connect()?;
-    Ok(MidiDriver {
+    Ok(MidiDriverInternal {
       device_io,
       receive_timeout: None,
       retry_timeout: None,
@@ -337,7 +377,7 @@ impl MidiDriver {
   pub async fn run(
     mut self,
     mut commands: mpsc::Receiver<Command>,
-    mut done_signal: oneshot::Receiver<()>,
+    mut done_signal: mpsc::Receiver<()>,
   ) {
     let mut state = State::Idle;
     loop {

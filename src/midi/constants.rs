@@ -110,6 +110,10 @@ impl LumatoneKeyIndex {
   pub fn unchecked(val: u8) -> Self {
     Self::new(val).expect(format!("invalid lumatone key index: {val}").as_str())
   }
+
+  pub fn all() -> Vec<Self> {
+    { Self::MIN_VALUE ..= Self::MAX_VALUE }.map(|v| unsafe { Self::new_unchecked(v) }).collect()
+  }
 }
 
 impl PresetNumber {
@@ -132,6 +136,13 @@ pub enum BoardIndex {
   Octave3,
   Octave4,
   Octave5,
+}
+
+impl BoardIndex {
+  pub fn all_octaves() -> Vec<BoardIndex> {
+    use BoardIndex::*;
+    vec![Octave1, Octave2, Octave3, Octave4, Octave5]
+  }
 }
 
 impl Into<u8> for BoardIndex {
@@ -162,6 +173,15 @@ impl LumatoneKeyLocation {
 
   pub fn key_index(&self) -> LumatoneKeyIndex {
     self.1
+  }
+}
+
+impl LumatoneKeyLocation {
+  pub fn all() -> Vec<LumatoneKeyLocation> {
+    BoardIndex::all_octaves().into_iter()
+      .flat_map(move |b| LumatoneKeyIndex::all().into_iter()
+        .map(move |k| (b, k).into()))
+      .collect()
   }
 }
 
