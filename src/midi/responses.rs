@@ -12,6 +12,7 @@ use super::{
 
 use error_stack::{IntoReport, Result, report, bail, ensure, ResultExt};
 
+#[derive(Debug)]
 pub enum Response {
   Pong(u32),
 
