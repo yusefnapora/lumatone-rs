@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::midi::sysex::{is_response_to_message, message_answer_code, message_command_id};
+use crate::midi::sysex::{is_response_to_message, message_answer_code};
 
 use super::{
   commands::Command,
@@ -8,12 +8,12 @@ use super::{
   error::LumatoneMidiError,
   sysex::EncodedSysex,
 };
-use std::{pin::Pin, time::Duration};
+use std::{pin::Pin, time::Duration, collections::VecDeque};
 
 use futures::Future;
 use log::{debug, error, info, warn};
 use tokio::{
-  sync::{mpsc, oneshot},
+  sync::mpsc,
   time::{sleep, Sleep},
 };
 
@@ -29,21 +29,21 @@ enum State {
   Idle,
 
   /// We have one or more MIDI messages queued up to send.
-  ProcessingQueue { send_queue: Vec<EncodedSysex> },
+  ProcessingQueue { send_queue: VecDeque<Command> },
 
   /// We've sent a message to the device and are waiting for a response.
   /// We may also have messages queued up to send later.
   AwaitingResponse {
-    send_queue: Vec<EncodedSysex>,
-    command_sent: EncodedSysex,
+    send_queue: VecDeque<Command>,
+    command_sent: Command,
   },
 
   /// We've sent a message to the device, but the device says it's busy,
   /// so we're hanging onto the outgoing message to try again in a bit.
   /// We may also have messages queued up to send later.
   DeviceBusy {
-    send_queue: Vec<EncodedSysex>,
-    to_retry: EncodedSysex,
+    send_queue: VecDeque<Command>,
+    to_retry: Command,
   },
 
   /// Something has gone horribly wrong, and we've shut down the state machine loop.
@@ -59,7 +59,7 @@ enum Action {
   SubmitCommand(Command),
 
   /// The driver has sent a command on the MIDI out port.
-  MessageSent(EncodedSysex),
+  MessageSent(Command),
 
   /// The driver has received a message on the MIDI in port.
   MessageReceived(EncodedSysex),
@@ -75,7 +75,7 @@ enum Action {
 #[derive(Debug)]
 enum Effect {
   /// The state machine has a message ready to send on the MIDI out port.
-  SendMidiMessage(EncodedSysex),
+  SendMidiMessage(Command),
 
   /// The state machine wants to start the receive timeout.
   StartReceiveTimeout,
@@ -95,8 +95,12 @@ impl State {
     debug!("handling action {:?}. current state: {:?}", action, self);
     match (action, self) {
       // Submitting a command in the Idle state transitions to ProcessingQueue, with the new message as the only queue member.
-      (SubmitCommand(cmd), Idle) => ProcessingQueue {
-        send_queue: vec![cmd.to_sysex_message()],
+      (SubmitCommand(cmd), Idle) => {
+        let mut send_queue = VecDeque::new();
+        send_queue.push_back(cmd);
+        ProcessingQueue {
+          send_queue, 
+        }
       },
 
       // Submitting a command while we're waiting for a response to a previous command transitions to a new
@@ -110,7 +114,7 @@ impl State {
       ) => {
         // add new command to the send_queue
         let mut q = send_queue;
-        q.push(cmd.to_sysex_message());
+        q.push_back(cmd);
         AwaitingResponse {
           send_queue: q,
           command_sent: command_sent,
@@ -128,7 +132,7 @@ impl State {
       ) => {
         // add new command to the send queue
         let mut q = send_queue;
-        q.push(cmd.to_sysex_message());
+        q.push_back(cmd);
         DeviceBusy {
           send_queue: q,
           to_retry: to_retry,
@@ -139,16 +143,17 @@ impl State {
       // with the new command pushed onto the queue.
       (SubmitCommand(cmd), ProcessingQueue { send_queue }) => {
         let mut q = send_queue;
-        q.push(cmd.to_sysex_message());
+        q.push_back(cmd);
         ProcessingQueue { send_queue: q }
       }
 
       // Getting confirmation that a message was sent out while we're processing the queue transitions to
       // the AwaitingResponse state.
       (MessageSent(msg), ProcessingQueue { send_queue }) => {
-        let send_queue = send_queue[1..].to_vec();
+        let mut q = send_queue;
+        q.pop_front();
         AwaitingResponse {
-          send_queue: send_queue,
+          send_queue: q,
           command_sent: msg,
         }
       }
@@ -166,7 +171,7 @@ impl State {
         },
       ) => {
         use ResponseStatusCode::{Busy, State};
-        if !is_response_to_message(&outgoing, &incoming) {
+        if !is_response_to_message(&outgoing.to_sysex_message(), &incoming) {
           warn!("received message that doesn't match expected response. outgoing message: {:?} - incoming: {:?}", outgoing, incoming);
         }
 
@@ -231,9 +236,8 @@ impl State {
           to_retry,
         },
       ) => {
-        let mut q = vec![to_retry];
-        q.extend(send_queue);
-
+        let mut q = send_queue;
+        q.push_front(to_retry);
         ProcessingQueue { send_queue: q }
       }
 
@@ -259,11 +263,10 @@ impl State {
 
     debug!("entering state {:?}", self);
 
-    match &*self {
+    match self {
       Idle => None,
       ProcessingQueue { send_queue } => {
-        let msg = send_queue[0].clone();
-        Some(SendMidiMessage(msg))
+        send_queue.pop_front().map(|cmd| SendMidiMessage(cmd))
       }
       DeviceBusy {
         send_queue: _,
@@ -342,9 +345,9 @@ impl MidiDriverInternal {
     use Action::*;
     use Effect::*;
     let action = match effect {
-      SendMidiMessage(msg) => {
-        self.device_io.send(&msg)?;
-        Some(MessageSent(msg))
+      SendMidiMessage(cmd) => {
+        self.device_io.send(&cmd.to_sysex_message())?;
+        Some(MessageSent(cmd))
       }
 
       StartReceiveTimeout => {
@@ -374,7 +377,7 @@ impl MidiDriverInternal {
   /// TODO: add some kind of feedback mechanism for failed message sends, etc
   ///       e.g. the "listener" interface from the typescript version.
   ///       Alternatively, a "command" could be an EncodedSysex + a oneshot channel to report status back.
-  pub async fn run(
+  async fn run(
     mut self,
     mut commands: mpsc::Receiver<Command>,
     mut done_signal: mpsc::Receiver<()>,
@@ -461,22 +464,17 @@ impl MidiDriverInternal {
   }
 }
 
-fn log_message_status(status: &ResponseStatusCode, outgoing: &[u8]) {
+fn log_message_status(status: &ResponseStatusCode, outgoing: &Command) {
   use ResponseStatusCode::*;
-  // TODO: I guess it's only safe to `expect` here if we assume all outgoing messages are constructed by this lib.
-  // In theory someone could pass in an empty vec or something.
-  // Should just map CommandId -> String and use `unwrap_or` to fallback to "unknown"
-  // Alternatively, change API so Commands are first-class types and don't accept raw &[u8]s at the API boundary...
-  let cmd_id = message_command_id(outgoing).expect("unable to get outgoing message command id");
   match *status {
-    Nack => debug!("received NACK response to command {:?}", cmd_id),
+    Nack => debug!("received NACK response to command {:?}", outgoing),
     Ack => {}
-    Busy => debug!("received Busy response to command {:?}", cmd_id),
-    Error => debug!("received Error response to command {:?}", cmd_id),
-    State => debug!("received State response to command {:?}", cmd_id),
+    Busy => debug!("received Busy response to command {:?}", outgoing),
+    Error => debug!("received Error response to command {:?}", outgoing),
+    State => debug!("received State response to command {:?}", outgoing),
     Unknown => warn!(
       "received unknown response status in response to command: {:?}",
-      cmd_id
+      outgoing
     ),
   }
 }
