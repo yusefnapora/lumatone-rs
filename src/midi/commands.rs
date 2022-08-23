@@ -515,6 +515,89 @@ impl Command {
   }
 }
 
+impl std::fmt::Display for Command {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+        Command::Ping(val) => write!(f, "Ping({val})"),
+        Command::SetKeyFunction { location, function } => 
+          write!(f, "SetKeyFunction({location}, {function})"),
+        Command::SetKeyColor { location, color } =>
+          write!(f, "SetKeyColor({location}, {color})"),
+        Command::SaveProgram(val) => 
+          write!(f, "SaveProgram({val})"),
+        Command::SetExpressionPedalSensitivity(val) => 
+          write!(f, "SetExpressionPedalSensitivity({val})"),
+        Command::SetModWheelSensitivity(val) => write!(f, "SetModWheelSensitivity({val})"),
+        Command::SetPitchWheelSensitivity(val) => write!(f, "SetPitchWheelSensitivity({val})"),
+        Command::InvertFootController(val) => write!(f, "InvertFootController({val})"),
+        Command::InvertSustainPedal(val) => write!(f, "InvertSustainPedal({val})"),
+        Command::SetLightOnKeystrokes(val) => write!(f, "SetLightOnKeystrokes({val})"),
+        Command::SetAftertouchEnabled(val) => write!(f, "SetAftertouchEnabled({val})"),
+        Command::EnableDemoMode(val) => write!(f, "EnableDemoMode({val})"),
+        Command::EnablePitchModWheelCalibrationMode(val) => write!(f, "EnablePitchModWheelCalibrationMode({val})"),
+        Command::EnableExpressionPedalCalibrationMode(val) => write!(f, "EnableExpressionPedalCalibrationMode({val})"),
+        Command::SetMacroButtonActiveColor(val) => write!(f, "SetMacroButtonActiveColor({val})"),
+        Command::SetMacroButtonInactiveColor(val) => write!(f, "SetMacroButtonInactiveColor({val})"),
+        Command::SetVelocityConfig(_) => write!(f, "SetVelocityConfig(<table...>)"),
+        Command::SetFaderConfig(_) => write!(f, "SetFaderConfig(<table...>)"),
+        Command::SetAftertouchConfig(_) => write!(f, "SetAftertouchConfig(<table...>"),
+        Command::SetLumatouchConfig(_) => write!(f, "SetLumatouchConfig(<table...>)"),
+        Command::SetVelocityIntervals(_) => write!(f, "SetVelocityIntervals(<table...>"),
+        Command::SetKeyMaximumThreshold { board_index, max_threshold, aftertouch_max } => 
+          write!(f, "SetKeyMaximumThreshold {{ board_index: {}, max_threshold: {}, aftertouch_max: {} }}", board_index, max_threshold, aftertouch_max),
+        Command::SetKeyMinimumThreshold { board_index, threshold_high, threshold_low } => 
+          write!(f, "SetKeyMinimumThreshold {{ board_index: {}, threshold_high: {}, threshold_low: {} }}", board_index, threshold_high, threshold_low),
+        Command::SetPitchWheelZeroThreshold(val) => write!(f, "SetPitchWheelZeroThreshold({val})"),
+        Command::SetKeyFaderSensitivity(board, val) => write!(f, "SetKeyFaderSensitivity({board}, {val})"),
+        Command::SetKeyAftertouchSensitivity(board, val) => write!(f, "SetKeyAftertouchSensitivity({board}, {val})"),
+        Command::SetCCActiveThreshold(board, val) => write!(f, "SetCCActiveThreshold({board}, {val})"),
+        Command::ResetBoardThresholds(board) => write!(f, "ResetBoardThresholds({board})"),
+        Command::SetAftertouchTriggerDelay(board, val) => write!(f, "SetAftertouchTriggerDelay({board}, {val})"),
+        Command::GetAftertouchTriggerDelay(board) => write!(f, "GetAftertouchTriggerDelay({board})"),
+        Command::SetLumatouchNoteOffDelay(board, val) => write!(f, "SetLumatouchNoteOffDelay({board}, {val})"),
+        Command::GetLumatouchNoteOffDelay(board) => write!(f, "GetLumatouchNoteOffDelay({board})"),
+        Command::GetRedLEDConfig(board) => write!(f, "GetRedLEDConfig({board})"),
+        Command::GetGreenLEDConfig(board) => write!(f, "GetGreenLEDConfig({board})"),
+        Command::GetBlueLEDConfig(board) => write!(f, "GetBlueLEDConfig({board})"),
+        Command::GetMidiChannelConfig(board) => write!(f, "GetMidiChannelConfig({board})"),
+        Command::GetNoteConfig(board) => write!(f, "GetNoteConfig({board})"),
+        Command::GetKeyTypeConfig(board) => write!(f, "GetKeyTypeConfig({board})"),
+        Command::GetMaxFaderThreshold(board) => write!(f, "GetMaxFaderThreshold({board})"),
+        Command::GetMinFaderThreshold(board) => write!(f, "GetMinFaderThreshold({board})"),
+        Command::GetMaxAftertouchThreshold(board) => write!(f, "GetMaxAftertouchThreshold({board})"),
+        Command::GetKeyValidity(board) => write!(f, "GetKeyValidity({board})"),
+        Command::GetFaderTypeConfig(board) => write!(f, "GetFaderTypeConfig({board})"),
+        Command::GetBoardThresholdValues(board) => write!(f, "GetBoardThresholdValues({board})"),
+        Command::GetBoardSensitivityValues(board) => write!(f, "GetBoardSensitivityValues({board})"),
+        Command::GetVelocityConfig => write!(f, "GetVelocityConfig"),
+        Command::GetVelocityIntervalConfig => write!(f, "GetVelocityIntervalConfig"),
+        Command::GetFaderConfig => write!(f, "GetFaderConfig"),
+        Command::GetAftertouchConfig => write!(f, "GetAftertouchConfig"),
+        Command::GetLumatouchConfig => write!(f, "GetLumatouchConfig"),
+        Command::GetSerialId => write!(f, "GetSerialId"),
+        Command::GetFirmwareRevision => write!(f, "GetFirmwareRevision"),
+        Command::StartAftertouchCalibration => write!(f, "StartAftertouchCalibration"),
+        Command::StartKeyCalibration => write!(f, "StartKeyCalibration"),
+        Command::SaveVelocityConfig => write!(f, "SaveVelocityConfig"),
+        Command::ResetVelocityConfig => write!(f, "ResetVelocityConfig"),
+        Command::SaveFaderConfig => write!(f, "SaveFaderConfig"),
+        Command::ResetFaderConfig => write!(f, "ResetFaderConfig"),
+        Command::SaveAftertouchConfig => write!(f, "SaveAftertouchConfig"),
+        Command::ResetAftertouchConfig => write!(f, "ResetAftertouchConfig"),
+        Command::SaveLumatouchConfig => write!(f, "SaveLumatouchConfig"),
+        Command::ResetLumatouchConfig => write!(f, "ResetLumatouchConfig"),
+        Command::ResetWheelThresholds => write!(f, "ResetWheelThresholds"),
+        Command::ResetExpressionPedalBounds => write!(f, "ResetExpressionPedalBounds"),
+        Command::EnableKeySampling(board, val) => write!(f, "EnableKeySampling({board}, {val})"),
+        Command::SetPeripheralChannels { pitch_wheel, mod_wheel, expression, sustain } => 
+          write!(f, "SetPeripheralChannels {{ pitch_wheel: {}, mod_wheel: {}, expression: {}, sustain: {} }}", pitch_wheel, mod_wheel, expression, sustain),
+        Command::GetPeripheralChannels => write!(f, "GetPeripheralChannels"),
+        Command::SetExpressionPedalADCThreshold(val) => write!(f, "SetExpressionPedalADCThreshold({val})"),
+        Command::GetExpressionPedalADCThreshold => write!(f, "GetExpressionPedalADCThreshold"),
+    }
+  }
+}
+
 // region: Command factory fns
 
 pub fn ping(value: u32) -> Command {

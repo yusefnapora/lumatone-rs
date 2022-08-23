@@ -6,14 +6,14 @@ use super::{
   constants::ResponseStatusCode,
   device::{LumatoneDevice, LumatoneIO},
   error::LumatoneMidiError,
-  sysex::EncodedSysex,
+  sysex::EncodedSysex, responses::Response,
 };
 use std::{pin::Pin, time::Duration, collections::VecDeque};
 
 use futures::Future;
 use log::{debug, error, info, warn};
 use tokio::{
-  sync::mpsc,
+  sync::{mpsc, oneshot},
   time::{sleep, Sleep},
 };
 
@@ -21,6 +21,8 @@ use error_stack::{Result, IntoReport, ResultExt};
 
 // state machine design is based around this example: https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0
 // linked from "Pretty State Machine Patterns in Rust": https://hoverbear.org/blog/rust-state-machine-pattern/
+
+struct CommandSubmission(Command, oneshot::Sender<Response>);
 
 /// One of the possible states the MIDI driver can be in at any given time.
 #[derive(Debug)]

@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::fmt::Display;
+
 use bounded_integer::bounded_integer;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -58,6 +60,12 @@ impl From<u32> for RGBColor {
     let green = ((val >> 8) & 0xff) as u8;
     let blue = (val & 0xff) as u8;
     RGBColor(red, green, blue)
+  }
+}
+
+impl Display for RGBColor {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "#{}", self.to_hex_string())
   }
 }
 
@@ -164,6 +172,17 @@ impl TryFrom<u8> for BoardIndex {
   }
 }
 
+impl Display for BoardIndex {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let index: u8 = *self as u8;
+    if index == 0 {
+      write!(f, "Server board")
+    } else {
+      write!(f, "Octave{index}")
+    }
+  }
+}
+
 /// Uniquely identifies one of the keys on the Lumatone keyboard.
 ///
 /// To convert from another coordinate system, add an `impl Into<LumatoneKeyLocation>` to your coordinate type.
@@ -193,6 +212,13 @@ impl LumatoneKeyLocation {
 impl Into<LumatoneKeyLocation> for (BoardIndex, LumatoneKeyIndex) {
   fn into(self) -> LumatoneKeyLocation {
     LumatoneKeyLocation(self.0, self.1)
+  }
+}
+
+impl Display for LumatoneKeyLocation {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let LumatoneKeyLocation(board, key) = self;
+    write!(f, "LumatoneKeyLocation({board}, {key}")
   }
 }
 
@@ -277,6 +303,21 @@ impl LumatoneKeyFunction {
       ContinuousController { channel, .. } => channel.into(),
       LumaTouch { channel, .. } => channel.into(),
       Disabled => 0,
+    }
+  }
+}
+
+impl Display for LumatoneKeyFunction {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    use LumatoneKeyFunction::*;
+    match self {
+      NoteOnOff { channel, note_num } => 
+        write!(f, "NoteOnOff {{ note_num: {note_num}, channel: {channel} }}"),
+      ContinuousController { channel, cc_num, fader_up_is_null } => 
+        write!(f, "ContinuousController {{ cc_num: {cc_num}, channel: {channel}, fader_up_is_null: {fader_up_is_null}  }}"),
+      LumaTouch { channel, note_num, fader_up_is_null } => 
+        write!(f, "LumaTouch {{ note_num: {note_num}, channel: {channel}, fader_up_is_null: {fader_up_is_null} }}"),
+      Disabled => write!(f, "Disabled"),
     }
   }
 }
