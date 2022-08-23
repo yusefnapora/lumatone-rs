@@ -1,4 +1,6 @@
 #![allow(unused)]
+use std::fmt::Display;
+
 use super::{
   constants::{BoardIndex, CommandId, MidiChannel, TEST_ECHO},
   error::LumatoneMidiError,
@@ -11,7 +13,7 @@ use super::{
 use error_stack::{IntoReport, Result, report, bail, ensure, ResultExt};
 
 pub enum Response {
-  Ping(u32),
+  Pong(u32),
 
   /// 8-bit key data for red LED intensity. 112 bytes, lower and upper nibbles for 56 values
   RedLEDConfig(BoardIndex, Vec<u8>),
@@ -127,7 +129,7 @@ impl Response {
     use CommandId::*;
     let cmd_id = message_command_id(msg)?;
     match cmd_id {
-      LumaPing => decode_ping(msg).map(|val| Response::Ping(val)),
+      LumaPing => decode_ping(msg).map(|val| Response::Pong(val)),
 
       GetRedLedConfig => unpack_octave_data_8bit(msg).map(|(b, d)| Response::RedLEDConfig(b, d)),
 
@@ -186,6 +188,41 @@ impl Response {
         "no response decoder".to_string(),
       ))),
     }.change_context(LumatoneMidiError::ResponseDecodingError)
+  }
+}
+
+impl Display for Response {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    use Response::*;
+    match self {
+        Pong(val) => write!(f, "Pong({val})"),
+        RedLEDConfig(board, _) => write!(f, "RedLEDConfig({board}, <table...>)"),
+        GreenLEDConfig(board, _) => write!(f, "GreenLEDConfig({board}, <table..>)"),
+        BlueLEDConfig(board, _) => write!(f, "BlueLEDConfig({board}, <table..>)"),
+        ChannelConfig(board, _) => write!(f, "ChannelConfig({board}, <table..>)"),
+        NoteConfig(board, _) => write!(f, "NoteConfig({board}, <table..>)"),
+        KeyTypeConfig(board, _) => write!(f, "KeyTypeConfig({board}, <table..>)"),
+        KeyMaxThresholds(board, _) => write!(f, "KeyMaxThresholds({board}, <table..>)"),
+        KeyMinThresholds(board, _) => write!(f, "KeyMinThresholds({board}, <table..>)"),
+        AftertouchMaxThresholds(board, _) => write!(f, "AftertouchMaxThresholds({board}, <table..>)"),
+        KeyValidity(board, _) => write!(f, "KeyValidity({board}, <table..>)"),
+        FaderTypeConfig(board, _) => write!(f, "FaderTypeConfig({board}, <table..>)"),
+        OnOffVelocityConfig(_) => write!(f, "OnOffVelocityConfig(<table...>)"),
+        FaderConfig(_) => write!(f, "FaderConfig(<table...>)"),
+        AftertouchConfig(_) => write!(f, "AftertouchConfig(<table...>)"),
+        LumatouchConfig(_) => write!(f, "LumatouchConfig(<table...>)"),
+        VelocityIntervalConfig(_) => write!(f, "VelocityIntervalConfig(<table...>)"),
+        SerialId(id) => write!(f, "SerialId({id:?})"),
+        FirmwareRevision { major, minor, revision } => write!(f, "FirmwareRevision(\"{major}.{minor}.{revision}\")"),
+        BoardThresholds { board_index, min_high, min_low, max, aftertouch, cc } => todo!(),
+        BoardSensitivity { board_index, cc, aftertouch } => todo!(),
+        PeripheralChannels { pitch_wheel, mod_wheel, expression, sustain } => todo!(),
+        ExpressionCalibrationStatus { min_bound, max_bound, valid } => todo!(),
+        WheelCalibrationStatus { center_pitch, min_pitch, max_pitch, min_mod, max_mod } => todo!(),
+        AftertouchTriggerDelay(board, val) => write!(f, "AftertouchTriggerDelay({board}, {val})"),
+        LumatouchNoteOffDelay(board, val) => write!(f, "LumatouchNoteOffDelay({board}, {val})"),
+        ExpressionPedalThreshold(val) => write!(f, "ExpressionPedalThreshold({val})"),
+    }
   }
 }
 
