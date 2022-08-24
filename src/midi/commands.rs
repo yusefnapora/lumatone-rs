@@ -19,7 +19,7 @@ use super::{
   },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Command {
   /// Echo the payload, 0x00-0x7f, for use in connection monitoring
   Ping(u32),
