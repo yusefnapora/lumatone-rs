@@ -8,12 +8,12 @@ use super::{
   error::LumatoneMidiError,
   sysex::EncodedSysex, responses::Response,
 };
-use std::{pin::Pin, time::Duration, collections::VecDeque, fmt::{Display, Debug}, sync::Arc};
+use std::{pin::Pin, time::Duration, collections::VecDeque, fmt::{Display, Debug}};
 
 use futures::{Future, TryFutureExt};
 use log::{debug, error, info, warn};
 use tokio::{
-  sync::{mpsc, oneshot, Mutex},
+  sync::mpsc,
   time::{sleep, Sleep},
 };
 
@@ -22,10 +22,12 @@ use error_stack::{Result, IntoReport, ResultExt, report, Report};
 // state machine design is based around this example: https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0
 // linked from "Pretty State Machine Patterns in Rust": https://hoverbear.org/blog/rust-state-machine-pattern/
 
+type ResponseResult = Result<Response, LumatoneMidiError>;
+
 #[derive(Clone)]
 struct CommandSubmission {
   command: Command, 
-  response_tx: Arc<Mutex<oneshot::Sender<Response>>>
+  response_tx: mpsc::Sender<ResponseResult>,
 }
 
 impl Debug for CommandSubmission {
@@ -93,9 +95,9 @@ enum Action {
   /// The driver has received a message on the MIDI in port.
   MessageReceived(EncodedSysex),
 
-  // We've informed users about a command response and are ready to
-  //  advance out of the ProcessingResponse state.
-  // ResponseDispatched,
+  /// We've informed users about a command response and are ready to
+  ///  advance out of the ProcessingResponse state.
+  ResponseDispatched,
 
   /// The receive timeout has tripped while waiting for a response.
   ResponseTimedOut,
@@ -116,9 +118,9 @@ enum Effect {
   /// The state machine wants to start the busy/retry timeout.
   StartRetryTimeout,
 
-  // The state machine has received a response to a message and wants to notify
-  // the outside world.
-  // NotifyMessageResponse(CommandSubmission, Response),
+  /// The state machine has received a response to a message and wants to notify
+  /// the outside world about its success or failure.
+  NotifyMessageResponse(CommandSubmission, Result<Response, LumatoneMidiError>),
 }
 
 impl State {
@@ -206,6 +208,22 @@ impl State {
         ProcessingResponse { send_queue, command_sent, response_msg }
       }
 
+      // Getting confirmation that we're done processing a response while we're in the ResponseProcessing state
+      // transitions to either Idle or ProcessingQueue, depending on whether there are messages left to send
+      (
+        ResponseDispatched,
+        ProcessingResponse {
+          send_queue,
+          ..
+        }
+      ) => {
+        if send_queue.is_empty() {
+          Idle
+        } else {
+          ProcessingQueue { send_queue }
+        }
+      }
+
       // Receiving a message when we're not expecting one logs a warning.
       (MessageReceived(msg), state) => {
         warn!("Message received when not awaiting response: {:?}", msg);
@@ -283,32 +301,20 @@ impl State {
       }
       DeviceBusy { .. } => (Some(StartRetryTimeout), None),
       AwaitingResponse { .. } => (Some(StartReceiveTimeout), None),
-      ProcessingResponse { send_queue, command_sent, response_msg } => {
-        // use ResponseStatusCode::{Busy, State};
-        // if !is_response_to_message(&outgoing.command.to_sysex_message(), &incoming) {
-        //   warn!("received message that doesn't match expected response. outgoing message: {:?} - incoming: {:?}", outgoing, incoming);
-        // }
+      ProcessingResponse { command_sent, response_msg, .. } => {
+        if !is_response_to_message(&command_sent.command.to_sysex_message(), &response_msg) {
+          warn!("received message that doesn't match expected response. outgoing message: {:?} - incoming: {:?}", command_sent.command, response_msg);
+        }
 
-        // let status = message_answer_code(&incoming);
-        // log_message_status(&status, &outgoing.command);
+        let status = message_answer_code(&response_msg);
+        log_message_status(&status, &command_sent.command);
 
-        // match (status, send_queue.is_empty()) {
-        //   (Busy, _) => DeviceBusy {
-        //     send_queue: send_queue,
-        //     to_retry: outgoing,
-        //   },
+        // TODO: check status for Busy / State and dispatch actions to enter the "waiting to retry" state
 
-        //   (State, _) => DeviceBusy {
-        //     send_queue: send_queue,
-        //     to_retry: outgoing,
-        //   },
+        let response_res = Response::from_sysex_message(response_msg);
 
-        //   (_, true) => Idle,
-
-        //   (_, false) => ProcessingQueue { send_queue },
-        // }
-
-        todo!()
+        let effect = NotifyMessageResponse(command_sent.clone(), response_res);
+        (Some(effect), Some(Action::ResponseDispatched))
       }
       Failed(err) => {
         error!("midi driver - unrecoverable error: {err}");
@@ -332,9 +338,8 @@ pub struct MidiDriver {
 }
 
 impl MidiDriver {
-  pub fn send(&self, command: Command) -> (impl Future<Output = Result<(), LumatoneMidiError>> + '_, oneshot::Receiver<Response>) {
-    let (response_tx, response_rx) = oneshot::channel();
-    let response_tx = Arc::new(Mutex::new(response_tx));
+  pub fn send(&self, command: Command) -> (impl Future<Output = Result<(), LumatoneMidiError>> + '_, mpsc::Receiver<ResponseResult>) {
+    let (response_tx, response_rx) = mpsc::channel(1);
     let submission = CommandSubmission { command, response_tx };
     let send_f = self.command_tx.send(submission)
       .map_err(|e| report!(e).change_context(LumatoneMidiError::DeviceSendError));
@@ -342,9 +347,8 @@ impl MidiDriver {
     (send_f, response_rx)
   }
 
-  pub fn blocking_send(&self, command: Command) -> Result<oneshot::Receiver<Response>, LumatoneMidiError> {
-    let (response_tx, response_rx) = oneshot::channel();
-    let response_tx = Arc::new(Mutex::new(response_tx));
+  pub fn blocking_send(&self, command: Command) -> Result<mpsc::Receiver<ResponseResult>, LumatoneMidiError> {
+    let (response_tx, response_rx) = mpsc::channel(1);
     let submission = CommandSubmission { command, response_tx };
     self.command_tx.blocking_send(submission)
       .report()
@@ -383,7 +387,7 @@ impl MidiDriverInternal {
   }
 
   /// Performs some Effect. 
-  fn perform_effect(&mut self, effect: Effect) -> Result<(), LumatoneMidiError> {
+  async fn perform_effect(&mut self, effect: Effect) -> Result<(), LumatoneMidiError> {
     use Effect::*;
     match effect {
       SendMidiMessage(cmd) => {
@@ -398,6 +402,11 @@ impl MidiDriverInternal {
         let timeout_sec = 3;
         let timeout = sleep(Duration::from_secs(timeout_sec));
         self.retry_timeout = Some(Box::pin(timeout));
+      },
+      NotifyMessageResponse(cmd_submission, result) => {
+        if let Err(err) = cmd_submission.response_tx.send(result).await {
+          error!("error sending response notification: {err}");
+        }
       }
     };
     Ok(())
@@ -478,7 +487,7 @@ impl MidiDriverInternal {
       // to advance the state machine.
       let (maybe_effect, maybe_action) = state.enter();
       if let Some(effect) = maybe_effect {
-        if let Err(err) = self.perform_effect(effect) {
+        if let Err(err) = self.perform_effect(effect).await {
           state = State::Failed(err);
         }
       }

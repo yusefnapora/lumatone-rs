@@ -27,14 +27,14 @@ async fn main() {
   debug!("driver loop spawned");
 
   let commands = LumatoneKeyLocation::all().into_iter()
-    .map(|loc| set_key_color(loc, RGBColor::red()));
+    .map(|loc| set_key_color(loc, RGBColor::green()));
 
   debug!("sending commands");
   for c in commands {
     debug!("sending command");
-    let (send_f, _resp_rx) = driver.send(c);
+    let (send_f, mut resp_rx) = driver.send(c);
     send_f.await.expect("send error");
-    // resp_rx.await.expect("error awaiting response");
+    resp_rx.recv().await.unwrap().expect("receive error");
   }
 
   tokio::time::sleep(Duration::from_secs(30)).await;

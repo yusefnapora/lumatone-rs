@@ -14,6 +14,9 @@ use error_stack::{IntoReport, Result, report, bail, ensure, ResultExt};
 
 #[derive(Debug)]
 pub enum Response {
+  /// indicates that the command was successful, but no additional data was returned.
+  Ack(CommandId),
+
   Pong(u32),
 
   /// 8-bit key data for red LED intensity. 112 bytes, lower and upper nibbles for 56 values
@@ -184,10 +187,7 @@ impl Response {
 
       GetExpressionPedalThreshold => unpack_expression_threshold(msg),
 
-      _ => Err(report!(LumatoneMidiError::UnsupportedCommandId(
-        cmd_id,
-        "no response decoder".to_string(),
-      ))),
+      _ => Ok(Response::Ack(cmd_id)),
     }.change_context(LumatoneMidiError::ResponseDecodingError)
   }
 }
@@ -196,6 +196,7 @@ impl Display for Response {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     use Response::*;
     match self {
+        Ack(cmd_id) => write!(f, "Ack({cmd_id:?})"),
         Pong(val) => write!(f, "Pong({val})"),
         RedLEDConfig(board, _) => write!(f, "RedLEDConfig({board}, <table...>)"),
         GreenLEDConfig(board, _) => write!(f, "GreenLEDConfig({board}, <table..>)"),
@@ -444,7 +445,7 @@ fn unpack_8bit(payload: &[u8]) -> Vec<u8> {
 fn unpack_12bit_from_7bit(payload: &[u8]) -> Vec<u16> {
   payload
     .chunks_exact(2)
-    .map(|c| ((c[0] << 6) as u16) | (c[1] as u16))
+    .map(|c| ((c[0] as u16) << 6) | (c[1] as u16))
     .collect()
 }
 
@@ -452,7 +453,7 @@ fn unpack_12bit_from_7bit(payload: &[u8]) -> Vec<u16> {
 fn unpack_12bit_from_4bit(payload: &[u8]) -> Vec<u16> {
   payload
     .chunks_exact(3)
-    .map(|c| ((c[0] << 8) as u16) | ((c[1] << 4) as u16) | (c[2] as u16))
+    .map(|c| ((c[0] as u16) << 8) | ((c[1] as u16) << 4) | (c[2] as u16))
     .collect()
 }
 
