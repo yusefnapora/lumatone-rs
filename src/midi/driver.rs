@@ -189,10 +189,8 @@ impl State {
       // Getting confirmation that a message was sent out while we're processing the queue transitions to
       // the AwaitingResponse state.
       (MessageSent(msg), ProcessingQueue { send_queue }) => {
-        let mut q = send_queue;
-        q.pop_front();
         AwaitingResponse {
-          send_queue: q,
+          send_queue,
           command_sent: msg,
         }
       }
