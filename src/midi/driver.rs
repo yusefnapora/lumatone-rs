@@ -131,7 +131,7 @@ impl State {
     use Action::*;
     use State::*;
 
-    debug!("handling action {:?}. current state: {:?}", action, self);
+    // debug!("handling action {:?}. current state: {:?}", action, self);
     match (action, self) {
       // Submitting a command in the Idle state transitions to ProcessingQueue, with the new message as the only queue member.
       (SubmitCommand(cmd), Idle) => {
@@ -287,7 +287,7 @@ impl State {
     use Effect::*;
     use State::*;
 
-    debug!("entering state {:?}", self);
+    // debug!("entering state {:?}", self);
 
     match self {
       Idle => (None, None),
@@ -336,13 +336,14 @@ pub struct MidiDriver {
 }
 
 impl MidiDriver {
-  pub fn send(&self, command: Command) -> (impl Future<Output = Result<(), LumatoneMidiError>> + '_, mpsc::Receiver<ResponseResult>) {
-    let (response_tx, response_rx) = mpsc::channel(1);
+  pub async fn send(&self, command: Command) -> Result<Response, LumatoneMidiError> {
+    let (response_tx, mut response_rx) = mpsc::channel(1);
     let submission = CommandSubmission { command, response_tx };
     let send_f = self.command_tx.send(submission)
       .map_err(|e| report!(e).change_context(LumatoneMidiError::DeviceSendError));
 
-    (send_f, response_rx)
+    send_f.await?;
+    response_rx.recv().await.unwrap()
   }
 
   pub fn blocking_send(&self, command: Command) -> Result<mpsc::Receiver<ResponseResult>, LumatoneMidiError> {
@@ -415,11 +416,6 @@ impl MidiDriverInternal {
   ///
   /// To exit the loop, send `()` on the `done_signal` channel.
   ///
-  /// TODO: rethink this API (passing in channels is a bit awkward)
-  ///
-  /// TODO: add some kind of feedback mechanism for failed message sends, etc
-  ///       e.g. the "listener" interface from the typescript version.
-  ///       Alternatively, a "command" could be an EncodedSysex + a oneshot channel to report status back.
   async fn run(
     mut self,
     mut commands: mpsc::Receiver<CommandSubmission>,
@@ -453,16 +449,19 @@ impl MidiDriverInternal {
       let a = tokio::select! {
         _ = receive_timeout => {
           info!("receive timeout triggered");
+          self.receive_timeout = None;
           Action::ResponseTimedOut
         },
 
         _ = retry_timeout => {
           info!("retry timeout triggered");
+          self.retry_timeout = None;
           Action::ReadyToRetry
         },
 
         Some(msg) = self.device_io.incoming_messages.recv() => {
           info!("message received, forwarding to state machine");
+          self.receive_timeout = None;
           Action::MessageReceived(msg)
         }
 
