@@ -301,10 +301,8 @@ fn get_u8_or_default_from_ini_section<S: AsRef<str>>(
 
 #[cfg(test)]
 mod tests {
-  use crate::{
-    keymap::tables::ConfigurationTables,
-    midi::constants::{key_loc_unchecked, LumatoneKeyFunction, MidiChannel, RGBColor},
-  };
+  use crate::tables::ConfigurationTables;
+  use lumatone_midi::constants::{key_loc_unchecked, LumatoneKeyFunction, MidiChannel, RGBColor};
 
   use super::{GeneralOptions, KeyDefinition, LumatoneKeyMap};
 
