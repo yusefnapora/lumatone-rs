@@ -520,12 +520,6 @@ impl MidiDriverInternal {
   ) {
     let mut state = State::Idle;
     loop {
-      // bail out if instructed
-      if done_signal.try_recv().is_ok() {
-        debug!("done signal received, exiting");
-        break;
-      }
-
       // if either timeout is None, use a timeout with Duration::MAX, to make the select! logic a bit simpler
       let mut receive_timeout = &mut Box::pin(sleep(Duration::MAX));
       if let Some(t) = &mut self.receive_timeout {
@@ -564,6 +558,11 @@ impl MidiDriverInternal {
 
         Some(cmd) = commands.recv() => {
           Action::SubmitCommand(cmd)
+        }
+
+        _ = done_signal.recv() => {
+          debug!("done signal received, exiting");
+          return;
         }
       };
 
