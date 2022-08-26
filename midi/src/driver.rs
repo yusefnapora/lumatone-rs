@@ -89,6 +89,20 @@ enum State {
   Failed(Report<LumatoneMidiError>),
 }
 
+impl Display for State {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    use State::*;
+    match self {
+      Idle => write!(f, "Idle"),
+      ProcessingQueue { send_queue } => write!(f, "ProcessingQueue({} in queue)", send_queue.len()),
+      AwaitingResponse { send_queue, command_sent } => write!(f, "AwaitingResponse({}, {} in queue)", command_sent.command, send_queue.len()),
+      ProcessingResponse { send_queue, command_sent, response_msg } => write!(f, "ProcessingResponse({}, {}, {} in queue)", command_sent.command, to_hex_debug_str(response_msg), send_queue.len()),
+      DeviceBusy { send_queue, to_retry } => write!(f, "DeviceBusy({}, {} in queue)", to_retry.command, send_queue.len()),
+      Failed(err) => write!(f, "Failed({:?})", err),
+    }
+  }
+}
+
 /// Actions are inputs into the state machine.
 /// An Action may trigger a state transition, but not all actions are applicable to all states.
 /// See the code of [`State::next`] for the valid (action, state) pairings.
@@ -114,6 +128,20 @@ enum Action {
   ReadyToRetry,
 }
 
+impl Display for Action {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    use Action::*;
+    match self {
+        SubmitCommand(cmd) => write!(f, "SubmitCommand({})", cmd.command),
+        MessageSent(cmd) => write!(f, "MessageSent({})", cmd.command),
+        MessageReceived(msg) => write!(f, "MessageReceived({:?} ...)", to_hex_debug_str(msg)),
+        ResponseDispatched => write!(f, "ResponseDispatched"),
+        ResponseTimedOut => write!(f, "ResponseTimedOut"),
+        ReadyToRetry => write!(f, "ReadyToRetry"),
+    }
+  }
+}
+
 /// Effects are requests from the state machine to "do something" in the outside world.
 #[derive(Debug)]
 enum Effect {
@@ -131,6 +159,18 @@ enum Effect {
   NotifyMessageResponse(CommandSubmission, Result<Response, LumatoneMidiError>),
 }
 
+impl Display for Effect {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    use Effect::*;
+    match self {
+      SendMidiMessage(cmd) => write!(f, "SendMidiMessage({})", cmd.command),
+      StartReceiveTimeout => write!(f, "StartReceiveTimeout"),
+      StartRetryTimeout => write!(f, "StartRetryTimeout"),
+      NotifyMessageResponse(cmd, res) => write!(f, "NotfiyMessageResponse({}, {:?})", cmd.command, res),
+    }
+  }
+}
+
 impl State {
   /// Applies an Action to the current State and returns the new State.
   /// Note that this may be the same as the original state, in cases where the given
@@ -138,6 +178,8 @@ impl State {
   fn next(self, action: Action) -> State {
     use Action::*;
     use State::*;
+
+    // debug!("Current state: {} --- action: {}", self, action);
 
     // debug!("handling action {:?}. current state: {:?}", action, self);
     match (action, self) {
@@ -224,7 +266,7 @@ impl State {
 
       // Receiving a message when we're not expecting one logs a warning.
       (MessageReceived(msg), state) => {
-        warn!("Message received when not awaiting response: {:?}", msg);
+        warn!("Message received when not awaiting response. msg: {:?} current state: {}", to_hex_debug_str(&msg), state);
         state
       }
 
@@ -306,7 +348,7 @@ impl State {
         ..
       } => {
         if !is_response_to_message(&command_sent.command.to_sysex_message(), &response_msg) {
-          warn!("received message that doesn't match expected response. outgoing message: {:?} - incoming: {:?}", command_sent.command, response_msg);
+          warn!("received message that doesn't match expected response. outgoing message: {} - incoming: {}", command_sent.command, to_hex_debug_str(response_msg));
         }
 
         let status = message_answer_code(&response_msg);
@@ -483,7 +525,7 @@ impl MidiDriverInternal {
         },
 
         Some(msg) = self.device_io.incoming_messages.recv() => {
-          info!("message received, forwarding to state machine");
+          // info!("message received, forwarding to state machine");
           self.receive_timeout = None;
           Action::MessageReceived(msg)
         }
@@ -533,4 +575,12 @@ fn log_message_status(status: &ResponseStatusCode, outgoing: &Command) {
       outgoing
     ),
   }
+}
+
+fn to_hex_debug_str(msg: &[u8]) -> String {
+  let s = msg.iter()
+    .map(|b| format!("{b:x}"))
+    .collect::<Vec<String>>()
+    .join(" ");
+  format!("[ {s} ]")
 }

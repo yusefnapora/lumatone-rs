@@ -292,34 +292,35 @@ impl LumatoneKeyMap {
 
   pub fn to_midi_commands(&self) -> Vec<Command> {
     use Command::*;
-    let mut commands = vec![
-      SetAftertouchEnabled(self.general.after_touch_active),
-      SetLightOnKeystrokes(self.general.light_on_key_strokes),
-      InvertFootController(self.general.invert_foot_controller),
-      InvertSustainPedal(self.general.invert_sustain),
-      SetExpressionPedalSensitivity(self.general.expression_controller_sensitivity),
-    ];
+    // let mut commands = vec![
+    //   SetAftertouchEnabled(self.general.after_touch_active),
+    //   SetLightOnKeystrokes(self.general.light_on_key_strokes),
+    //   InvertFootController(self.general.invert_foot_controller),
+    //   InvertSustainPedal(self.general.invert_sustain),
+    //   SetExpressionPedalSensitivity(self.general.expression_controller_sensitivity),
+    // ];
 
-    let tables = &self.general.config_tables;
-    if let Some(t) = &tables.on_off_velocity {
-      commands.push(SetVelocityConfig(Box::new(t.table)));
-    }
-    if let Some(t) = &tables.aftertouch_velocity {
-      commands.push(SetAftertouchConfig(Box::new(t.table)));
-    }
-    if let Some(t) = &tables.fader_velocity {
-      commands.push(SetFaderConfig(Box::new(t.table)));
-    }
-    if let Some(t) = &tables.lumatouch_velocity {
-      commands.push(SetLumatouchConfig(Box::new(t.table)));
-    }
-    if let Some(t) = tables.velocity_intervals {
-      commands.push(SetVelocityIntervals(Box::new(t)));
-    }
+    // let tables = &self.general.config_tables;
+    // if let Some(t) = &tables.on_off_velocity {
+    //   commands.push(SetVelocityConfig(Box::new(t.table)));
+    // }
+    // if let Some(t) = &tables.aftertouch_velocity {
+    //   commands.push(SetAftertouchConfig(Box::new(t.table)));
+    // }
+    // if let Some(t) = &tables.fader_velocity {
+    //   commands.push(SetFaderConfig(Box::new(t.table)));
+    // }
+    // if let Some(t) = &tables.lumatouch_velocity {
+    //   commands.push(SetLumatouchConfig(Box::new(t.table)));
+    // }
+    // if let Some(t) = tables.velocity_intervals {
+    //   commands.push(SetVelocityIntervals(Box::new(t)));
+    // }
 
+    let mut commands = vec![];
     for (location, definition) in self.keys.iter() {
       commands.push(SetKeyFunction { location: *location, function: definition.function });
-      commands.push(SetKeyColor { location: *location, color: definition.color });
+      // commands.push(SetKeyColor { location: *location, color: definition.color });
     }
 
     commands

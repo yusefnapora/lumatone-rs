@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 
-use log::warn;
+use log::{warn, debug};
 use midir::{MidiIO, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use tokio::sync::mpsc;
+
+use crate::sysex::SYSEX_START;
 
 use super::{error::LumatoneMidiError, sysex::EncodedSysex};
 use error_stack::{report, IntoReport, Result, ResultExt};
@@ -50,6 +52,10 @@ impl LumatoneDevice {
         &self.in_port_name,
         move |_, msg, _| {
           let msg = msg.to_vec();
+          if msg.is_empty() || msg[0] != SYSEX_START {
+            debug!("received non sysex message, ignoring");
+            return;
+          }
           if let Err(err) = incoming_tx.blocking_send(msg) {
             warn!("error sending incoming message on channel: {err}");
           }

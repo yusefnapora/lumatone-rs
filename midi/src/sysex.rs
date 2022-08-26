@@ -16,8 +16,8 @@ pub const MSG_STATUS: usize = 0x5;
 pub const CALIB_MODE: usize = 0x5;
 pub const PAYLOAD_INIT: usize = 0x6;
 
-const SYSEX_START: u8 = 0xf0;
-const SYSEX_END: u8 = 0xf7;
+pub const SYSEX_START: u8 = 0xf0;
+pub const SYSEX_END: u8 = 0xf7;
 
 pub type EncodedSysex = Vec<u8>;
 

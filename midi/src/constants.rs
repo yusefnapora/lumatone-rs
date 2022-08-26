@@ -70,7 +70,7 @@ impl Display for RGBColor {
 }
 
 bounded_integer! {
-  /// A zero-indexed MIDI channel number, in the range 1 ..= 16.
+  /// A one-indexed MIDI channel number, in the range 1 ..= 16.
   ///
   /// Use `MidiChannel::default()` for channel 1.
   ///
@@ -305,9 +305,9 @@ impl LumatoneKeyFunction {
   pub fn midi_channel_byte(&self) -> u8 {
     use LumatoneKeyFunction::*;
     match *self {
-      NoteOnOff { channel, .. } => channel.into(),
-      ContinuousController { channel, .. } => channel.into(),
-      LumaTouch { channel, .. } => channel.into(),
+      NoteOnOff { channel, .. } => channel.get_as_zero_indexed(),
+      ContinuousController { channel, .. } => channel.get_as_zero_indexed(),
+      LumaTouch { channel, .. } => channel.get_as_zero_indexed(),
       Disabled => 0,
     }
   }
