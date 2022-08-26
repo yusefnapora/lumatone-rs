@@ -101,15 +101,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec8a7b6a70fde80372154c65702f00a0f56f3e1c36abbc6c440484be248856db"
 
 [[package]]
-name = "callback-future"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b76a63a41df0ba9490dd817a3d98511c6d3d9e530eff9bcf5f3de2a6723d1c3f"
-dependencies = [
- "futures",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -344,12 +335,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "lumatone-rs"
+name = "lumatone"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "log",
+ "lumatone-keymap",
+ "lumatone-midi",
+ "tokio",
+]
+
+[[package]]
+name = "lumatone-keymap"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "lumatone-midi",
+ "num-derive",
+ "num-traits",
+ "rust-ini",
+]
+
+[[package]]
+name = "lumatone-midi"
 version = "0.1.0"
 dependencies = [
  "bounded-integer",
- "callback-future",
- "env_logger",
  "error-stack",
  "futures",
  "log",
@@ -357,9 +368,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "rand",
- "rust-ini",
  "tokio",
- "tokio-scoped",
 ]
 
 [[package]]
@@ -737,27 +746,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "tokio-scoped"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4beb8ba13bc53ac53ce1d52b42f02e5d8060f0f42138862869beb769722b256"
-dependencies = [
- "tokio",
- "tokio-stream",
-]
-
-[[package]]
-name = "tokio-stream"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df54d54117d6fdc4e4fea40fe1e4e566b3505700e148a6827e59b34b0d2600d9"
-dependencies = [
- "futures-core",
- "pin-project-lite",
- "tokio",
 ]
 
 [[package]]

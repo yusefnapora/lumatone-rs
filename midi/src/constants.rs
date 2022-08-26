@@ -125,7 +125,9 @@ impl LumatoneKeyIndex {
   }
 
   pub fn all() -> Vec<Self> {
-    { Self::MIN_VALUE ..= Self::MAX_VALUE }.map(|v| unsafe { Self::new_unchecked(v) }).collect()
+    { Self::MIN_VALUE..=Self::MAX_VALUE }
+      .map(|v| unsafe { Self::new_unchecked(v) })
+      .collect()
   }
 }
 
@@ -202,9 +204,13 @@ impl LumatoneKeyLocation {
 
 impl LumatoneKeyLocation {
   pub fn all() -> Vec<LumatoneKeyLocation> {
-    BoardIndex::all_octaves().into_iter()
-      .flat_map(move |b| LumatoneKeyIndex::all().into_iter()
-        .map(move |k| (b, k).into()))
+    BoardIndex::all_octaves()
+      .into_iter()
+      .flat_map(move |b| {
+        LumatoneKeyIndex::all()
+          .into_iter()
+          .map(move |k| (b, k).into())
+      })
       .collect()
   }
 }
@@ -311,11 +317,11 @@ impl Display for LumatoneKeyFunction {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     use LumatoneKeyFunction::*;
     match self {
-      NoteOnOff { channel, note_num } => 
+      NoteOnOff { channel, note_num } =>
         write!(f, "NoteOnOff {{ note_num: {note_num}, channel: {channel} }}"),
-      ContinuousController { channel, cc_num, fader_up_is_null } => 
+      ContinuousController { channel, cc_num, fader_up_is_null } =>
         write!(f, "ContinuousController {{ cc_num: {cc_num}, channel: {channel}, fader_up_is_null: {fader_up_is_null}  }}"),
-      LumaTouch { channel, note_num, fader_up_is_null } => 
+      LumaTouch { channel, note_num, fader_up_is_null } =>
         write!(f, "LumaTouch {{ note_num: {note_num}, channel: {channel}, fader_up_is_null: {fader_up_is_null} }}"),
       Disabled => write!(f, "Disabled"),
     }

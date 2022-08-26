@@ -4,7 +4,7 @@ pub enum LumatoneKeymapError {
   InvalidTableDefinition(String),
 
   ValueParseError,
-  
+
   ParseError(ini::ParseError),
 }
 

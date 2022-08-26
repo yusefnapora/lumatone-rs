@@ -1,12 +1,11 @@
-mod keymap;
-mod midi;
-
 use std::time::Duration;
 
-use crate::midi::commands::set_key_color;
-use crate::midi::constants::{LumatoneKeyLocation, RGBColor};
-use crate::midi::detect::detect_device;
-use crate::midi::driver::MidiDriver;
+use lumatone_midi::{
+  commands::set_key_color,
+  constants::{LumatoneKeyLocation, RGBColor},
+  detect::detect_device,
+  driver::MidiDriver,
+};
 
 use env_logger;
 use log::debug;
@@ -26,7 +25,8 @@ async fn main() {
   let h = tokio::spawn(driver_future);
   debug!("driver loop spawned");
 
-  let commands = LumatoneKeyLocation::all().into_iter()
+  let commands = LumatoneKeyLocation::all()
+    .into_iter()
     .map(|loc| set_key_color(loc, RGBColor::random()));
 
   debug!("sending commands");

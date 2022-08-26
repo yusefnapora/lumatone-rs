@@ -1,14 +1,19 @@
 #![allow(dead_code)]
-use crate::midi::sysex::{is_response_to_message, message_answer_code};
 
 use super::{
   commands::Command,
   constants::ResponseStatusCode,
   device::{LumatoneDevice, LumatoneIO},
   error::LumatoneMidiError,
-  sysex::EncodedSysex, responses::Response,
+  responses::Response,
+  sysex::{is_response_to_message, message_answer_code, EncodedSysex},
 };
-use std::{pin::Pin, time::Duration, collections::VecDeque, fmt::{Display, Debug}};
+use std::{
+  collections::VecDeque,
+  fmt::{Debug, Display},
+  pin::Pin,
+  time::Duration,
+};
 
 use futures::{Future, TryFutureExt};
 use log::{debug, error, info, warn};
@@ -17,7 +22,7 @@ use tokio::{
   time::{sleep, Sleep},
 };
 
-use error_stack::{Result, IntoReport, ResultExt, report, Report};
+use error_stack::{report, IntoReport, Report, Result, ResultExt};
 
 // state machine design is based around this example: https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0
 // linked from "Pretty State Machine Patterns in Rust": https://hoverbear.org/blog/rust-state-machine-pattern/
@@ -27,7 +32,7 @@ type ResponseResult = Result<Response, LumatoneMidiError>;
 
 #[derive(Clone)]
 struct CommandSubmission {
-  command: Command, 
+  command: Command,
   response_tx: mpsc::Sender<ResponseResult>,
 }
 
@@ -53,7 +58,9 @@ enum State {
   Idle,
 
   /// We have one or more MIDI messages queued up to send.
-  ProcessingQueue { send_queue: VecDeque<CommandSubmission> },
+  ProcessingQueue {
+    send_queue: VecDeque<CommandSubmission>,
+  },
 
   /// We've sent a message to the device and are waiting for a response.
   /// We may also have messages queued up to send later.
@@ -67,7 +74,7 @@ enum State {
   ProcessingResponse {
     send_queue: VecDeque<CommandSubmission>,
     command_sent: CommandSubmission,
-    response_msg: EncodedSysex, 
+    response_msg: EncodedSysex,
   },
 
   /// We've sent a message to the device, but the device says it's busy,
@@ -138,10 +145,8 @@ impl State {
       (SubmitCommand(cmd), Idle) => {
         let mut send_queue = VecDeque::new();
         send_queue.push_back(cmd);
-        ProcessingQueue {
-          send_queue, 
-        }
-      },
+        ProcessingQueue { send_queue }
+      }
 
       // Submitting a command while we're waiting for a response to a previous command transitions to a new
       // AwaitingResponse state with the new command pushed onto the send queue.
@@ -189,12 +194,10 @@ impl State {
 
       // Getting confirmation that a message was sent out while we're processing the queue transitions to
       // the AwaitingResponse state.
-      (MessageSent(msg), ProcessingQueue { send_queue }) => {
-        AwaitingResponse {
-          send_queue,
-          command_sent: msg,
-        }
-      }
+      (MessageSent(msg), ProcessingQueue { send_queue }) => AwaitingResponse {
+        send_queue,
+        command_sent: msg,
+      },
 
       // Receiving a message when we're awaiting a response transitions to ProcessingResponse
       (
@@ -203,19 +206,15 @@ impl State {
           send_queue,
           command_sent,
         },
-      ) => {
-        ProcessingResponse { send_queue, command_sent, response_msg }
-      }
+      ) => ProcessingResponse {
+        send_queue,
+        command_sent,
+        response_msg,
+      },
 
       // Getting confirmation that we're done processing a response while we're in the ResponseProcessing state
       // transitions to either Idle or ProcessingQueue, depending on whether there are messages left to send
-      (
-        ResponseDispatched,
-        ProcessingResponse {
-          send_queue,
-          ..
-        }
-      ) => {
+      (ResponseDispatched, ProcessingResponse { send_queue, .. }) => {
         if send_queue.is_empty() {
           Idle
         } else {
@@ -292,15 +291,20 @@ impl State {
 
     match self {
       Idle => (None, None),
-      ProcessingQueue { send_queue } => {
-        match send_queue.pop_front() {
-          None => (None, None),
-          Some(cmd) => (Some(SendMidiMessage(cmd.clone())), Some(Action::MessageSent(cmd))),
-        }
-      }
+      ProcessingQueue { send_queue } => match send_queue.pop_front() {
+        None => (None, None),
+        Some(cmd) => (
+          Some(SendMidiMessage(cmd.clone())),
+          Some(Action::MessageSent(cmd)),
+        ),
+      },
       DeviceBusy { .. } => (Some(StartRetryTimeout), None),
       AwaitingResponse { .. } => (Some(StartReceiveTimeout), None),
-      ProcessingResponse { command_sent, response_msg, .. } => {
+      ProcessingResponse {
+        command_sent,
+        response_msg,
+        ..
+      } => {
         if !is_response_to_message(&command_sent.command.to_sysex_message(), &response_msg) {
           warn!("received message that doesn't match expected response. outgoing message: {:?} - incoming: {:?}", command_sent.command, response_msg);
         }
@@ -330,7 +334,6 @@ struct MidiDriverInternal {
   retry_timeout: Option<Pin<Box<Sleep>>>,
 }
 
-
 pub struct MidiDriver {
   command_tx: mpsc::Sender<CommandSubmission>,
   done_tx: mpsc::Sender<()>,
@@ -339,42 +342,61 @@ pub struct MidiDriver {
 impl MidiDriver {
   pub async fn send(&self, command: Command) -> Result<Response, LumatoneMidiError> {
     let (response_tx, mut response_rx) = mpsc::channel(1);
-    let submission = CommandSubmission { command, response_tx };
-    let send_f = self.command_tx.send(submission)
+    let submission = CommandSubmission {
+      command,
+      response_tx,
+    };
+    let send_f = self
+      .command_tx
+      .send(submission)
       .map_err(|e| report!(e).change_context(LumatoneMidiError::DeviceSendError));
 
     send_f.await?;
     response_rx.recv().await.unwrap()
   }
 
-  pub fn blocking_send(&self, command: Command) -> Result<mpsc::Receiver<ResponseResult>, LumatoneMidiError> {
+  pub fn blocking_send(
+    &self,
+    command: Command,
+  ) -> Result<mpsc::Receiver<ResponseResult>, LumatoneMidiError> {
     let (response_tx, response_rx) = mpsc::channel(1);
-    let submission = CommandSubmission { command, response_tx };
-    self.command_tx.blocking_send(submission)
+    let submission = CommandSubmission {
+      command,
+      response_tx,
+    };
+    self
+      .command_tx
+      .blocking_send(submission)
       .report()
       .change_context(LumatoneMidiError::DeviceSendError)?;
     Ok(response_rx)
   }
 
   pub async fn done(&self) -> Result<(), LumatoneMidiError> {
-    self.done_tx.send(()).await
+    self
+      .done_tx
+      .send(())
+      .await
       .report()
       .change_context(LumatoneMidiError::DeviceSendError)
   }
 }
 
-
 impl MidiDriver {
-  pub fn new(device: &LumatoneDevice) -> Result<(MidiDriver, impl Future<Output = ()>), LumatoneMidiError> {
+  pub fn new(
+    device: &LumatoneDevice,
+  ) -> Result<(MidiDriver, impl Future<Output = ()>), LumatoneMidiError> {
     let internal = MidiDriverInternal::new(device)?;
     let (command_tx, command_rx) = mpsc::channel(128);
     let (done_tx, done_rx) = mpsc::channel(1);
-    
-    let driver = MidiDriver { command_tx, done_tx };
+
+    let driver = MidiDriver {
+      command_tx,
+      done_tx,
+    };
     Ok((driver, internal.run(command_rx, done_rx)))
   }
 }
-
 
 impl MidiDriverInternal {
   fn new(device: &LumatoneDevice) -> Result<Self, LumatoneMidiError> {
@@ -386,7 +408,7 @@ impl MidiDriverInternal {
     })
   }
 
-  /// Performs some Effect. 
+  /// Performs some Effect.
   async fn perform_effect(&mut self, effect: Effect) -> Result<(), LumatoneMidiError> {
     use Effect::*;
     match effect {
@@ -402,7 +424,7 @@ impl MidiDriverInternal {
         let timeout_sec = 3;
         let timeout = sleep(Duration::from_secs(timeout_sec));
         self.retry_timeout = Some(Box::pin(timeout));
-      },
+      }
       NotifyMessageResponse(cmd_submission, result) => {
         if let Err(err) = cmd_submission.response_tx.send(result).await {
           error!("error sending response notification: {err}");
@@ -491,8 +513,7 @@ impl MidiDriverInternal {
       }
       if let Some(action) = maybe_action {
         state = state.next(action);
-      } 
-
+      }
     }
 
     // Ok(())

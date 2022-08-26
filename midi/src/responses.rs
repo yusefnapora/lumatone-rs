@@ -10,7 +10,7 @@ use super::{
   },
 };
 
-use error_stack::{IntoReport, Result, report, bail, ensure, ResultExt};
+use error_stack::{bail, ensure, report, IntoReport, Result, ResultExt};
 
 #[derive(Debug)]
 pub enum Response {
@@ -149,15 +149,21 @@ impl Response {
 
       GetKeytypeConfig => unpack_octave_data_7bit(msg).map(|(b, d)| Response::KeyTypeConfig(b, d)),
 
-      GetMaxThreshold => unpack_octave_data_8bit(msg).map(|(b, d)| Response::KeyMaxThresholds(b, d)),
+      GetMaxThreshold => {
+        unpack_octave_data_8bit(msg).map(|(b, d)| Response::KeyMaxThresholds(b, d))
+      }
 
-      GetMinThreshold => unpack_octave_data_8bit(msg).map(|(b, d)| Response::KeyMinThresholds(b, d)),
+      GetMinThreshold => {
+        unpack_octave_data_8bit(msg).map(|(b, d)| Response::KeyMinThresholds(b, d))
+      }
 
-      GetAftertouchMax => unpack_octave_data_8bit(msg).map(|(b, d)| Response::AftertouchMaxThresholds(b, d)),
+      GetAftertouchMax => {
+        unpack_octave_data_8bit(msg).map(|(b, d)| Response::AftertouchMaxThresholds(b, d))
+      }
 
       GetKeyValidity => unpack_key_validity(msg),
 
-      GetVelocityConfig => unpack_sysex_config_table(msg).map( Response::OnOffVelocityConfig),
+      GetVelocityConfig => unpack_sysex_config_table(msg).map(Response::OnOffVelocityConfig),
 
       GetFaderConfig => unpack_sysex_config_table(msg).map(Response::FaderConfig),
 
@@ -183,12 +189,13 @@ impl Response {
 
       GetAftertouchTriggerDelay => unpack_aftertouch_trigger_delay(msg),
 
-      GetLumatouchNoteOffDelay => unpack_lumatouch_on_off_delay(msg), 
+      GetLumatouchNoteOffDelay => unpack_lumatouch_on_off_delay(msg),
 
       GetExpressionPedalThreshold => unpack_expression_threshold(msg),
 
       _ => Ok(Response::Ack(cmd_id)),
-    }.change_context(LumatoneMidiError::ResponseDecodingError)
+    }
+    .change_context(LumatoneMidiError::ResponseDecodingError)
   }
 }
 
@@ -196,34 +203,64 @@ impl Display for Response {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     use Response::*;
     match self {
-        Ack(cmd_id) => write!(f, "Ack({cmd_id:?})"),
-        Pong(val) => write!(f, "Pong({val})"),
-        RedLEDConfig(board, _) => write!(f, "RedLEDConfig({board}, <table...>)"),
-        GreenLEDConfig(board, _) => write!(f, "GreenLEDConfig({board}, <table..>)"),
-        BlueLEDConfig(board, _) => write!(f, "BlueLEDConfig({board}, <table..>)"),
-        ChannelConfig(board, _) => write!(f, "ChannelConfig({board}, <table..>)"),
-        NoteConfig(board, _) => write!(f, "NoteConfig({board}, <table..>)"),
-        KeyTypeConfig(board, _) => write!(f, "KeyTypeConfig({board}, <table..>)"),
-        KeyMaxThresholds(board, _) => write!(f, "KeyMaxThresholds({board}, <table..>)"),
-        KeyMinThresholds(board, _) => write!(f, "KeyMinThresholds({board}, <table..>)"),
-        AftertouchMaxThresholds(board, _) => write!(f, "AftertouchMaxThresholds({board}, <table..>)"),
-        KeyValidity(board, _) => write!(f, "KeyValidity({board}, <table..>)"),
-        FaderTypeConfig(board, _) => write!(f, "FaderTypeConfig({board}, <table..>)"),
-        OnOffVelocityConfig(_) => write!(f, "OnOffVelocityConfig(<table...>)"),
-        FaderConfig(_) => write!(f, "FaderConfig(<table...>)"),
-        AftertouchConfig(_) => write!(f, "AftertouchConfig(<table...>)"),
-        LumatouchConfig(_) => write!(f, "LumatouchConfig(<table...>)"),
-        VelocityIntervalConfig(_) => write!(f, "VelocityIntervalConfig(<table...>)"),
-        SerialId(id) => write!(f, "SerialId({id:?})"),
-        FirmwareRevision { major, minor, revision } => write!(f, "FirmwareRevision(\"{major}.{minor}.{revision}\")"),
-        BoardThresholds { board_index, min_high, min_low, max, aftertouch, cc } => todo!(),
-        BoardSensitivity { board_index, cc, aftertouch } => todo!(),
-        PeripheralChannels { pitch_wheel, mod_wheel, expression, sustain } => todo!(),
-        ExpressionCalibrationStatus { min_bound, max_bound, valid } => todo!(),
-        WheelCalibrationStatus { center_pitch, min_pitch, max_pitch, min_mod, max_mod } => todo!(),
-        AftertouchTriggerDelay(board, val) => write!(f, "AftertouchTriggerDelay({board}, {val})"),
-        LumatouchNoteOffDelay(board, val) => write!(f, "LumatouchNoteOffDelay({board}, {val})"),
-        ExpressionPedalThreshold(val) => write!(f, "ExpressionPedalThreshold({val})"),
+      Ack(cmd_id) => write!(f, "Ack({cmd_id:?})"),
+      Pong(val) => write!(f, "Pong({val})"),
+      RedLEDConfig(board, _) => write!(f, "RedLEDConfig({board}, <table...>)"),
+      GreenLEDConfig(board, _) => write!(f, "GreenLEDConfig({board}, <table..>)"),
+      BlueLEDConfig(board, _) => write!(f, "BlueLEDConfig({board}, <table..>)"),
+      ChannelConfig(board, _) => write!(f, "ChannelConfig({board}, <table..>)"),
+      NoteConfig(board, _) => write!(f, "NoteConfig({board}, <table..>)"),
+      KeyTypeConfig(board, _) => write!(f, "KeyTypeConfig({board}, <table..>)"),
+      KeyMaxThresholds(board, _) => write!(f, "KeyMaxThresholds({board}, <table..>)"),
+      KeyMinThresholds(board, _) => write!(f, "KeyMinThresholds({board}, <table..>)"),
+      AftertouchMaxThresholds(board, _) => write!(f, "AftertouchMaxThresholds({board}, <table..>)"),
+      KeyValidity(board, _) => write!(f, "KeyValidity({board}, <table..>)"),
+      FaderTypeConfig(board, _) => write!(f, "FaderTypeConfig({board}, <table..>)"),
+      OnOffVelocityConfig(_) => write!(f, "OnOffVelocityConfig(<table...>)"),
+      FaderConfig(_) => write!(f, "FaderConfig(<table...>)"),
+      AftertouchConfig(_) => write!(f, "AftertouchConfig(<table...>)"),
+      LumatouchConfig(_) => write!(f, "LumatouchConfig(<table...>)"),
+      VelocityIntervalConfig(_) => write!(f, "VelocityIntervalConfig(<table...>)"),
+      SerialId(id) => write!(f, "SerialId({id:?})"),
+      FirmwareRevision {
+        major,
+        minor,
+        revision,
+      } => write!(f, "FirmwareRevision(\"{major}.{minor}.{revision}\")"),
+      BoardThresholds {
+        board_index,
+        min_high,
+        min_low,
+        max,
+        aftertouch,
+        cc,
+      } => todo!(),
+      BoardSensitivity {
+        board_index,
+        cc,
+        aftertouch,
+      } => todo!(),
+      PeripheralChannels {
+        pitch_wheel,
+        mod_wheel,
+        expression,
+        sustain,
+      } => todo!(),
+      ExpressionCalibrationStatus {
+        min_bound,
+        max_bound,
+        valid,
+      } => todo!(),
+      WheelCalibrationStatus {
+        center_pitch,
+        min_pitch,
+        max_pitch,
+        min_mod,
+        max_mod,
+      } => todo!(),
+      AftertouchTriggerDelay(board, val) => write!(f, "AftertouchTriggerDelay({board}, {val})"),
+      LumatouchNoteOffDelay(board, val) => write!(f, "LumatouchNoteOffDelay({board}, {val})"),
+      ExpressionPedalThreshold(val) => write!(f, "ExpressionPedalThreshold({val})"),
     }
   }
 }
@@ -231,7 +268,10 @@ impl Display for Response {
 fn message_board_index(msg: &[u8]) -> Result<BoardIndex, LumatoneMidiError> {
   ensure!(
     msg.len() <= BOARD_IND,
-    LumatoneMidiError::MessageTooShort { expected: BOARD_IND + 1, actual: msg.len() }
+    LumatoneMidiError::MessageTooShort {
+      expected: BOARD_IND + 1,
+      actual: msg.len()
+    }
   );
 
   BoardIndex::try_from(msg[BOARD_IND]).report()
@@ -281,7 +321,8 @@ fn valid_lumatone_msg<'a>(msg: &'a [u8]) -> Result<&'a [u8], LumatoneMidiError> 
     Err(LumatoneMidiError::NotLumatoneMessage(msg.to_vec()))
   } else {
     Ok(msg)
-  }.report()
+  }
+  .report()
 }
 
 fn payload_with_len<'a>(msg: &'a [u8], len: usize) -> Result<&'a [u8], LumatoneMidiError> {
@@ -289,10 +330,14 @@ fn payload_with_len<'a>(msg: &'a [u8], len: usize) -> Result<&'a [u8], LumatoneM
 
   let payload = message_payload(msg)?;
   if payload.len() < len {
-    Err(LumatoneMidiError::MessagePayloadTooShort { expected: len, actual: payload.len() })
-  } else { 
+    Err(LumatoneMidiError::MessagePayloadTooShort {
+      expected: len,
+      actual: payload.len(),
+    })
+  } else {
     Ok(&payload[0..len])
-  }.report()
+  }
+  .report()
 }
 
 fn unpack_sysex_config_table(msg: &[u8]) -> Result<Box<SysexTable>, LumatoneMidiError> {
@@ -356,19 +401,34 @@ fn unpack_serial_id(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
 
 fn unpack_firmware_revision(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
   let payload = payload_with_len(msg, 3)?;
-  Ok(Response::FirmwareRevision { major: payload[0], minor: payload[1], revision: payload[2] })
+  Ok(Response::FirmwareRevision {
+    major: payload[0],
+    minor: payload[1],
+    revision: payload[2],
+  })
 }
 
 fn unpack_board_thresholds(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
   let payload = payload_with_len(msg, 10)?;
   let (board_index, data) = unpack_octave_data_8bit(payload)?;
-  Ok(Response::BoardThresholds { board_index, min_high: data[0], min_low: data[1], max: data[2], aftertouch: data[3], cc: data[4] })
+  Ok(Response::BoardThresholds {
+    board_index,
+    min_high: data[0],
+    min_low: data[1],
+    max: data[2],
+    aftertouch: data[3],
+    cc: data[4],
+  })
 }
 
 fn unpack_board_sensitivity(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
   let payload = payload_with_len(msg, 4)?;
   let (board_index, data) = unpack_octave_data_8bit(msg)?;
-  Ok(Response::BoardSensitivity { board_index, cc: data[0], aftertouch: data[1] })
+  Ok(Response::BoardSensitivity {
+    board_index,
+    cc: data[0],
+    aftertouch: data[1],
+  })
 }
 
 fn unpack_peripheral_channels(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
@@ -380,7 +440,12 @@ fn unpack_peripheral_channels(msg: &[u8]) -> Result<Response, LumatoneMidiError>
   let expression = MidiChannel::try_from_zero_indexed(data[2])?;
   let sustain = MidiChannel::try_from_zero_indexed(data[3])?;
 
-  Ok(Response::PeripheralChannels { pitch_wheel, mod_wheel, expression, sustain })
+  Ok(Response::PeripheralChannels {
+    pitch_wheel,
+    mod_wheel,
+    expression,
+    sustain,
+  })
 }
 
 fn unpack_expression_calibration_status(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
@@ -398,7 +463,11 @@ fn unpack_expression_calibration_status(msg: &[u8]) -> Result<Response, Lumatone
   // but the max bound is at [PAYLOAD_INIT + 3], since each 12bit value takes 3 bytes.
   // I'm going to assume this is supposed to be PAYLOAD_INIT + 6
   let valid = payload[6] != 0;
-  Ok(Response::ExpressionCalibrationStatus { min_bound, max_bound, valid })
+  Ok(Response::ExpressionCalibrationStatus {
+    min_bound,
+    max_bound,
+    valid,
+  })
 }
 
 fn unpack_wheel_calibration_status(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
@@ -409,7 +478,13 @@ fn unpack_wheel_calibration_status(msg: &[u8]) -> Result<Response, LumatoneMidiE
   let max_pitch = data[2];
   let min_mod = data[3];
   let max_mod = data[4];
-  Ok(Response::WheelCalibrationStatus { center_pitch, min_pitch, max_pitch, min_mod, max_mod })
+  Ok(Response::WheelCalibrationStatus {
+    center_pitch,
+    min_pitch,
+    max_pitch,
+    min_mod,
+    max_mod,
+  })
 }
 
 fn unpack_aftertouch_trigger_delay(msg: &[u8]) -> Result<Response, LumatoneMidiError> {

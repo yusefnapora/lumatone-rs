@@ -1,9 +1,8 @@
 #![allow(unused)]
 use super::{error::LumatoneKeymapError, table_defaults::*};
-use crate::midi::sysex::{SysexTable, VelocityIntervalTable};
+use lumatone_midi::sysex::{SysexTable, VelocityIntervalTable};
 
 use ini::Ini;
-
 
 pub enum EditingStrategy {
   FreeDrawing,

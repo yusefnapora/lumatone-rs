@@ -5,7 +5,7 @@ use midir::{MidiIO, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnec
 use tokio::sync::mpsc;
 
 use super::{error::LumatoneMidiError, sysex::EncodedSysex};
-use error_stack::{Result, IntoReport, ResultExt, report};
+use error_stack::{report, IntoReport, Result, ResultExt};
 
 /// Identifies the MIDI input and output ports that the Lumatone is connected to.
 /// A LumatoneDevice can be used to initiate a connection to the device using [`Self::connect`].
@@ -29,36 +29,42 @@ impl LumatoneDevice {
     use LumatoneMidiError::DeviceConnectionError;
 
     let client_name = "lumatone-rs";
-    let input = MidiInput::new(client_name).report().change_context(DeviceConnectionError)?;
-    let output = MidiOutput::new(client_name).report().change_context(DeviceConnectionError)?;
+    let input = MidiInput::new(client_name)
+      .report()
+      .change_context(DeviceConnectionError)?;
+    let output = MidiOutput::new(client_name)
+      .report()
+      .change_context(DeviceConnectionError)?;
 
-    let in_port = get_port_by_name(&input, &self.in_port_name).change_context(DeviceConnectionError)?;
-    let out_port = get_port_by_name(&output, &self.out_port_name).change_context(DeviceConnectionError)?;
+    let in_port =
+      get_port_by_name(&input, &self.in_port_name).change_context(DeviceConnectionError)?;
+    let out_port =
+      get_port_by_name(&output, &self.out_port_name).change_context(DeviceConnectionError)?;
 
     let buf_size = 32;
     let (incoming_tx, incoming_messages) = mpsc::channel(buf_size);
 
-    let input_conn = input.connect(
-      &in_port,
-      &self.in_port_name,
-      move |_, msg, _| {
-        let msg = msg.to_vec();
-        if let Err(err) = incoming_tx.blocking_send(msg) {
-          warn!("error sending incoming message on channel: {err}");
-        }
-      },
-      (),
-    ).map_err(|e|
+    let input_conn = input
+      .connect(
+        &in_port,
+        &self.in_port_name,
+        move |_, msg, _| {
+          let msg = msg.to_vec();
+          if let Err(err) = incoming_tx.blocking_send(msg) {
+            warn!("error sending incoming message on channel: {err}");
+          }
+        },
+        (),
+      )
+      .map_err(|e|
         // The ConnectError<MidiInput> type is not thread-safe, so we stringify instead of report()-ing directly
         report!(DeviceConnectionError)
-          .attach_printable(format!("midi input connection error: {e}"))
-      )?;
+          .attach_printable(format!("midi input connection error: {e}")))?;
 
     let output_conn = output.connect(&out_port, &self.out_port_name).map_err(|e|
         // The ConnectError<MidiOutput> type is not thread-safe, so we stringify instead of report()-ing directly
         report!(DeviceConnectionError)
-          .attach_printable(format!("midi input connection error: {e}"))
-      )?;
+          .attach_printable(format!("midi input connection error: {e}")))?;
 
     let io = LumatoneIO {
       input_conn,
@@ -82,7 +88,10 @@ pub struct LumatoneIO {
 impl LumatoneIO {
   /// Sends an encoded sysex message to the Lumatone.
   pub fn send(&mut self, msg: &[u8]) -> Result<(), LumatoneMidiError> {
-    self.output_conn.send(msg).report()
+    self
+      .output_conn
+      .send(msg)
+      .report()
       .change_context(LumatoneMidiError::DeviceSendError)
   }
 
@@ -96,12 +105,16 @@ impl LumatoneIO {
 
 fn get_port_by_name<IO: MidiIO>(io: &IO, name: &str) -> Result<IO::Port, LumatoneMidiError> {
   for p in io.ports() {
-    let port_name = io.port_name(&p)
-      .map_err(|e| report!(LumatoneMidiError::DeviceConnectionError)
-      .attach_printable(format!("unable to get port with name '{name}': {e}")))?;
+    let port_name = io.port_name(&p).map_err(|e| {
+      report!(LumatoneMidiError::DeviceConnectionError)
+        .attach_printable(format!("unable to get port with name '{name}': {e}"))
+    })?;
     if port_name == name {
       return Ok(p);
     }
   }
-  Err(report!(LumatoneMidiError::DeviceConnectionError).attach_printable(format!("unable to get port with name: {name}")))
+  Err(
+    report!(LumatoneMidiError::DeviceConnectionError)
+      .attach_printable(format!("unable to get port with name: {name}")),
+  )
 }

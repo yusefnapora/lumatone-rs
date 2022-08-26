@@ -3,7 +3,6 @@ use super::constants::CommandId;
 use error_stack::Context;
 use std::fmt::Display;
 
-
 #[derive(Debug)]
 pub enum LumatoneMidiError {
   // InvalidCommandInput(CommandId, String),
@@ -38,13 +37,12 @@ pub enum LumatoneMidiError {
   InvalidPresetIndex(u8),
 }
 
-impl Context for LumatoneMidiError { }
+impl Context for LumatoneMidiError {}
 
 impl Display for LumatoneMidiError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     use LumatoneMidiError::*;
     match self {
-
       NotLumatoneMessage(msg) => write!(f, "message is not a lumatone message: {:?}", msg),
 
       MessageTooShort { expected, actual } => write!(
@@ -92,7 +90,6 @@ impl Display for LumatoneMidiError {
       }
 
       InvalidPresetIndex(n) => write!(f, "invalid preset index {n}. Valid range is 0 ..= 9"),
-
     }
   }
 }
