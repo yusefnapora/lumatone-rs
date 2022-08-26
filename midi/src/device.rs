@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use log::{warn, debug};
+use log::{debug, warn};
 use midir::{MidiIO, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use tokio::sync::mpsc;
 

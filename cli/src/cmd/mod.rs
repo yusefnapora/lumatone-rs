@@ -14,8 +14,8 @@ pub enum CliCommand {
   /// Sends a .ltn preset file to the device
   SendPreset {
     #[clap(value_parser)]
-    preset: PathBuf
-  }
+    preset: PathBuf,
+  },
 }
 
 impl CliCommand {

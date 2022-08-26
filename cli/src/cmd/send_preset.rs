@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 
 use lumatone_keymap::ltn::LumatoneKeyMap;
 use lumatone_midi::detect::detect_device;

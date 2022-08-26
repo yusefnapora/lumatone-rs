@@ -95,9 +95,35 @@ impl Display for State {
     match self {
       Idle => write!(f, "Idle"),
       ProcessingQueue { send_queue } => write!(f, "ProcessingQueue({} in queue)", send_queue.len()),
-      AwaitingResponse { send_queue, command_sent } => write!(f, "AwaitingResponse({}, {} in queue)", command_sent.command, send_queue.len()),
-      ProcessingResponse { send_queue, command_sent, response_msg } => write!(f, "ProcessingResponse({}, {}, {} in queue)", command_sent.command, to_hex_debug_str(response_msg), send_queue.len()),
-      DeviceBusy { send_queue, to_retry } => write!(f, "DeviceBusy({}, {} in queue)", to_retry.command, send_queue.len()),
+      AwaitingResponse {
+        send_queue,
+        command_sent,
+      } => write!(
+        f,
+        "AwaitingResponse({}, {} in queue)",
+        command_sent.command,
+        send_queue.len()
+      ),
+      ProcessingResponse {
+        send_queue,
+        command_sent,
+        response_msg,
+      } => write!(
+        f,
+        "ProcessingResponse({}, {}, {} in queue)",
+        command_sent.command,
+        to_hex_debug_str(response_msg),
+        send_queue.len()
+      ),
+      DeviceBusy {
+        send_queue,
+        to_retry,
+      } => write!(
+        f,
+        "DeviceBusy({}, {} in queue)",
+        to_retry.command,
+        send_queue.len()
+      ),
       Failed(err) => write!(f, "Failed({:?})", err),
     }
   }
@@ -132,12 +158,12 @@ impl Display for Action {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     use Action::*;
     match self {
-        SubmitCommand(cmd) => write!(f, "SubmitCommand({})", cmd.command),
-        MessageSent(cmd) => write!(f, "MessageSent({})", cmd.command),
-        MessageReceived(msg) => write!(f, "MessageReceived({:?} ...)", to_hex_debug_str(msg)),
-        ResponseDispatched => write!(f, "ResponseDispatched"),
-        ResponseTimedOut => write!(f, "ResponseTimedOut"),
-        ReadyToRetry => write!(f, "ReadyToRetry"),
+      SubmitCommand(cmd) => write!(f, "SubmitCommand({})", cmd.command),
+      MessageSent(cmd) => write!(f, "MessageSent({})", cmd.command),
+      MessageReceived(msg) => write!(f, "MessageReceived({:?} ...)", to_hex_debug_str(msg)),
+      ResponseDispatched => write!(f, "ResponseDispatched"),
+      ResponseTimedOut => write!(f, "ResponseTimedOut"),
+      ReadyToRetry => write!(f, "ReadyToRetry"),
     }
   }
 }
@@ -166,7 +192,9 @@ impl Display for Effect {
       SendMidiMessage(cmd) => write!(f, "SendMidiMessage({})", cmd.command),
       StartReceiveTimeout => write!(f, "StartReceiveTimeout"),
       StartRetryTimeout => write!(f, "StartRetryTimeout"),
-      NotifyMessageResponse(cmd, res) => write!(f, "NotfiyMessageResponse({}, {:?})", cmd.command, res),
+      NotifyMessageResponse(cmd, res) => {
+        write!(f, "NotfiyMessageResponse({}, {:?})", cmd.command, res)
+      }
     }
   }
 }
@@ -266,7 +294,11 @@ impl State {
 
       // Receiving a message when we're not expecting one logs a warning.
       (MessageReceived(msg), state) => {
-        warn!("Message received when not awaiting response. msg: {:?} current state: {}", to_hex_debug_str(&msg), state);
+        warn!(
+          "Message received when not awaiting response. msg: {:?} current state: {}",
+          to_hex_debug_str(&msg),
+          state
+        );
         state
       }
 
@@ -578,7 +610,8 @@ fn log_message_status(status: &ResponseStatusCode, outgoing: &Command) {
 }
 
 fn to_hex_debug_str(msg: &[u8]) -> String {
-  let s = msg.iter()
+  let s = msg
+    .iter()
     .map(|b| format!("{b:x}"))
     .collect::<Vec<String>>()
     .join(" ");

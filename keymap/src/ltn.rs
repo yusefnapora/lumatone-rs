@@ -1,8 +1,11 @@
 #![allow(unused)]
-use lumatone_midi::{constants::{
-  key_loc_unchecked, BoardIndex, LumatoneKeyFunction, LumatoneKeyIndex, LumatoneKeyLocation,
-  MidiChannel, RGBColor,
-}, commands::Command};
+use lumatone_midi::{
+  commands::Command,
+  constants::{
+    key_loc_unchecked, BoardIndex, LumatoneKeyFunction, LumatoneKeyIndex, LumatoneKeyLocation,
+    MidiChannel, RGBColor,
+  },
+};
 /// Utilities for working with the .ltn Lumatone preset file format.
 ///
 use std::collections::HashMap;
@@ -187,7 +190,7 @@ impl LumatoneKeyMap {
         .iter()
         .filter(|(loc, _)| loc.board_index() == board_index);
 
-      let section_name = format!("Board{}", b-1);
+      let section_name = format!("Board{}", b - 1);
       for (loc, def) in keys {
         let key_index: u8 = loc.key_index().into();
         let key_type = def.function.key_type_code();
@@ -237,9 +240,8 @@ impl LumatoneKeyMap {
     let mut keys: HashMap<LumatoneKeyLocation, KeyDefinition> = HashMap::new();
 
     for b in 1..=5 {
-      let key = format!("Board{}", b-1);
+      let key = format!("Board{}", b - 1);
       if let Some(section) = ini.section(Some(key)) {
-
         // The official LumatoneEditor just spits global options out at the end of the file,
         // so they get slurped into the [Board5] section.
         if let Ok(general_opts) = GeneralOptions::from_ini_section(section) {
@@ -319,14 +321,16 @@ impl LumatoneKeyMap {
 
     let mut commands = vec![];
     for (location, definition) in self.keys.iter() {
-      commands.push(SetKeyFunction { location: *location, function: definition.function });
+      commands.push(SetKeyFunction {
+        location: *location,
+        function: definition.function,
+      });
       // commands.push(SetKeyColor { location: *location, color: definition.color });
     }
 
     commands
   }
 }
-
 
 fn bool_val(s: &str) -> bool {
   let i = i64::from_str_radix(s, 10).unwrap_or(0);

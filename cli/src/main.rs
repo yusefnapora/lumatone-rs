@@ -2,13 +2,12 @@ mod cmd;
 
 use crate::cmd::CliCommand;
 
-use tokio;
 use clap::Parser;
+use tokio;
 
 #[derive(Parser)]
 #[clap(version, about, long_about = None)]
 struct Cli {
-
   #[clap(subcommand)]
   command: CliCommand,
 }

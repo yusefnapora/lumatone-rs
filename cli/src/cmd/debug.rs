@@ -1,4 +1,3 @@
-
 use lumatone_midi::{
   commands::set_key_color,
   constants::{LumatoneKeyLocation, RGBColor},

@@ -122,7 +122,10 @@ pub fn parse_velocity_intervals(s: &str) -> Result<VelocityIntervalTable, Lumato
       InvalidTableDefinition(format!("unable to parse in in table definition: {e}"))
     })?;
     if i == 127 {
-      warn!("velocity table is more than 127 elements long, ignoring {} values", tokens.len() - 127);
+      warn!(
+        "velocity table is more than 127 elements long, ignoring {} values",
+        tokens.len() - 127
+      );
       break;
     }
     table[i] = val;
