@@ -2,6 +2,9 @@
 use super::{error::LumatoneKeymapError, table_defaults::*};
 use crate::midi::sysex::{SysexTable, VelocityIntervalTable};
 
+use ini::Ini;
+
+
 pub enum EditingStrategy {
   FreeDrawing,
   LinearSegments,
@@ -9,21 +12,21 @@ pub enum EditingStrategy {
 }
 
 pub struct ConfigurationTables {
-  pub on_off_velocity: ConfigTableDefinition,
-  pub fader_velocity: ConfigTableDefinition,
-  pub aftertouch_velocity: ConfigTableDefinition,
-  pub lumatouch_velocity: ConfigTableDefinition,
-  pub velocity_intervals: VelocityIntervalTable,
+  pub on_off_velocity: Option<ConfigTableDefinition>,
+  pub fader_velocity: Option<ConfigTableDefinition>,
+  pub aftertouch_velocity: Option<ConfigTableDefinition>,
+  pub lumatouch_velocity: Option<ConfigTableDefinition>,
+  pub velocity_intervals: Option<VelocityIntervalTable>,
 }
 
 impl Default for ConfigurationTables {
   fn default() -> Self {
     ConfigurationTables {
-      on_off_velocity: ConfigTableDefinition::new(DEFAULT_ON_OFF_VELOCITY_TABLE),
-      fader_velocity: ConfigTableDefinition::new(DEFAULT_FADER_VELOCITY_TABLE),
-      aftertouch_velocity: ConfigTableDefinition::new(DEFAULT_AFTERTOUCH_VELOCITY_TABLE),
-      lumatouch_velocity: ConfigTableDefinition::new(DEFAULT_LUMATOUCH_VELOCITY_TABLE),
-      velocity_intervals: DEFAULT_VELOCITY_INTERVAL_TABLE,
+      on_off_velocity: None,
+      fader_velocity: None,
+      aftertouch_velocity: None,
+      lumatouch_velocity: None,
+      velocity_intervals: None,
     }
   }
 }

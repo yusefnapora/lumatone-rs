@@ -1,17 +1,20 @@
 #![allow(unused)]
 use crate::midi::constants::{
-  BoardIndex, LumatoneKeyFunction, LumatoneKeyIndex, LumatoneKeyLocation, RGBColor,
+  BoardIndex, LumatoneKeyFunction, LumatoneKeyIndex, LumatoneKeyLocation, MidiChannel, RGBColor, key_loc_unchecked,
 };
 /// Utilities for working with the .ltn Lumatone preset file format.
 ///
+
+
 use std::collections::HashMap;
 
-use ini::Ini;
+use ini::{Ini, Properties};
 use num_traits::FromPrimitive;
 
 use super::{
   error::LumatoneKeymapError,
-  tables::{velocity_intervals_to_string, ConfigurationTables},
+  tables::{velocity_intervals_to_string, ConfigurationTables, parse_velocity_intervals, ConfigTableDefinition},
+  table_defaults,
 };
 
 pub struct KeyDefinition {
@@ -27,6 +30,36 @@ pub struct GeneralOptions {
   pub expression_controller_sensitivity: u8,
 
   pub config_tables: ConfigurationTables,
+}
+
+fn config_table_from_ini_section(section: &Properties, key: &str) -> Result<Option<ConfigTableDefinition>, LumatoneKeymapError> {
+  match section.get(key) {
+    Some(val) => ConfigTableDefinition::from_str(val).map(|val| Some(val)),
+    None => Ok(None),
+  }
+}
+
+impl GeneralOptions {
+  fn from_ini_section(props: &Properties) -> Result<GeneralOptions, LumatoneKeymapError> {
+    let on_off_velocity = config_table_from_ini_section(props, "NoteOnOffVelocityCurveTbl")?;
+    let fader_velocity = config_table_from_ini_section(props, "FaderConfig")?;
+    let aftertouch_velocity = config_table_from_ini_section(props, "afterTouchConfig")?;
+    let lumatouch_velocity = config_table_from_ini_section(props, "LumaTouchConfig")?;
+    let velocity_intervals = match props.get("VelocityIntrvlTbl") {
+      Some(val) => Some(parse_velocity_intervals(val)?),
+      None => None,
+    };
+
+    Ok(GeneralOptions {
+      after_touch_active: props.get("AfterTouchActive").map(bool_val).unwrap_or(false),
+      light_on_key_strokes: props.get("LightOnKeyStrokes").map(bool_val).unwrap_or(false),
+      invert_foot_controller: props.get("InvertFootController").map(bool_val).unwrap_or(false),
+      invert_sustain: props.get("InvertSustain").map(bool_val).unwrap_or(false),
+      // TODO: don't panic on invalid int:
+      expression_controller_sensitivity: props.get("ExprCtrlSensivity").map(|s| u8::from_str_radix(s, 10).expect("invalid int value")).unwrap_or(0),
+      config_tables: ConfigurationTables { on_off_velocity, fader_velocity, aftertouch_velocity, lumatouch_velocity, velocity_intervals }
+    })
+  }
 }
 
 impl Default for GeneralOptions {
@@ -71,7 +104,7 @@ impl LumatoneKeyMap {
     self
   }
 
-  pub fn as_ini(&self) -> Ini {
+  pub fn to_ini(&self) -> Ini {
     let mut conf = Ini::new();
 
     let bool_str = |b: bool| if b { 1 } else { 0 }.to_string();
@@ -94,27 +127,27 @@ impl LumatoneKeyMap {
       .set(
         "ExprCtrlSensivity",
         self.general.expression_controller_sensitivity.to_string(),
-      )
-      .set(
-        "VelocityIntrvlTbl",
-        velocity_intervals_to_string(&self.general.config_tables.velocity_intervals),
-      )
-      .set(
-        "NoteOnOffVelocityCrvTbl",
-        self.general.config_tables.on_off_velocity.to_string(),
-      )
-      .set(
-        "FaderConfig",
-        self.general.config_tables.fader_velocity.to_string(),
-      )
-      .set(
-        "afterTouchConfig",
-        self.general.config_tables.aftertouch_velocity.to_string(),
-      )
-      .set(
-        "LumaTouchConfig",
-        self.general.config_tables.lumatouch_velocity.to_string(),
       );
+
+    if let Some(t) = &self.general.config_tables.velocity_intervals {
+      conf.with_general_section().set("VelocityIntrvlTbl", velocity_intervals_to_string(t));
+    }
+    
+    if let Some(t) = &self.general.config_tables.on_off_velocity {
+      conf.with_general_section().set("NoteOnOffVelocityCrvTbl", t.to_string());
+    }
+
+    if let Some(t) = &self.general.config_tables.fader_velocity {
+      conf.with_general_section().set("FaderConfig", t.to_string());
+    }
+
+    if let Some(t) = &self.general.config_tables.aftertouch_velocity {
+      conf.with_general_section().set("afterTouchConfig", t.to_string());
+    }
+
+    if let Some(t) = &self.general.config_tables.lumatouch_velocity {
+      conf.with_general_section().set("LumaTouchConfig", t.to_string());
+    }
 
     // Key definitions are split into sections, one for each board / octave
     for b in 1..=5 {
@@ -170,15 +203,60 @@ impl LumatoneKeyMap {
   pub fn from_ini_str(source: &str) -> Result<LumatoneKeyMap, LumatoneKeymapError> {
     let ini = Ini::load_from_str(source)?;
 
-    let mut general = GeneralOptions::default();
+    let mut general = GeneralOptions::from_ini_section(ini.general_section())?;
+    let mut keys: HashMap<LumatoneKeyLocation, KeyDefinition> = HashMap::new();
 
-    todo!()
+    for b in 1..=5 {
+      let key = format!("Board{b}");
+      if let Some(section) = ini.section(Some(key)) {
+        for k in 0 ..= 55 {
+          let key_type_code = get_u8_or_default_from_ini_section(section, format!("KTyp_{k}"), 4);
+          let note_or_cc_num = get_u8_or_default_from_ini_section(section, format!("Key_{k}"), 0);
+          let chan = get_u8_or_default_from_ini_section(section, format!("Chan_{k}"), 1);
+          let color_str = section.get(format!("Col_{k}")).unwrap_or("000000");
+          // TODO: use error_stack here:
+          let color_u32 = u32::from_str_radix(color_str, 16).map_err(|_| LumatoneKeymapError::ValueParseError)?;
+          let color = RGBColor::from(color_u32);
+
+          let channel = MidiChannel::new(chan).unwrap_or_default();
+          let function = match key_type_code {
+            1 => LumatoneKeyFunction::NoteOnOff { channel, note_num: note_or_cc_num },
+            // FIXME: figure out how the fader up thing is serialized in preset files...
+            // might be the same as in midi messages (left shift the type code by 4)
+            2 => LumatoneKeyFunction::ContinuousController { channel, cc_num: note_or_cc_num, fader_up_is_null: false }, 
+            3 => LumatoneKeyFunction::LumaTouch { channel, note_num: note_or_cc_num, fader_up_is_null: false },
+            _ => {
+              log::warn!("unrecognized key type code: {key_type_code}");
+              LumatoneKeyFunction::Disabled
+            }
+          };
+          let key_definition = KeyDefinition { function, color };
+          let loc = key_loc_unchecked(b, k);
+          keys.insert(loc, key_definition);
+        }
+      }
+    }
+    
+    Ok(LumatoneKeyMap { keys, general })
   }
+}
+
+fn bool_val(s: &str) -> bool {
+  let i = i64::from_str_radix(s, 10).unwrap_or(0);
+  i != 0
+}
+
+fn get_u8_or_default_from_ini_section<S: AsRef<str>>(section: &Properties, key: S, default_val: u8) -> u8
+{
+  section.get(key)
+    .map(|v| u8::from_str_radix(v, 10)
+      .unwrap_or(default_val))
+    .unwrap_or(default_val)
 }
 
 #[cfg(test)]
 mod tests {
-  use crate::midi::constants::{key_loc_unchecked, LumatoneKeyFunction, MidiChannel, RGBColor};
+  use crate::{midi::constants::{key_loc_unchecked, LumatoneKeyFunction, MidiChannel, RGBColor}, keymap::tables::ConfigurationTables};
 
   use super::{GeneralOptions, KeyDefinition, LumatoneKeyMap};
 
@@ -209,7 +287,7 @@ mod tests {
         },
       );
 
-    let ini = keymap.as_ini();
+    let ini = keymap.to_ini();
     let board_1 = ini.section(Some("Board1".to_string())).unwrap();
     assert_eq!(board_1.get("Key_0"), Some("60"));
     assert_eq!(board_1.get("Chan_0"), Some("1"));
@@ -247,9 +325,10 @@ mod tests {
       invert_foot_controller: true,
       invert_sustain: true,
       expression_controller_sensitivity: 100,
+      config_tables: ConfigurationTables::default(),
     });
 
-    let ini = keymap.as_ini();
+    let ini = keymap.to_ini();
     let general = ini.general_section();
     assert_eq!(general.get("AfterTouchActive"), Some("1"));
     assert_eq!(general.get("LightOnKeyStrokes"), Some("1"));

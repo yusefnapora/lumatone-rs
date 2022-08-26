@@ -21,6 +21,7 @@ use error_stack::{Result, IntoReport, ResultExt, report, Report};
 
 // state machine design is based around this example: https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0
 // linked from "Pretty State Machine Patterns in Rust": https://hoverbear.org/blog/rust-state-machine-pattern/
+// with the addition of an explicit `Effect` type to model side effects
 
 type ResponseResult = Result<Response, LumatoneMidiError>;
 
