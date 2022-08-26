@@ -1,5 +1,6 @@
 use ini;
 
+#[derive(Debug)]
 pub enum LumatoneKeymapError {
   InvalidTableDefinition(String),
 

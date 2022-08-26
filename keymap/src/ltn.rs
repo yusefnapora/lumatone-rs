@@ -1,8 +1,8 @@
 #![allow(unused)]
-use lumatone_midi::constants::{
+use lumatone_midi::{constants::{
   key_loc_unchecked, BoardIndex, LumatoneKeyFunction, LumatoneKeyIndex, LumatoneKeyLocation,
   MidiChannel, RGBColor,
-};
+}, commands::Command};
 /// Utilities for working with the .ltn Lumatone preset file format.
 ///
 use std::collections::HashMap;
@@ -187,7 +187,7 @@ impl LumatoneKeyMap {
         .iter()
         .filter(|(loc, _)| loc.board_index() == board_index);
 
-      let section_name = format!("Board{b}");
+      let section_name = format!("Board{}", b-1);
       for (loc, def) in keys {
         let key_index: u8 = loc.key_index().into();
         let key_type = def.function.key_type_code();
@@ -230,17 +230,24 @@ impl LumatoneKeyMap {
     conf
   }
 
-  pub fn from_ini_str(source: &str) -> Result<LumatoneKeyMap, LumatoneKeymapError> {
-    let ini = Ini::load_from_str(source)?;
+  pub fn from_ini_str<S: AsRef<str>>(source: S) -> Result<LumatoneKeyMap, LumatoneKeymapError> {
+    let ini = Ini::load_from_str(source.as_ref())?;
 
-    let mut general = GeneralOptions::from_ini_section(ini.general_section())?;
+    let mut general = GeneralOptions::default();
     let mut keys: HashMap<LumatoneKeyLocation, KeyDefinition> = HashMap::new();
 
     for b in 1..=5 {
-      let key = format!("Board{b}");
+      let key = format!("Board{}", b-1);
       if let Some(section) = ini.section(Some(key)) {
+
+        // The official LumatoneEditor just spits global options out at the end of the file,
+        // so they get slurped into the [Board5] section.
+        if let Ok(general_opts) = GeneralOptions::from_ini_section(section) {
+          general = general_opts;
+        }
+
         for k in 0..=55 {
-          let key_type_code = get_u8_or_default_from_ini_section(section, format!("KTyp_{k}"), 4);
+          let key_type_code = get_u8_or_default_from_ini_section(section, format!("KTyp_{k}"), 1);
           let note_or_cc_num = get_u8_or_default_from_ini_section(section, format!("Key_{k}"), 0);
           let chan = get_u8_or_default_from_ini_section(section, format!("Chan_{k}"), 1);
           let color_str = section.get(format!("Col_{k}")).unwrap_or("000000");
@@ -267,6 +274,7 @@ impl LumatoneKeyMap {
               note_num: note_or_cc_num,
               fader_up_is_null: false,
             },
+            4 => LumatoneKeyFunction::Disabled,
             _ => {
               log::warn!("unrecognized key type code: {key_type_code}");
               LumatoneKeyFunction::Disabled
@@ -281,7 +289,43 @@ impl LumatoneKeyMap {
 
     Ok(LumatoneKeyMap { keys, general })
   }
+
+  pub fn to_midi_commands(&self) -> Vec<Command> {
+    use Command::*;
+    let mut commands = vec![
+      SetAftertouchEnabled(self.general.after_touch_active),
+      SetLightOnKeystrokes(self.general.light_on_key_strokes),
+      InvertFootController(self.general.invert_foot_controller),
+      InvertSustainPedal(self.general.invert_sustain),
+      SetExpressionPedalSensitivity(self.general.expression_controller_sensitivity),
+    ];
+
+    let tables = &self.general.config_tables;
+    if let Some(t) = &tables.on_off_velocity {
+      commands.push(SetVelocityConfig(Box::new(t.table)));
+    }
+    if let Some(t) = &tables.aftertouch_velocity {
+      commands.push(SetAftertouchConfig(Box::new(t.table)));
+    }
+    if let Some(t) = &tables.fader_velocity {
+      commands.push(SetFaderConfig(Box::new(t.table)));
+    }
+    if let Some(t) = &tables.lumatouch_velocity {
+      commands.push(SetLumatouchConfig(Box::new(t.table)));
+    }
+    if let Some(t) = tables.velocity_intervals {
+      commands.push(SetVelocityIntervals(Box::new(t)));
+    }
+
+    for (location, definition) in self.keys.iter() {
+      commands.push(SetKeyFunction { location: *location, function: definition.function });
+      commands.push(SetKeyColor { location: *location, color: definition.color });
+    }
+
+    commands
+  }
 }
+
 
 fn bool_val(s: &str) -> bool {
   let i = i64::from_str_radix(s, 10).unwrap_or(0);

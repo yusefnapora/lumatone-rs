@@ -1,5 +1,6 @@
 #![allow(unused)]
 use super::{error::LumatoneKeymapError, table_defaults::*};
+use log::warn;
 use lumatone_midi::sysex::{SysexTable, VelocityIntervalTable};
 
 use ini::Ini;
@@ -120,6 +121,10 @@ pub fn parse_velocity_intervals(s: &str) -> Result<VelocityIntervalTable, Lumato
     let val = u16::from_str_radix(s, 10).map_err(|e| {
       InvalidTableDefinition(format!("unable to parse in in table definition: {e}"))
     })?;
+    if i == 127 {
+      warn!("velocity table is more than 127 elements long, ignoring {} values", tokens.len() - 127);
+      break;
+    }
     table[i] = val;
   }
   Ok(table)
