@@ -2,8 +2,6 @@ use std::path::PathBuf;
 use std::fs;
 
 use lumatone_keymap::ltn::LumatoneKeyMap;
-use lumatone_midi::commands::set_key_color;
-use lumatone_midi::constants::{LumatoneKeyLocation, RGBColor};
 use lumatone_midi::detect::detect_device;
 use lumatone_midi::driver::MidiDriver;
 
