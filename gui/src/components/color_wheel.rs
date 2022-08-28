@@ -6,16 +6,62 @@ use dioxus::prelude::*;
 
 use crate::drawing::{Angle, Float, Point, polar_to_cartesian, arc_svg_path, line_to};
 
-pub fn ColorWheel(cx: Scope) -> Element {
+#[derive(PartialEq, Props)]
+pub struct Props {
+  pub radius: Float,
+  // TODO: add props for color palette, scale / harmonic structure, etc
+}
+
+pub fn ColorWheel(cx: Scope<Props>) -> Element {
+  // TODO: convert divisions, scale, etc to props
+  let divisions = 12;
+  let colors = vec![
+    "#ff0000",
+    "#bf0041",
+    "#800080",
+    "#55308d",
+    "#2a6099",
+    "#158466",
+    "#00a933",
+    "#81d41a",
+    "#ffff00",
+    "#ffbf00",
+    "#ff8000",
+    "#ff4000",
+  ];
+  let labels = vec![
+    "C", "C# / Db", "D", "D# / Eb", "E", "F", "F# / Gb", "G", "G# / Ab", "A", "A# / Bb", "B"
+  ];
+
+
+  let r = cx.props.radius;
+  let center = Point { x: r, y: r };
+  // let hole_radius = r * 0.8;
+  let arc_angle = Angle::Degrees(30.0); // TODO: 360.0 / divisions
+  let mut wedges = vec![];
+  for i in 0..divisions as usize {
+    let rotation: Float = arc_angle.as_degrees() * i as Float;
+    let color = colors[i].to_string();
+    let text_color = "#000000".to_string(); // TODO: use complement of main color
+    let label = labels[i].to_string();
+    let wedge = rsx! (
+      Wedge {
+        radius: r,
+        center: center,
+        rotation: rotation,
+        arc_angle: arc_angle,
+        color: color,
+        text_color: text_color,
+        label: label
+      }
+    );
+    wedges.push(wedge);
+  }
+
   // TODO: everything
   cx.render(rsx! {
     svg {
-      circle {
-        cx: "100",
-        cy: "100",
-        r: "50",
-        stroke: "#000",
-      }
+      wedges
     }
   })
 }
@@ -23,6 +69,7 @@ pub fn ColorWheel(cx: Scope) -> Element {
 // TODO: use color type from palette crate
 type Color = String;
 
+#[derive(PartialEq, Props)]
 struct WedgeProps {
   radius: Float,
   center: Point,
