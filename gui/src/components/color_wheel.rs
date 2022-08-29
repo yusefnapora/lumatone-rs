@@ -36,11 +36,14 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
 
   let r = cx.props.radius;
   let center = Point { x: r, y: r };
-  // let hole_radius = r * 0.8;
+  let hole_radius = r * 0.8;
   let arc_angle = Angle::Degrees(30.0); // TODO: 360.0 / divisions
   let mut wedges = vec![];
+
+  let ring_rotation = 0.0; // TODO: rotate so tonic of current scale is north
+  
   for i in 0..divisions as usize {
-    let rotation: Float = arc_angle.as_degrees() * i as Float;
+    let rotation: Float = arc_angle.as_degrees() * (i as Float);
     let color = colors[i].to_string();
     let text_color = "#000000".to_string(); // TODO: use complement of main color
     let label = labels[i].to_string();
@@ -59,9 +62,45 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
   }
 
   // TODO: everything
+  let Point{ x: c_x, y: c_y } = center;
   cx.render(rsx! {
-    svg {
-      wedges
+    div {
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      align_items: "center",
+      justify_content: "center",
+
+      svg {
+        width: "inherit",
+        height: "inherit",
+
+        defs {
+          mask {
+            id: "rim-clip",
+
+            circle {
+              cx: "{c_x}",
+              cy: "{c_y}",
+              r: "{r}",
+              fill: "white"
+            }
+
+            circle {
+              cx: "{c_x}",
+              cy: "{c_y}",
+              r: "{hole_radius}",
+              fill: "black"
+            }
+          }
+        }
+
+        g {
+          mask: "url(#rim-clip)",
+          transform: "rotate({ring_rotation}, {c_x}, {c_y})",
+          wedges
+        }
+      }
     }
   })
 }
@@ -87,9 +126,9 @@ struct WedgeProps {
 fn Wedge(cx: Scope<WedgeProps>) -> Element {
   let props = cx.props;
   let end_angle = Angle::Degrees(props.arc_angle.as_degrees() / 2.0);
-  let start_angle = Angle::Degrees(-end_angle.as_degrees());
+  let start_angle = Angle::Degrees(-(end_angle.as_degrees()));
   let p = polar_to_cartesian(props.center, props.radius, end_angle);
-  let label_pt = polar_to_cartesian(props.center, props.radius, 0.0.into());
+  let label_pt = polar_to_cartesian(props.center, props.radius * 0.9, 0.0.into());
   
   let wedge_path = vec![
     arc_svg_path(props.center, props.radius, start_angle, end_angle),
@@ -107,8 +146,8 @@ fn Wedge(cx: Scope<WedgeProps>) -> Element {
 
       path {
         d: "{wedge_path}",
-        stroke_width: "0",
-        stroke: "none",
+        // stroke_width: "0",
+        // stroke: "none",
       }
 
       text {

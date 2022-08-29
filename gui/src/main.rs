@@ -12,7 +12,12 @@ fn main() {
 }
 
 fn app(cx: Scope) -> Element {
-    cx.render(rsx! (
-        ColorWheel { radius: 500.0 }
-    ))
+  cx.render(rsx! {
+    div {
+      width: "1000px",
+      height: "1000px",
+
+      ColorWheel { radius: 500.0 }
+    }
+  })
 }

@@ -3,7 +3,7 @@
 /// Just a typedef for the floating point type used for coordinates, etc.
 /// This only exists to make it a bit easier to change to f64 if that's ever
 /// needed.
-pub type Float = f32;
+pub type Float = f64;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Point { 
@@ -48,10 +48,10 @@ impl Angle {
 /// Convert polar coordinates in the form of (center, radius, angle) to
 /// Cartesian (x,y) coordinates.
 pub fn polar_to_cartesian(center: Point, radius: Float, angle: Angle) -> Point {
-  let a = angle.as_radians();
+  let a = (angle.as_degrees() - 90.0).to_radians();
   Point {
-    x: center.x + radius * a.cos(),
-    y: center.y + radius * a.sin(),
+    x: center.x + (radius * a.cos()),
+    y: center.y + (radius * a.sin()),
   }
 }
 
@@ -60,14 +60,14 @@ pub fn polar_to_cartesian(center: Point, radius: Float, angle: Angle) -> Point {
 /// the given `center` and `radius`, and will be filled from `start`
 /// to `end` angles.
 pub fn arc_svg_path(center: Point, radius: Float, start: Angle, end: Angle) -> String {
-  let large_arc_flag = if end.as_degrees() - start.as_degrees() < 180.0 {
-    "1"
-  } else {
+  let large_arc_flag = if end.as_degrees() - start.as_degrees() <= 180.0 {
     "0"
+  } else {
+    "1"
   };
 
-  let Point { x: start_x, y: start_y } = polar_to_cartesian(center, radius, start);
-  let Point { x: end_x, y: end_y } = polar_to_cartesian(center, radius, end);
+  let Point { x: start_x, y: start_y } = polar_to_cartesian(center, radius, end);
+  let Point { x: end_x, y: end_y } = polar_to_cartesian(center, radius, start);
   format!("M {start_x} {start_y} A {radius} {radius} 0 {large_arc_flag} 0 {end_x} {end_y}")
 }
 
