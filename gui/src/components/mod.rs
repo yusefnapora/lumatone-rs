@@ -1,1 +1,1 @@
-pub mod color_wheel;
+pub mod wheel;

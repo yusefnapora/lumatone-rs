@@ -6,9 +6,9 @@
 pub type Float = f64;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Point { 
-  pub x: Float, 
-  pub y: Float 
+pub struct Point {
+  pub x: Float,
+  pub y: Float,
 }
 
 impl From<(Float, Float)> for Point {
@@ -66,7 +66,10 @@ pub fn arc_svg_path(center: Point, radius: Float, start: Angle, end: Angle) -> S
     "1"
   };
 
-  let Point { x: start_x, y: start_y } = polar_to_cartesian(center, radius, end);
+  let Point {
+    x: start_x,
+    y: start_y,
+  } = polar_to_cartesian(center, radius, end);
   let Point { x: end_x, y: end_y } = polar_to_cartesian(center, radius, start);
   format!("M {start_x} {start_y} A {radius} {radius} 0 {large_arc_flag} 0 {end_x} {end_y}")
 }
@@ -75,4 +78,3 @@ pub fn arc_svg_path(center: Point, radius: Float, start: Angle, end: Angle) -> S
 pub fn line_to(p: Point) -> String {
   format!("L {}, {}", p.x, p.y)
 }
-

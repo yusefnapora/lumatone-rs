@@ -3,12 +3,12 @@
 mod components;
 mod drawing;
 
-use components::color_wheel::ColorWheel;
+use components::wheel::ColorWheel;
 
 use dioxus::prelude::*;
 
 fn main() {
-    dioxus::desktop::launch(app);
+  dioxus::desktop::launch(app);
 }
 
 fn app(cx: Scope) -> Element {
