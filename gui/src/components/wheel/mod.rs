@@ -3,7 +3,7 @@
 /// shows which notes are included in the scale.
 use dioxus::prelude::*;
 
-use crate::drawing::{arc_svg_path, line_to, polar_to_cartesian, Angle, Float, Point, color::wheel_colors_hex};
+use crate::drawing::{arc_svg_path, line_to, polar_to_cartesian, Angle, Float, Point, color::{color_hex, text_color_for_bgcolor, wheel_colors}};
 
 #[derive(PartialEq, Props)]
 pub struct Props {
@@ -14,7 +14,7 @@ pub struct Props {
 pub fn ColorWheel(cx: Scope<Props>) -> Element {
   // TODO: convert divisions, scale, etc to props
   let divisions = 32;
-  let colors = wheel_colors_hex(divisions);
+  let colors = wheel_colors(divisions);
   // let labels = vec![
   //   "C", "C# / Db", "D", "D# / Eb", "E", "F", "F# / Gb", "G", "G# / Ab", "A", "A# / Bb", "B",
   // ];
@@ -29,8 +29,9 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
 
   for i in 0..divisions as usize {
     let rotation: Float = arc_angle.as_degrees() * (i as Float);
-    let color = colors[i].to_string();
-    let text_color = "#000000".to_string(); // TODO: use complement of main color
+    let color = color_hex(&colors[i]);
+    let text_color = text_color_for_bgcolor(&colors[i]);
+    let text_color = color_hex(&text_color);
     let label = String::from("x");//labels[i].to_string();
     let wedge = rsx!(Wedge {
       radius: r,

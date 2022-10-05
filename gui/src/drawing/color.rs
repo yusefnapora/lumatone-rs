@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use palette::{LinSrgb, Gradient};
+use palette::{LinSrgb, Gradient, Xyz, Srgb, IntoColor};
 
 fn wheel_gradient() -> Gradient<LinSrgb> {
   // hard-code control points along an "RYB" color wheel
@@ -12,13 +12,24 @@ fn wheel_gradient() -> Gradient<LinSrgb> {
   Gradient::new(ryb_colors)
 }
 
-pub fn wheel_colors_hex(divisions: u16) -> Vec<String> {
-  let gradient = wheel_gradient();
-  let cols = gradient.take(divisions as usize)
-    .map(|c| {
-      let c = c.into_format::<u8>();
-      format!("#{c:x}")
-    })
-    .collect();
-    cols
+pub fn wheel_colors(divisions: usize) -> Vec<LinSrgb> {
+  wheel_gradient().take(divisions).collect()
+}
+
+pub fn color_hex(col: &LinSrgb) -> String {
+  let col: LinSrgb<u8> = col.into_format();
+  format!("#{col:x}")
+}
+
+/// Returns a legible text color for the given background color.
+/// 
+/// Returns white for "dark" colors (luminance < 0.5) and black for "bright" colors.
+pub fn text_color_for_bgcolor(bg: &LinSrgb) -> LinSrgb {
+  let xyz: Xyz = Srgb::from_linear(*bg).into_color();
+  let luminance = xyz.y;
+  if luminance < 0.5 {
+    LinSrgb::new(1.0, 1.0, 1.0)
+  } else {
+    LinSrgb::new(0.0, 0.0, 0.0)
+  }
 }
