@@ -11,3 +11,4 @@ lumatone-midi = { path = "../midi" }
 lumatone-keymap = { path = "../keymap" }
 
 dioxus = { version = "0.2.4", features = ["desktop", "ayatana", "web", "liveview", "fermi", "router"] }
+palette = "0.6.1"

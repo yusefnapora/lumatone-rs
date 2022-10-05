@@ -3,7 +3,7 @@
 /// shows which notes are included in the scale.
 use dioxus::prelude::*;
 
-use crate::drawing::{arc_svg_path, line_to, polar_to_cartesian, Angle, Float, Point};
+use crate::drawing::{arc_svg_path, line_to, polar_to_cartesian, Angle, Float, Point, color::wheel_colors_hex};
 
 #[derive(PartialEq, Props)]
 pub struct Props {
@@ -13,28 +13,25 @@ pub struct Props {
 
 pub fn ColorWheel(cx: Scope<Props>) -> Element {
   // TODO: convert divisions, scale, etc to props
-  let divisions = 12;
-  let colors = vec![
-    "#ff0000", "#bf0041", "#800080", "#55308d", "#2a6099", "#158466", "#00a933", "#81d41a",
-    "#ffff00", "#ffbf00", "#ff8000", "#ff4000",
-  ];
-  let labels = vec![
-    "C", "C# / Db", "D", "D# / Eb", "E", "F", "F# / Gb", "G", "G# / Ab", "A", "A# / Bb", "B",
-  ];
+  let divisions = 32;
+  let colors = wheel_colors_hex(divisions);
+  // let labels = vec![
+  //   "C", "C# / Db", "D", "D# / Eb", "E", "F", "F# / Gb", "G", "G# / Ab", "A", "A# / Bb", "B",
+  // ];
 
   let r = cx.props.radius;
   let center = Point { x: r, y: r };
   let hole_radius = r * 0.8;
   let mut wedges = vec![];
 
-  let arc_angle = Angle::Degrees(30.0); // TODO: 360.0 / divisions
+  let arc_angle = Angle::Degrees(360.0 / (divisions as f64));
   let ring_rotation = 0.0; // TODO: rotate so tonic of current scale is north
 
   for i in 0..divisions as usize {
     let rotation: Float = arc_angle.as_degrees() * (i as Float);
     let color = colors[i].to_string();
     let text_color = "#000000".to_string(); // TODO: use complement of main color
-    let label = labels[i].to_string();
+    let label = String::from("x");//labels[i].to_string();
     let wedge = rsx!(Wedge {
       radius: r,
       center: center,
