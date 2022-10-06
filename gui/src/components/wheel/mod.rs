@@ -2,8 +2,9 @@
 /// pitch class in some musical scale. In the center of the wheel, a pitch constellation
 /// shows which notes are included in the scale.
 use dioxus::prelude::*;
+use palette::LinSrgb;
 
-use crate::drawing::{arc_svg_path, line_to, polar_to_cartesian, Angle, Float, Point, color::{color_hex, text_color_for_bgcolor, wheel_colors}};
+use crate::drawing::{arc_svg_path, line_to, polar_to_cartesian, Angle, Float, Point, color::{ColorPalette, ToHexColorStr}};
 
 #[derive(PartialEq, Props)]
 pub struct Props {
@@ -14,7 +15,7 @@ pub struct Props {
 pub fn ColorWheel(cx: Scope<Props>) -> Element {
   // TODO: convert divisions, scale, etc to props
   let divisions = 32;
-  let colors = wheel_colors(divisions);
+  let color_palette = ColorPalette::default_gradient(divisions);
   // let labels = vec![
   //   "C", "C# / Db", "D", "D# / Eb", "E", "F", "F# / Gb", "G", "G# / Ab", "A", "A# / Bb", "B",
   // ];
@@ -29,9 +30,8 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
 
   for i in 0..divisions as usize {
     let rotation: Float = arc_angle.as_degrees() * (i as Float);
-    let color = color_hex(&colors[i]);
-    let text_color = text_color_for_bgcolor(&colors[i]);
-    let text_color = color_hex(&text_color);
+    let color = color_palette.get(i);
+    let text_color = color_palette.get_text_color(i); 
     let label = String::from("x");//labels[i].to_string();
     let wedge = rsx!(Wedge {
       radius: r,
@@ -89,8 +89,7 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
   })
 }
 
-// TODO: use color type from palette crate
-type Color = String;
+type Color = LinSrgb;
 
 #[derive(PartialEq, Props)]
 struct WedgeProps {
@@ -110,6 +109,8 @@ struct WedgeProps {
 /// embedded in an `<svg>` element to render properly.
 fn Wedge(cx: Scope<WedgeProps>) -> Element {
   let props = cx.props;
+  let color = props.color.to_hex_color();
+  let text_color = props.text_color.to_hex_color();
   let end_angle = Angle::Degrees(props.arc_angle.as_degrees() / 2.0);
   let start_angle = Angle::Degrees(-(end_angle.as_degrees()));
   let p = polar_to_cartesian(props.center, props.radius, end_angle);
@@ -129,8 +130,8 @@ fn Wedge(cx: Scope<WedgeProps>) -> Element {
   cx.render(rsx! {
     g {
       transform: "{group_transform}",
-      fill: "{props.color}",
-      stroke: "{props.color}",
+      fill: "{color}",
+      stroke: "{color}",
       key: "{props.label}",
 
       path {
@@ -143,8 +144,8 @@ fn Wedge(cx: Scope<WedgeProps>) -> Element {
         text_anchor: "middle",
         x: "{label_pt.x}",
         y: "{label_pt.y}",
-        stroke: "{props.text_color}",
-        fill: "{props.text_color}",
+        stroke: "{text_color}",
+        fill: "{text_color}",
 
         "{props.label}"
       }
