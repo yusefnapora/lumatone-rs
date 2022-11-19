@@ -31,11 +31,19 @@ use error_stack::{report, IntoReport, Report, Result, ResultExt};
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
 
-/// Request to send a command to the device, with a channel to receive a response on.
+/// Request to send a command to the device, with a channel to send a response on.
 #[derive(Clone)]
 struct CommandSubmission {
   command: Command,
   response_tx: mpsc::Sender<ResponseResult>,
+}
+
+impl CommandSubmission {
+  fn new(command: Command) -> (Self, mpsc::Receiver<ResponseResult>) {
+    let (response_tx, response_rx) = mpsc::channel(1);
+    let sub = CommandSubmission { command, response_tx };
+    (sub, response_rx)
+  }
 }
 
 impl Debug for CommandSubmission {
@@ -225,12 +233,11 @@ impl State {
       (
         SubmitCommand(cmd),
         AwaitingResponse {
-          send_queue,
+          mut send_queue,
           command_sent,
         },
       ) => {
         // add new command to the send_queue
-        let mut send_queue = send_queue;
         send_queue.push_back(cmd);
         AwaitingResponse {
           send_queue,
@@ -243,12 +250,11 @@ impl State {
       (
         SubmitCommand(cmd),
         DeviceBusy {
-          send_queue,
+          mut send_queue,
           to_retry,
         },
       ) => {
         // add new command to the send queue
-        let mut send_queue = send_queue;
         send_queue.push_back(cmd);
         DeviceBusy {
           send_queue,
@@ -258,8 +264,7 @@ impl State {
 
       // Submitting a command while we're processing the queue transitions to a new ProcessingQueue state
       // with the new command pushed onto the queue.
-      (SubmitCommand(cmd), ProcessingQueue { send_queue }) => {
-        let mut send_queue = send_queue;
+      (SubmitCommand(cmd), ProcessingQueue { mut send_queue }) => {
         send_queue.push_back(cmd);
         ProcessingQueue { send_queue }
       }
@@ -284,16 +289,6 @@ impl State {
         response_msg,
       },
 
-      // Getting confirmation that we're done processing a response while we're in the ResponseProcessing state
-      // transitions to either Idle or ProcessingQueue, depending on whether there are messages left to send
-      (ResponseDispatched, ProcessingResponse { send_queue, .. }) => {
-        if send_queue.is_empty() {
-          Idle
-        } else {
-          ProcessingQueue { send_queue }
-        }
-      }
-
       // Receiving a message when we're not expecting one logs a warning.
       (MessageReceived(msg), state) => {
         warn!(
@@ -304,8 +299,22 @@ impl State {
         state
       }
 
+
+      // Getting confirmation that we're done processing a response while we're in the ProcessingResponse state
+      // transitions to either Idle or ProcessingQueue, depending on whether there are messages left to send
+      // TODO: add a response_msg field to ResponseDispatched action, so we can make sure it matches the one
+      // in the ProcessingResponse state.
+      (ResponseDispatched, ProcessingResponse { send_queue, .. }) => {
+        if send_queue.is_empty() {
+          Idle
+        } else {
+          ProcessingQueue { send_queue }
+        }
+      }
+
       // Getting a ResponseTimedOut action while waiting for a response logs a warning
       // and transitions to Idle or ProcessingQueue, depending on whether we have messages queued up.
+      // TODO: this should retry or return a failure on the response channel instead of ignoring
       (
         ResponseTimedOut,
         AwaitingResponse {
@@ -335,13 +344,12 @@ impl State {
       (
         ReadyToRetry,
         DeviceBusy {
-          send_queue,
+          mut send_queue,
           to_retry,
         },
       ) => {
-        let mut q = send_queue;
-        q.push_front(to_retry);
-        ProcessingQueue { send_queue: q }
+        send_queue.push_front(to_retry);
+        ProcessingQueue { send_queue }
       }
 
       // Getting a ReadyToRetry action in any state except DeviceBusy logs a warning.
@@ -617,4 +625,279 @@ fn to_hex_debug_str(msg: &[u8]) -> String {
     .collect::<Vec<String>>()
     .join(" ");
   format!("[ {s} ]")
+}
+
+
+mod tests {
+  use super::*;
+
+  #[test]
+  fn submit_command_while_idle_transitions_to_processing_queue() {
+    let init = State::Idle;
+
+    let command = Command::Ping(1);
+    let (submission, _response_rx) = CommandSubmission::new(command.clone());
+    let action = Action::SubmitCommand(submission);
+
+    match init.next(action) {
+      State::ProcessingQueue { mut send_queue } => {
+        assert_eq!(send_queue.len(), 1);
+        let c = send_queue.pop_front().unwrap();
+        assert_eq!(c.command, command);
+      },
+      s => panic!("Unexpected state: {s:?}")
+    }
+  }
+
+  #[test]
+  fn submit_command_while_awaiting_response_transitions_to_awaiting_response() {
+    let cmd1 = Command::Ping(1);
+    let cmd2 = Command::Ping(2);
+
+    let (sub1, _) = CommandSubmission::new(cmd1.clone());
+    let (sub2, _) = CommandSubmission::new(cmd2.clone());
+
+    let send_queue = VecDeque::from(vec![sub1.clone()]);
+    let init = State::AwaitingResponse { send_queue, command_sent: sub1 };
+    let action = Action::SubmitCommand(sub2);
+
+    match init.next(action) {
+      State::AwaitingResponse { mut send_queue, command_sent } => {
+        assert_eq!(send_queue.len(), 2);
+        assert_eq!(command_sent.command, cmd1);
+        let c2 = send_queue.pop_back().unwrap();
+        assert_eq!(c2.command, cmd2);
+      },
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn submit_command_while_device_busy_transitions_to_device_busy() {
+    let cmd1 = Command::Ping(1);
+    let cmd2 = Command::Ping(2);
+
+    let (sub1, _) = CommandSubmission::new(cmd1.clone());
+    let (sub2, _) = CommandSubmission::new(cmd2.clone());
+
+    let send_queue = VecDeque::from(vec![sub1.clone()]);
+    let init = State::DeviceBusy { send_queue, to_retry: sub1 };
+    let action = Action::SubmitCommand(sub2);
+
+    match init.next(action) {
+      State::DeviceBusy { mut send_queue, to_retry } => {
+        assert_eq!(send_queue.len(), 2);
+        assert_eq!(to_retry.command, cmd1);
+        let c2 = send_queue.pop_back().unwrap();
+        assert_eq!(c2.command, cmd2);
+      },
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn submit_command_while_processing_queue_transitions_to_processing_queue() {
+    let cmd1 = Command::Ping(1);
+    let cmd2 = Command::Ping(2);
+
+    let (sub1, _) = CommandSubmission::new(cmd1.clone());
+    let (sub2, _) = CommandSubmission::new(cmd2.clone());
+
+    let send_queue = VecDeque::from(vec![sub1.clone()]);
+    let init = State::ProcessingQueue { send_queue };
+    let action = Action::SubmitCommand(sub2);
+
+    match init.next(action) {
+      State::ProcessingQueue { mut send_queue } => {
+        assert_eq!(send_queue.len(), 2);
+        let c2 = send_queue.pop_back().unwrap();
+        assert_eq!(c2.command, cmd2);
+      },
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn message_sent_while_processing_queue_transitions_to_awaiting_response() {
+    let cmd1 = Command::Ping(1);
+    let cmd2 = Command::Ping(2);
+
+    let (sub1, _) = CommandSubmission::new(cmd1.clone());
+    let (sub2, _) = CommandSubmission::new(cmd2.clone());
+
+    let send_queue = VecDeque::from(vec![sub2.clone()]);
+    let init = State::ProcessingQueue { send_queue };
+    let action = Action::MessageSent(sub1);
+
+    match init.next(action) {
+      State::AwaitingResponse { mut send_queue, command_sent } => {
+        assert_eq!(send_queue.len(), 1);
+        let c2 = send_queue.pop_front().unwrap();
+        assert_eq!(c2.command, cmd2);
+
+        assert_eq!(command_sent.command, cmd1);
+      },
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn message_received_while_awaiting_response_transitions_to_processing_response() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+
+    let send_queue = VecDeque::new();
+    let init = State::AwaitingResponse { send_queue, command_sent: sub };
+    let response: Vec<u8> = vec![0xf0, 0x00];
+    let action = Action::MessageReceived(response.clone());
+
+    match init.next(action) {
+      State::ProcessingResponse { send_queue, command_sent, response_msg } => {
+        assert_eq!(send_queue.len(), 0);
+        assert_eq!(command_sent.command, cmd);
+        assert_eq!(response_msg, response);
+      },
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn message_received_while_not_awaiting_response_does_not_transition() {
+    let response: Vec<u8> = vec![0xf0, 0x00];
+
+    let init = State::Idle;
+    let action = Action::MessageReceived(response);
+    match init.next(action) {
+      State::Idle => (),
+      s => panic!("unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn response_dispatched_while_processing_response_transitions_to_idle_if_queue_is_empty() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+
+    let response: Vec<u8> = vec![0xf0, 0x00];
+    let send_queue = VecDeque::new();
+    let init = State::ProcessingResponse { send_queue, command_sent: sub, response_msg: response.clone() };
+    let action = Action::ResponseDispatched;
+
+    match init.next(action) {
+      State::Idle => (),
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn response_dispatched_while_processing_response_transitions_to_processing_queue_if_queue_is_non_empty() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+    let (sub2, _) = CommandSubmission::new(Command::Ping(2));
+
+    let response: Vec<u8> = vec![0xf0, 0x00];
+    let send_queue = VecDeque::from(vec![sub2]);
+    let init = State::ProcessingResponse { send_queue, command_sent: sub, response_msg: response.clone() };
+    let action = Action::ResponseDispatched;
+
+    match init.next(action) {
+      State::ProcessingQueue { send_queue } => {
+        assert_eq!(send_queue.len(), 1);
+      },
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn response_timed_out_while_awaiting_response_transitions_to_idle_if_queue_is_empty() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+
+    let send_queue = VecDeque::new();
+    let init = State::AwaitingResponse { send_queue, command_sent: sub };
+    let action = Action::ResponseTimedOut;
+
+    match init.next(action) {
+      State::Idle => (),
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn response_timed_out_while_awaiting_response_transitions_to_processing_queue_if_queue_is_non_empty() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+    let (sub2, _) = CommandSubmission::new(Command::Ping(2));
+
+    let send_queue = VecDeque::from(vec![sub2]);
+    let init = State::AwaitingResponse { send_queue, command_sent: sub };
+    let action = Action::ResponseTimedOut;
+
+    match init.next(action) {
+      State::ProcessingQueue { send_queue } => {
+        assert_eq!(send_queue.len(), 1);
+      },
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn response_timed_out_while_not_awaiting_response_does_not_transition() {
+    let init = State::Idle;
+    let action = Action::ResponseTimedOut;
+    match init.next(action) {
+      State::Idle => (),
+      s => panic!("unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn ready_to_retry_while_device_busy_transitions_to_processing_queue() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+    let (sub2, _) = CommandSubmission::new(Command::Ping(2));
+
+    let send_queue = VecDeque::from(vec![sub2]);
+    let init = State::DeviceBusy { send_queue, to_retry: sub };
+    let action = Action::ReadyToRetry;
+
+    match init.next(action) {
+      State::ProcessingQueue { mut send_queue } => {
+        assert_eq!(send_queue.len(), 2);
+        let head = send_queue.pop_front().unwrap();
+        assert_eq!(head.command, cmd);
+      },
+
+      s => panic!("unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn ready_to_retry_while_not_device_busy_does_not_transition() {
+    let init = State::Idle;
+    let action = Action::ReadyToRetry;
+    match init.next(action) {
+      State::Idle => (),
+      s => panic!("unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn undefined_state_transitions_result_in_failed_state() {
+    let init = State::Idle;
+    let action = Action::ResponseDispatched;
+    match init.next(action) {
+      State::Failed(_) => (),
+      s => panic!("unexpected state: {s:?}"),
+    }
+  }
 }
