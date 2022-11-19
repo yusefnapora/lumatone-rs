@@ -28,8 +28,10 @@ use error_stack::{report, IntoReport, Report, Result, ResultExt};
 // linked from "Pretty State Machine Patterns in Rust": https://hoverbear.org/blog/rust-state-machine-pattern/
 // with the addition of an explicit `Effect` type to model side effects
 
+/// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
 
+/// Request to send a command to the device, with a channel to receive a response on.
 #[derive(Clone)]
 struct CommandSubmission {
   command: Command,
@@ -228,11 +230,11 @@ impl State {
         },
       ) => {
         // add new command to the send_queue
-        let mut q = send_queue;
-        q.push_back(cmd);
+        let mut send_queue = send_queue;
+        send_queue.push_back(cmd);
         AwaitingResponse {
-          send_queue: q,
-          command_sent: command_sent,
+          send_queue,
+          command_sent,
         }
       }
 
@@ -246,27 +248,27 @@ impl State {
         },
       ) => {
         // add new command to the send queue
-        let mut q = send_queue;
-        q.push_back(cmd);
+        let mut send_queue = send_queue;
+        send_queue.push_back(cmd);
         DeviceBusy {
-          send_queue: q,
-          to_retry: to_retry,
+          send_queue,
+          to_retry,
         }
       }
 
       // Submitting a command while we're processing the queue transitions to a new ProcessingQueue state
       // with the new command pushed onto the queue.
       (SubmitCommand(cmd), ProcessingQueue { send_queue }) => {
-        let mut q = send_queue;
-        q.push_back(cmd);
-        ProcessingQueue { send_queue: q }
+        let mut send_queue = send_queue;
+        send_queue.push_back(cmd);
+        ProcessingQueue { send_queue }
       }
 
       // Getting confirmation that a message was sent out while we're processing the queue transitions to
       // the AwaitingResponse state.
-      (MessageSent(msg), ProcessingQueue { send_queue }) => AwaitingResponse {
+      (MessageSent(command_sent), ProcessingQueue { send_queue }) => AwaitingResponse {
         send_queue,
-        command_sent: msg,
+        command_sent,
       },
 
       // Receiving a message when we're awaiting a response transitions to ProcessingResponse
@@ -317,7 +319,7 @@ impl State {
           Idle
         } else {
           ProcessingQueue {
-            send_queue: send_queue,
+            send_queue,
           }
         }
       }
