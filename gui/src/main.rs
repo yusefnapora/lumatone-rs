@@ -2,22 +2,27 @@
 #![allow(dead_code)] // TODO: remove this once things settle down a bit...
 pub mod components;
 pub mod drawing;
-
-use components::wheel::ColorWheel;
+pub mod routes;
 
 use dioxus::prelude::*;
+use dioxus::router::{Router, Route};
+
+#[cfg(target_arch = "wasm32")]
+fn launch() {
+  dioxus::web::launch(app);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn launch() {
+  dioxus::desktop::launch(app);
+}
 
 fn main() {
-  dioxus::desktop::launch(app);
+  launch()
 }
 
 fn app(cx: Scope) -> Element {
   cx.render(rsx! {
-    div {
-      width: "1000px",
-      height: "1000px",
-
-      ColorWheel { radius: 500.0 }
-    }
+    routes::home { }
   })
 }

@@ -10,5 +10,8 @@ edition = "2021"
 lumatone-midi = { path = "../midi" }
 lumatone-keymap = { path = "../keymap" }
 
-dioxus = { version = "0.2.4", features = ["desktop", "ayatana", "web", "liveview", "fermi", "router"] }
+dioxus = { version = "0.2.4", features = ["web", "fermi", "router"] }
 palette = "0.6.1"
+
+# enable wasm support for transitive getrandom dependency
+getrandom = { version = "0.2.7", features = ["js"] }
