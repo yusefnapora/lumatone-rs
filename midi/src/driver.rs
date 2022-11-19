@@ -631,6 +631,8 @@ fn to_hex_debug_str(msg: &[u8]) -> String {
 mod tests {
   use super::*;
 
+  // --- state transition tests --
+
   #[test]
   fn submit_command_while_idle_transitions_to_processing_queue() {
     let init = State::Idle;
@@ -898,6 +900,78 @@ mod tests {
     match init.next(action) {
       State::Failed(_) => (),
       s => panic!("unexpected state: {s:?}"),
+    }
+  }
+
+
+  // -- State "entry" tests for expected (Effect, Action) tuples --
+
+  #[test]
+  fn entering_idle_state_has_no_action_or_effect() {
+    let mut s = State::Idle;
+    match s.enter() {
+      (None, None) => (),
+      (a, e) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+    }
+  }
+
+  #[test]
+  fn entering_processing_queue_while_queue_is_empty_has_no_action_or_effect() {
+    let mut s = State::ProcessingQueue { send_queue: VecDeque::new() };
+    match s.enter() {
+      (None, None) => (),
+      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+    }
+  }
+
+  #[test]
+  fn entering_processing_queue_while_queue_is_full_returns_send_midi_message_effect_and_message_sent_action() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+    let send_queue = VecDeque::from(vec![sub]);
+    let mut s = State::ProcessingQueue { send_queue };
+    match s.enter() {
+      (Some(Effect::SendMidiMessage(_)), Some(Action::MessageSent(_))) => (),
+      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+    }
+  }
+
+  #[test]
+  fn entering_device_busy_returns_start_retry_timeout_effect_and_no_action() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+    let mut s = State::DeviceBusy { send_queue: VecDeque::new(), to_retry: sub };
+    match s.enter() {
+      (Some(Effect::StartRetryTimeout), None) => (),
+      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+    }
+  }
+
+  #[test]
+  fn entering_awaiting_response_returns_start_receive_timeout_effect_and_no_action() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+    let mut s = State::AwaitingResponse { send_queue: VecDeque::new(), command_sent: sub };
+    match s.enter() {
+      (Some(Effect::StartReceiveTimeout), None) => (),
+      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+    }
+  }
+
+  #[test]
+  fn entering_processing_response_returns_notify_message_response_effect_and_response_dispatched_action() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+
+    let mut s = State::ProcessingResponse {
+      send_queue: VecDeque::new(),
+      command_sent: sub,
+      response_msg: vec![]
+    };
+
+    match s.enter() {
+      (Some(Effect::NotifyMessageResponse(_, _)), Some(Action::ResponseDispatched)) => (),
+      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
     }
   }
 }
