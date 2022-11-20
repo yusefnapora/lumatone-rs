@@ -24,9 +24,48 @@ use tokio::{
 
 use error_stack::{report, IntoReport, Report, Result, ResultExt};
 
-// state machine design is based around this example: https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0
-// linked from "Pretty State Machine Patterns in Rust": https://hoverbear.org/blog/rust-state-machine-pattern/
-// with the addition of an explicit `Effect` type to model side effects
+//! Implements a driver for the Lumatone's Midi SysEx protocol using a finite state machine.
+//!
+//! State machine design is based around [this example](https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0)
+//! linked from ["Pretty State Machine Patterns in Rust"](https://hoverbear.org/blog/rust-state-machine-pattern/)
+//! with the addition of an explicit `Effect` type to model side effects
+//!
+//! Rough state machine flow:
+//!
+//! ```text
+//!          Empty queue returns to Idle
+//!                       ┌──────┐
+//!          ┌───────────►│ Idle │
+//!          │            └──┬───┘
+//!          │               │
+//!          │               │ SubmitCommand
+//!          │               │
+//!          │          ┌────▼───────────────┐
+//!          └──────────┤                    │  SubmitCommand
+//!                     │  ProcessingQueue   ◄─────────┐
+//!             ┌──────►│                    ┌─────────┘
+//!             │       └────┬──────────────▲┘
+//!             │            │              │
+//!             │            │ MessageSent  └────────────────────┐
+//!             │            │                                   │
+//!             │       ┌────▼───────────────┐                   │
+//!             │       │                    │ SubmitCommand     │
+//!             │       │  AwaitingResponse  ◄────────┐          │
+//!             │       │                    ┌────────┘          │
+//!             │       └────┬───────────┬───┘                   │
+//!             │            │           │                       │
+//!             │            │           │  Not yet implemented  │
+//!             │            │           └───────────────┐       │
+//!             │            │                           │       │
+//!             │            │ MessageReceived           │       │
+//!             │            │                           │       │ReadyToRetry
+//!             │       ┌────▼─────────────────┐     ┌───▼───────┴──┐
+//!             │       │                      │     │              │
+//!             │       │  ProcessingResponse  │     │  DeviceBusy  │
+//! ResponseDispatched──┤                      │     │              │
+//!       or            └──────────────────────┘     └──────────────┘
+//! ResponseTimedOut
+//! ```
 
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
