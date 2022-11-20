@@ -21,24 +21,24 @@
 //!     │       ┌──────►│                    ┌─────────┘
 //!     │       │       └────┬──────────────▲┘
 //!     │       │            │              │
-//!     │       │            │ MessageSent  └────────────────────┐
-//!     │       │            │                                   │
-//!     │       │       ┌────▼───────────────┐                   │
-//!     │       │       │                    │ SubmitCommand     │
-//!     │       │       │  AwaitingResponse  ◄────────┐          │
-//! ResponseTimedOut────│                    ┌────────┘          │
-//!             │       └────┬───────────┬───┘                   │
-//!             │            │           │                       │
-//!             │            │           │  Not yet implemented  │
-//!             │            │           └───────────────┐       │
-//!             │            │                           │       │
-//!             │            │ MessageReceived           │       │
-//!             │            │                           │       │ReadyToRetry
-//!             │       ┌────▼─────────────────┐     ┌───▼───────┴──┐
-//!             │       │                      │     │              │
-//!             │       │  ProcessingResponse  │     │  DeviceBusy  │
-//! ResponseDispatched──┤                      │     │              │
-//!                     └──────────────────────┘     └──────────────┘
+//!     │       │            │ MessageSent  └──────────────────────┐
+//!     │       │            │                                     │
+//!     │       │       ┌────▼───────────────┐                     │
+//!     │       │       │                    │ SubmitCommand       │
+//!     │       │       │  AwaitingResponse  ◄────────┐            │
+//! ResponseTimedOut────│                    ┌────────┘            │
+//!             │       └────┬───────────────┘                     │
+//!             │            │                                     │
+//!             │            │                                     │
+//!             │            │                                     │
+//!             │            │                                     │
+//!             │            │ MessageReceived        ReadyToRetry │
+//!             │            │                                     │
+//!             │       ┌────▼─────────────────┐            ┌──────┴───────────┐
+//!             │       │                      │            │                  │
+//!             │       │  ProcessingResponse  │            │  WaitingToRetry  │
+//! ResponseDispatched──┤                      │─DeviceBusy─►                  │
+//!                     └──────────────────────┘            └──────────────────┘
 //!
 //! ```
 
@@ -132,7 +132,7 @@ enum State {
   /// We've sent a message to the device, but the device says it's busy,
   /// so we're hanging onto the outgoing message to try again in a bit.
   /// We may also have messages queued up to send later.
-  DeviceBusy {
+  WaitingToRetry {
     send_queue: VecDeque<CommandSubmission>,
     to_retry: CommandSubmission,
   },
@@ -167,12 +167,12 @@ impl Display for State {
         to_hex_debug_str(response_msg),
         send_queue.len()
       ),
-      DeviceBusy {
+      WaitingToRetry {
         send_queue,
         to_retry,
       } => write!(
         f,
-        "DeviceBusy({}, {} in queue)",
+        "WaitingToRetry({}, {} in queue)",
         to_retry.command,
         send_queue.len()
       ),
@@ -195,6 +195,10 @@ enum Action {
   /// The driver has received a message on the MIDI in port.
   MessageReceived(EncodedSysex),
 
+  /// The device has signaled that it can't process the last command we sent,
+  /// and we should back off for a bit before trying again.
+  DeviceBusy,
+
   /// We've informed users about a command response and are ready to
   ///  advance out of the ProcessingResponse state.
   ResponseDispatched,
@@ -216,6 +220,7 @@ impl Display for Action {
       SubmitCommand(cmd) => write!(f, "SubmitCommand({})", cmd.command),
       MessageSent(cmd) => write!(f, "MessageSent({})", cmd.command),
       MessageReceived(msg) => write!(f, "MessageReceived({:?} ...)", to_hex_debug_str(msg)),
+      DeviceBusy => write!(f, "DeviceBusy"),
       ResponseDispatched => write!(f, "ResponseDispatched"),
       ResponseTimedOut => write!(f, "ResponseTimedOut"),
       ReadyToRetry => write!(f, "ReadyToRetry"),
@@ -292,17 +297,17 @@ impl State {
       }
 
       // Submitting a commmand while we're waiting to retry a previous command transitions to a new
-      // DeviceBusy state with the new command pushed onto the send queue.
+      // WaitingToRetry state with the new command pushed onto the send queue.
       (
         SubmitCommand(cmd),
-        DeviceBusy {
+        WaitingToRetry {
           mut send_queue,
           to_retry,
         },
       ) => {
         // add new command to the send queue
         send_queue.push_back(cmd);
-        DeviceBusy {
+        WaitingToRetry {
           send_queue,
           to_retry,
         }
@@ -376,11 +381,11 @@ impl State {
         state
       }
 
-      // Getting a ReadyToRetry action when we're in the DeviceBusy state transitions to ProcessingQueue,
+      // Getting a ReadyToRetry action when we're in the WaitingToRetry state transitions to ProcessingQueue,
       // with the message to retry added to the front of the queue (so it will be sent next).
       (
         ReadyToRetry,
-        DeviceBusy {
+        WaitingToRetry {
           mut send_queue,
           to_retry,
         },
@@ -403,9 +408,9 @@ impl State {
         }
       }
 
-      // Getting a ReadyToRetry action in any state except DeviceBusy logs a warning.
+      // Getting a ReadyToRetry action in any state except WaitingToRetry logs a warning.
       (ReadyToRetry, state) => {
-        warn!("ReadyToRetry action received but not in DeviceBusy state");
+        warn!("ReadyToRetry action received but not in WaitingToRetry state");
         state
       }
 
@@ -438,7 +443,7 @@ impl State {
           Some(Action::MessageSent(cmd)),
         ),
       },
-      DeviceBusy { .. } => (Some(StartRetryTimeout), None),
+      WaitingToRetry { .. } => (Some(StartRetryTimeout), None),
       AwaitingResponse { .. } => (Some(StartReceiveTimeout), None),
       ProcessingResponse {
         command_sent,
@@ -452,12 +457,45 @@ impl State {
         let status = message_answer_code(&response_msg);
         log_message_status(&status, &command_sent.command);
 
-        // TODO: check status for Busy / State and dispatch actions to enter the "waiting to retry" state
+        match status {
+          ResponseStatusCode::Busy => {
+            (None, Some(Action::DeviceBusy))
+          },
 
-        let response_res = Response::from_sysex_message(response_msg);
+          ResponseStatusCode::State => {
+            warn!("device is in demo mode!");
+            // FIXME: demo mode should probably have its own action that triggers
+            // sending a command to exit demo mode.
+            (None, Some(Action::DeviceBusy))
+          },
 
-        let effect = NotifyMessageResponse(command_sent.clone(), response_res);
-        (Some(effect), Some(Action::ResponseDispatched))
+          ResponseStatusCode::Error => {
+            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage("Device response had error flag set".to_string())));
+            let effect = NotifyMessageResponse(command_sent.clone(), res);
+            (Some(effect), Some(Action::ResponseDispatched))
+          },
+
+          ResponseStatusCode::Nack => {
+            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(format!("Device sent NACK in response to command {command_sent:?}"))));
+            let effect = NotifyMessageResponse(command_sent.clone(), res);
+            (Some(effect), Some(Action::ResponseDispatched))
+          },
+
+          ResponseStatusCode::Ack => {
+            let response_res = Response::from_sysex_message(response_msg);
+
+            let effect = NotifyMessageResponse(command_sent.clone(), response_res);
+            (Some(effect), Some(Action::ResponseDispatched))
+          },
+
+          ResponseStatusCode::Unknown => {
+            // Unknown means the device sent a status code we don't know about.
+            // log a warning and pretend it's all good
+            warn!("Unknown response status code received");
+            (None, Some(Action::ResponseDispatched))
+          }
+        }
+
       }
       Failed(err) => {
         error!("midi driver - unrecoverable error: {err}");
@@ -706,6 +744,7 @@ fn to_hex_debug_str(msg: &[u8]) -> String {
 
 
 mod tests {
+  use crate::constants::{CommandId, MANUFACTURER_ID};
   #[allow(unused_imports)]
   use super::*;
 
@@ -762,11 +801,11 @@ mod tests {
     let (sub2, _) = CommandSubmission::new(cmd2.clone());
 
     let send_queue = VecDeque::from(vec![sub1.clone()]);
-    let init = State::DeviceBusy { send_queue, to_retry: sub1 };
+    let init = State::WaitingToRetry { send_queue, to_retry: sub1 };
     let action = Action::SubmitCommand(sub2);
 
     match init.next(action) {
-      State::DeviceBusy { mut send_queue, to_retry } => {
+      State::WaitingToRetry { mut send_queue, to_retry } => {
         assert_eq!(send_queue.len(), 2);
         assert_eq!(to_retry.command, cmd1);
         let c2 = send_queue.pop_back().unwrap();
@@ -914,7 +953,7 @@ mod tests {
     let (sub2, _) = CommandSubmission::new(Command::Ping(2));
 
     let send_queue = VecDeque::from(vec![sub2]);
-    let init = State::DeviceBusy { send_queue, to_retry: sub };
+    let init = State::WaitingToRetry { send_queue, to_retry: sub };
     let action = Action::ReadyToRetry;
 
     match init.next(action) {
@@ -1008,7 +1047,7 @@ mod tests {
   fn entering_device_busy_returns_start_retry_timeout_effect_and_no_action() {
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
-    let mut s = State::DeviceBusy { send_queue: VecDeque::new(), to_retry: sub };
+    let mut s = State::WaitingToRetry { send_queue: VecDeque::new(), to_retry: sub };
     match s.enter() {
       (Some(Effect::StartRetryTimeout), None) => (),
       (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
@@ -1026,6 +1065,20 @@ mod tests {
     }
   }
 
+  // helper fn to return a "pong" response message with a given status code
+  fn response_with_status(status: ResponseStatusCode) -> Vec<u8> {
+    let mut msg = Vec::from(MANUFACTURER_ID);
+    msg.push(0x0); // board index
+    msg.push(CommandId::LumaPing.into()); // command id
+    msg.push(status.into()); // status byte
+    msg.push(0x0); // calibration mode flag
+    msg.push(0x0); // remaining zeros are for ping payload
+    msg.push(0x0);
+    msg.push(0x0);
+
+    msg
+  }
+
   #[test]
   fn entering_processing_response_returns_notify_message_response_effect_and_response_dispatched_action() {
     let cmd = Command::Ping(1);
@@ -1034,13 +1087,15 @@ mod tests {
     let mut s = State::ProcessingResponse {
       send_queue: VecDeque::new(),
       command_sent: sub,
-      response_msg: vec![]
+      response_msg: response_with_status(ResponseStatusCode::Ack)
     };
 
     match s.enter() {
       (Some(Effect::NotifyMessageResponse(_, _)), Some(Action::ResponseDispatched)) => (),
       (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
     }
+
+    // TODO: add test cases for the other status codes
   }
 
   // endregion
