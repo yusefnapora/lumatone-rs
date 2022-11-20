@@ -38,8 +38,9 @@
 //!             │       │                      │            │                  │
 //!             │       │  ProcessingResponse  │            │  WaitingToRetry  │
 //! ResponseDispatched──┤                      │─DeviceBusy─►                  │
-//!                     └──────────────────────┘            └──────────────────┘
-//!
+//!                     └───────┬──▲───────────┘            └───────┬──▲───────┘
+//!                             │  │                                │  │
+//!               SubmitCommand └──┘                  SubmitCommand └──┘
 //! ```
 
 use super::{
@@ -318,6 +319,13 @@ impl State {
       (SubmitCommand(cmd), ProcessingQueue { mut send_queue }) => {
         send_queue.push_back(cmd);
         ProcessingQueue { send_queue }
+      }
+
+      // Submitting a command while we're processing a response transitions to a new ProcessingResponse state
+      // with the new command pushed onto the queue
+      (SubmitCommand(cmd), ProcessingResponse { mut send_queue, command_sent, response_msg }) => {
+        send_queue.push_back(cmd);
+        ProcessingResponse { send_queue, command_sent, response_msg }
       }
 
       // Getting confirmation that a message was sent out while we're processing the queue transitions to
@@ -830,6 +838,29 @@ mod tests {
 
     match init.next(action) {
       State::ProcessingQueue { mut send_queue } => {
+        assert_eq!(send_queue.len(), 2);
+        let c2 = send_queue.pop_back().unwrap();
+        assert_eq!(c2.command, cmd2);
+      },
+
+      s => panic!("Unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn submit_command_while_processing_response_transitions_to_processing_response() {
+    let cmd1 = Command::Ping(1);
+    let cmd2 = Command::Ping(2);
+
+    let (sub1, _) = CommandSubmission::new(cmd1.clone());
+    let (sub2, _) = CommandSubmission::new(cmd2.clone());
+
+    let send_queue = VecDeque::from(vec![sub1.clone()]);
+    let init = State::ProcessingResponse { send_queue, command_sent: sub1, response_msg: vec![] };
+    let action = Action::SubmitCommand(sub2);
+
+    match init.next(action) {
+      State::ProcessingResponse { mut send_queue, .. } => {
         assert_eq!(send_queue.len(), 2);
         let c2 = send_queue.pop_back().unwrap();
         assert_eq!(c2.command, cmd2);
