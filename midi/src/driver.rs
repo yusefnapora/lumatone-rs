@@ -618,7 +618,7 @@ impl MidiDriverInternal {
       if let Some(effect) = maybe_effect {
         if let Err(err) = self.perform_effect(effect).await {
           error!("effect error: {err}");
-          state = State::Failed(err);
+          // state = State::Failed(err);
           break;
         }
       }
@@ -657,6 +657,7 @@ fn to_hex_debug_str(msg: &[u8]) -> String {
 
 
 mod tests {
+  #[allow(unused_imports)]
   use super::*;
 
   // region State transition tests
