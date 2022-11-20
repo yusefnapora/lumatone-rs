@@ -9,7 +9,6 @@
 //! Rough state machine flow:
 //!
 //! ```text
-//!          Empty queue returns to Idle
 //!                       ┌──────┐
 //!          ┌───────────►│ Idle │
 //!          │            └──┬───┘
@@ -17,7 +16,7 @@
 //!          │               │ SubmitCommand
 //!          │               │
 //!          │          ┌────▼───────────────┐
-//!          └──────────┤                    │  SubmitCommand
+//!    QueueEmpty───────┤                    │  SubmitCommand
 //!                     │  ProcessingQueue   ◄─────────┐
 //!             ┌──────►│                    ┌─────────┘
 //!             │       └────┬──────────────▲┘
