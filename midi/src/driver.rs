@@ -1,29 +1,5 @@
 #![allow(dead_code)]
 
-use super::{
-  commands::Command,
-  constants::ResponseStatusCode,
-  device::{LumatoneDevice, LumatoneIO},
-  error::LumatoneMidiError,
-  responses::Response,
-  sysex::{is_response_to_message, message_answer_code, EncodedSysex},
-};
-use std::{
-  collections::VecDeque,
-  fmt::{Debug, Display},
-  pin::Pin,
-  time::Duration,
-};
-
-use futures::{Future, TryFutureExt};
-use log::{debug, error, info, warn};
-use tokio::{
-  sync::mpsc,
-  time::{sleep, Sleep},
-};
-
-use error_stack::{report, IntoReport, Report, Result, ResultExt};
-
 //! Implements a driver for the Lumatone's Midi SysEx protocol using a finite state machine.
 //!
 //! State machine design is based around [this example](https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0)
@@ -66,6 +42,32 @@ use error_stack::{report, IntoReport, Report, Result, ResultExt};
 //!       or            └──────────────────────┘     └──────────────┘
 //! ResponseTimedOut
 //! ```
+
+use super::{
+  commands::Command,
+  constants::ResponseStatusCode,
+  device::{LumatoneDevice, LumatoneIO},
+  error::LumatoneMidiError,
+  responses::Response,
+  sysex::{is_response_to_message, message_answer_code, EncodedSysex},
+};
+use std::{
+  collections::VecDeque,
+  fmt::{Debug, Display},
+  pin::Pin,
+  time::Duration,
+};
+
+use futures::{Future, TryFutureExt};
+use log::{debug, error, info, warn};
+use tokio::{
+  sync::mpsc,
+  time::{sleep, Sleep},
+};
+
+use error_stack::{report, IntoReport, Report, Result, ResultExt};
+use crate::driver::Action::QueueEmpty;
+
 
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
