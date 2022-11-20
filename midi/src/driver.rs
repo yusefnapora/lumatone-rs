@@ -2,6 +2,21 @@
 
 //! Implements a driver for the Lumatone's Midi SysEx protocol using a finite state machine.
 //!
+//! ## Public API
+//!
+//! The [MidiDriver] provides a [`send`](MidiDriver::send) method that will queue up a [Command]
+//! to send to the device. `send` is an async method whose Future will resolve when the device
+//! returns a [Response] or an error occurs.
+//!
+//! To create a [MidiDriver], use [MidiDriver::new], which returns a tuple of
+//! `(MidiDriver, Future)`. The Future needs to be spawned and `await`ed in order to start the
+//! driver's event loop.
+//!
+//! To shutdown the driver loop, use [MidiDriver::done].
+//!
+//!
+//! ## State machine internals
+//!
 //! State machine design is based around [this example](https://play.rust-lang.org/?gist=ee3e4df093c136ced7b394dc7ffb78e1&version=stable&backtrace=0)
 //! linked from ["Pretty State Machine Patterns in Rust"](https://hoverbear.org/blog/rust-state-machine-pattern/)
 //! with the addition of an explicit `Effect` type to model side effects
@@ -772,7 +787,7 @@ mod tests {
         let c = send_queue.pop_front().unwrap();
         assert_eq!(c.command, command);
       },
-      s => panic!("Unexpected state: {s:?}")
+      s => panic!("Unexpected state: {:?}", s)
     }
   }
 
@@ -796,7 +811,7 @@ mod tests {
         assert_eq!(c2.command, cmd2);
       },
 
-      s => panic!("Unexpected state: {s:?}"),
+      s => panic!("Unexpected state: {:?}", s),
     }
   }
 
@@ -820,7 +835,7 @@ mod tests {
         assert_eq!(c2.command, cmd2);
       },
 
-      s => panic!("Unexpected state: {s:?}"),
+      s => panic!("Unexpected state: {:?}", s),
     }
   }
 
@@ -843,7 +858,7 @@ mod tests {
         assert_eq!(c2.command, cmd2);
       },
 
-      s => panic!("Unexpected state: {s:?}"),
+      s => panic!("Unexpected state: {:?}", s),
     }
   }
 
@@ -866,7 +881,7 @@ mod tests {
         assert_eq!(c2.command, cmd2);
       },
 
-      s => panic!("Unexpected state: {s:?}"),
+      s => panic!("Unexpected state: {:?}", s),
     }
   }
 
@@ -891,7 +906,7 @@ mod tests {
         assert_eq!(command_sent.command, cmd1);
       },
 
-      s => panic!("Unexpected state: {s:?}"),
+      s => panic!("Unexpected state: {:?}", s),
     }
   }
 
@@ -912,7 +927,7 @@ mod tests {
         assert_eq!(response_msg, response);
       },
 
-      s => panic!("Unexpected state: {s:?}"),
+      s => panic!("Unexpected state: {:?}", s),
     }
   }
 
@@ -924,7 +939,7 @@ mod tests {
     let action = Action::MessageReceived(response);
     match init.next(action) {
       State::Idle => (),
-      s => panic!("unexpected state: {s:?}"),
+      s => panic!("unexpected state: {:?}", s),
     }
   }
 
@@ -944,7 +959,7 @@ mod tests {
         assert_eq!(send_queue.len(), 1);
       },
 
-      s => panic!("Unexpected state: {s:?}"),
+      s => panic!("Unexpected state: {:?}", s),
     }
   }
 
@@ -963,7 +978,7 @@ mod tests {
         assert_eq!(send_queue.len(), 1);
       },
 
-      s => panic!("Unexpected state: {s:?}"),
+      s => panic!("Unexpected state: {:?}", s),
     }
   }
 
@@ -973,7 +988,7 @@ mod tests {
     let action = Action::ResponseTimedOut;
     match init.next(action) {
       State::Idle => (),
-      s => panic!("unexpected state: {s:?}"),
+      s => panic!("unexpected state: {:?}", s),
     }
   }
 
@@ -994,7 +1009,7 @@ mod tests {
         assert_eq!(head.command, cmd);
       },
 
-      s => panic!("unexpected state: {s:?}"),
+      s => panic!("unexpected state: {:?}", s),
     }
   }
 
@@ -1004,17 +1019,17 @@ mod tests {
     let action = Action::ReadyToRetry;
     match init.next(action) {
       State::Idle => (),
-      s => panic!("unexpected state: {s:?}"),
+      s => panic!("unexpected state: {:?}", s),
     }
   }
 
   #[test]
   fn queue_empty_while_processing_queue_transitions_to_idle() {
     let init = State::ProcessingQueue { send_queue: VecDeque::new() };
-    let action = Action::QueueEmpty;
+    let action = QueueEmpty;
     match init.next(action) {
       State::Idle => (),
-      s => panic!("unexpected state: {s:?}"),
+      s => panic!("unexpected state: {:?}", s),
     }
   }
 
@@ -1023,10 +1038,10 @@ mod tests {
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
     let init = State::ProcessingQueue { send_queue: VecDeque::from(vec![sub]) };
-    let action = Action::QueueEmpty;
+    let action = QueueEmpty;
     match init.next(action) {
       State::Failed(_) => (),
-      s => panic!("unexpected state: {s:?}"),
+      s => panic!("unexpected state: {:?}", s),
     }
   }
 
@@ -1036,7 +1051,7 @@ mod tests {
     let action = Action::ResponseDispatched;
     match init.next(action) {
       State::Failed(_) => (),
-      s => panic!("unexpected state: {s:?}"),
+      s => panic!("unexpected state: {:?}", s),
     }
   }
 
@@ -1049,7 +1064,7 @@ mod tests {
     let mut s = State::Idle;
     match s.enter() {
       (None, None) => (),
-      (a, e) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
     }
   }
 
@@ -1058,7 +1073,7 @@ mod tests {
     let mut s = State::ProcessingQueue { send_queue: VecDeque::new() };
     match s.enter() {
       (None, Some(QueueEmpty)) => (),
-      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
     }
   }
 
@@ -1070,7 +1085,7 @@ mod tests {
     let mut s = State::ProcessingQueue { send_queue };
     match s.enter() {
       (Some(Effect::SendMidiMessage(_)), Some(Action::MessageSent(_))) => (),
-      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
     }
   }
 
@@ -1081,7 +1096,7 @@ mod tests {
     let mut s = State::WaitingToRetry { send_queue: VecDeque::new(), to_retry: sub };
     match s.enter() {
       (Some(Effect::StartRetryTimeout), None) => (),
-      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
     }
   }
 
@@ -1092,7 +1107,7 @@ mod tests {
     let mut s = State::AwaitingResponse { send_queue: VecDeque::new(), command_sent: sub };
     match s.enter() {
       (Some(Effect::StartReceiveTimeout), None) => (),
-      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
     }
   }
 
@@ -1123,7 +1138,7 @@ mod tests {
 
     match s.enter() {
       (Some(Effect::NotifyMessageResponse(_, _)), Some(Action::ResponseDispatched)) => (),
-      (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
     }
 
     // TODO: add test cases for the other status codes
