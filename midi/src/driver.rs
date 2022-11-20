@@ -39,6 +39,8 @@ struct CommandSubmission {
 }
 
 impl CommandSubmission {
+  /// Creates a new CommandSubmission and returns it, along with the receive channel
+  /// for the command's [ResponseResult].
   fn new(command: Command) -> (Self, mpsc::Receiver<ResponseResult>) {
     let (response_tx, response_rx) = mpsc::channel(1);
     let sub = CommandSubmission { command, response_tx };
@@ -79,8 +81,8 @@ enum State {
     command_sent: CommandSubmission,
   },
 
-  // We've unpacked a Response from a device message and are ready to
-  // notify the user.
+  /// We've unpacked a Response from a device message and are ready to
+  /// notify the user.
   ProcessingResponse {
     send_queue: VecDeque<CommandSubmission>,
     command_sent: CommandSubmission,
@@ -210,7 +212,7 @@ impl Display for Effect {
 }
 
 impl State {
-  /// Applies an Action to the current State and returns the new State.
+  /// Applies an [Action] to the current [State] and returns the new State.
   /// Note that this may be the same as the original state, in cases where the given
   /// Action does not apply to the current state.
   fn next(self, action: Action) -> State {
@@ -366,7 +368,12 @@ impl State {
     }
   }
 
-  /// Each state can perform an optional Effect when it's entered, and may trigger an optional Action to feed into the state machine next.
+  /// Each state can perform an optional [Effect] when it's entered, and may trigger an optional
+  /// [Action] to feed into the state machine next.
+  ///
+  /// Note that `enter` does not perform any effects or apply actions, just returns instructions
+  /// to do so. See [MidiDriverInternal] for the bit that performs effects and advances the state
+  /// machine.
   fn enter(&mut self) -> (Option<Effect>, Option<Action>) {
     use Effect::*;
     use State::*;
@@ -411,25 +418,29 @@ impl State {
   }
 }
 
-/// The MidiDriver controls the MIDI I/O event loop / state machine.
+/// An internal helper struct for the [MidiDriver] that owns the connection to the device
+/// and timeouts needed by some "waiting" states.
 struct MidiDriverInternal {
   device_io: LumatoneIO,
   receive_timeout: Option<Pin<Box<Sleep>>>,
   retry_timeout: Option<Pin<Box<Sleep>>>,
 }
 
+/// The MidiDriver provides an interface for sending [Command]s to a Lumatone device
+/// and receiving [Response]s (or [LumatoneMidiError]s).
+///
+/// Use the async [send] method
 pub struct MidiDriver {
   command_tx: mpsc::Sender<CommandSubmission>,
   done_tx: mpsc::Sender<()>,
 }
 
 impl MidiDriver {
+
+  /// Sends a [Command] to the device asynchronously, returning a Future that will resolve
+  /// with the Command's [Response] on success, or a [LumatoneMidiError] report on failure.
   pub async fn send(&self, command: Command) -> Result<Response, LumatoneMidiError> {
-    let (response_tx, mut response_rx) = mpsc::channel(1);
-    let submission = CommandSubmission {
-      command,
-      response_tx,
-    };
+    let (submission, mut response_rx) = CommandSubmission::new(command);
     let send_f = self
       .command_tx
       .send(submission)
@@ -439,6 +450,8 @@ impl MidiDriver {
     response_rx.recv().await.unwrap()
   }
 
+  /// Like [MidiDriver::send], but blocks the thread and returns a Result when the response is received.
+  /// Must be called from a different thread than the one running the driver loop future.
   pub fn blocking_send(
     &self,
     command: Command,
@@ -456,6 +469,7 @@ impl MidiDriver {
     Ok(response_rx)
   }
 
+  /// Signals to the driver to shutdown the event loop.
   pub async fn done(&self) -> Result<(), LumatoneMidiError> {
     self
       .done_tx
@@ -467,6 +481,18 @@ impl MidiDriver {
 }
 
 impl MidiDriver {
+
+  /// Creates a new [MidiDriver] targeting the given [LumatoneDevice].
+  ///
+  /// May fail if unable to connect to the device.
+  ///
+  /// On success, returns a tuple of (MidiDriver, Future<()>). The
+  /// returned future must be `await`ed to start the driver's event loop.
+  /// You probably want to spawn a new task for the driver future,
+  /// since it will not resolve until you either call [MidiDriver::done]
+  /// or an error causes the driver loop to exit.
+  // TODO: maybe have this take an already connected LumatoneIO, so we
+  // don't need to return a Result.
   pub fn new(
     device: &LumatoneDevice,
   ) -> Result<(MidiDriver, impl Future<Output = ()>), LumatoneMidiError> {
@@ -591,7 +617,9 @@ impl MidiDriverInternal {
       let (maybe_effect, maybe_action) = state.enter();
       if let Some(effect) = maybe_effect {
         if let Err(err) = self.perform_effect(effect).await {
+          error!("effect error: {err}");
           state = State::Failed(err);
+          break;
         }
       }
       if let Some(action) = maybe_action {
@@ -631,7 +659,7 @@ fn to_hex_debug_str(msg: &[u8]) -> String {
 mod tests {
   use super::*;
 
-  // --- state transition tests --
+  // region State transition tests
 
   #[test]
   fn submit_command_while_idle_transitions_to_processing_queue() {
@@ -903,8 +931,9 @@ mod tests {
     }
   }
 
+  // endregion
 
-  // -- State "entry" tests for expected (Effect, Action) tuples --
+  // region State entry tests (for expected Effect and Action)
 
   #[test]
   fn entering_idle_state_has_no_action_or_effect() {
@@ -974,4 +1003,6 @@ mod tests {
       (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
     }
   }
+
+  // endregion
 }
