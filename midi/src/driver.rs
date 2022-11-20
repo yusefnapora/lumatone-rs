@@ -205,6 +205,9 @@ enum Action {
 
   /// The retry timeout has tripped while waiting to retry a message send.
   ReadyToRetry,
+
+  /// The send queue is empty, and we can return to the Idle state.
+  QueueEmpty,
 }
 
 impl Display for Action {
@@ -217,6 +220,7 @@ impl Display for Action {
       ResponseDispatched => write!(f, "ResponseDispatched"),
       ResponseTimedOut => write!(f, "ResponseTimedOut"),
       ReadyToRetry => write!(f, "ReadyToRetry"),
+      QueueEmpty => write!(f, "QueueEmpty"),
     }
   }
 }
@@ -344,19 +348,15 @@ impl State {
 
 
       // Getting confirmation that we're done processing a response while we're in the ProcessingResponse state
-      // transitions to either Idle or ProcessingQueue, depending on whether there are messages left to send
+      // transitions to ProcessingQueue
       // TODO: add a response_msg field to ResponseDispatched action, so we can make sure it matches the one
       // in the ProcessingResponse state.
       (ResponseDispatched, ProcessingResponse { send_queue, .. }) => {
-        if send_queue.is_empty() {
-          Idle
-        } else {
-          ProcessingQueue { send_queue }
-        }
+        ProcessingQueue { send_queue }
       }
 
       // Getting a ResponseTimedOut action while waiting for a response logs a warning
-      // and transitions to Idle or ProcessingQueue, depending on whether we have messages queued up.
+      // and transitions to ProcessingQueue.
       // TODO: this should retry or return a failure on the response channel instead of ignoring
       (
         ResponseTimedOut,
@@ -366,13 +366,8 @@ impl State {
         },
       ) => {
         warn!("Timed out waiting for response to msg: {:?}", command_sent);
-
-        if send_queue.is_empty() {
-          Idle
-        } else {
-          ProcessingQueue {
-            send_queue,
-          }
+        ProcessingQueue {
+          send_queue,
         }
       }
 
@@ -393,6 +388,20 @@ impl State {
       ) => {
         send_queue.push_front(to_retry);
         ProcessingQueue { send_queue }
+      }
+
+      // Getting a QueueEmpty action when we're in the ProcessingQueue state transitions to Idle.
+      // If the queue is not actually empty, transitions to Failed, as that shouldn't happen
+      (
+        QueueEmpty,
+        ProcessingQueue { send_queue }
+      ) => {
+        if !send_queue.is_empty() {
+          let msg = format!("Received QueueEmpty action, but queue has {} elements", send_queue.len());
+          Failed(report!(LumatoneMidiError::InvalidStateTransition(msg)))
+        } else {
+          Idle
+        }
       }
 
       // Getting a ReadyToRetry action in any state except DeviceBusy logs a warning.
@@ -424,7 +433,7 @@ impl State {
     match self {
       Idle => (None, None),
       ProcessingQueue { send_queue } => match send_queue.pop_front() {
-        None => (None, None),
+        None => (None, Some(QueueEmpty)),
         Some(cmd) => (
           Some(SendMidiMessage(cmd.clone())),
           Some(Action::MessageSent(cmd)),
@@ -851,24 +860,7 @@ mod tests {
   }
 
   #[test]
-  fn response_dispatched_while_processing_response_transitions_to_idle_if_queue_is_empty() {
-    let cmd = Command::Ping(1);
-    let (sub, _) = CommandSubmission::new(cmd.clone());
-
-    let response: Vec<u8> = vec![0xf0, 0x00];
-    let send_queue = VecDeque::new();
-    let init = State::ProcessingResponse { send_queue, command_sent: sub, response_msg: response.clone() };
-    let action = Action::ResponseDispatched;
-
-    match init.next(action) {
-      State::Idle => (),
-
-      s => panic!("Unexpected state: {s:?}"),
-    }
-  }
-
-  #[test]
-  fn response_dispatched_while_processing_response_transitions_to_processing_queue_if_queue_is_non_empty() {
+  fn response_dispatched_while_processing_response_transitions_to_processing_queue() {
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
     let (sub2, _) = CommandSubmission::new(Command::Ping(2));
@@ -888,23 +880,7 @@ mod tests {
   }
 
   #[test]
-  fn response_timed_out_while_awaiting_response_transitions_to_idle_if_queue_is_empty() {
-    let cmd = Command::Ping(1);
-    let (sub, _) = CommandSubmission::new(cmd.clone());
-
-    let send_queue = VecDeque::new();
-    let init = State::AwaitingResponse { send_queue, command_sent: sub };
-    let action = Action::ResponseTimedOut;
-
-    match init.next(action) {
-      State::Idle => (),
-
-      s => panic!("Unexpected state: {s:?}"),
-    }
-  }
-
-  #[test]
-  fn response_timed_out_while_awaiting_response_transitions_to_processing_queue_if_queue_is_non_empty() {
+  fn response_timed_out_while_awaiting_response_transitions_to_processing_queue() {
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
     let (sub2, _) = CommandSubmission::new(Command::Ping(2));
@@ -964,6 +940,28 @@ mod tests {
   }
 
   #[test]
+  fn queue_empty_while_processing_queue_transitions_to_idle() {
+    let init = State::ProcessingQueue { send_queue: VecDeque::new() };
+    let action = Action::QueueEmpty;
+    match init.next(action) {
+      State::Idle => (),
+      s => panic!("unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
+  fn queue_empty_while_processing_queue_transitions_to_failed_if_queue_is_non_empty() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+    let init = State::ProcessingQueue { send_queue: VecDeque::from(vec![sub]) };
+    let action = Action::QueueEmpty;
+    match init.next(action) {
+      State::Failed(_) => (),
+      s => panic!("unexpected state: {s:?}"),
+    }
+  }
+
+  #[test]
   fn undefined_state_transitions_result_in_failed_state() {
     let init = State::Idle;
     let action = Action::ResponseDispatched;
@@ -987,10 +985,10 @@ mod tests {
   }
 
   #[test]
-  fn entering_processing_queue_while_queue_is_empty_has_no_action_or_effect() {
+  fn entering_processing_queue_while_queue_returns_no_effect_and_queue_empty_action() {
     let mut s = State::ProcessingQueue { send_queue: VecDeque::new() };
     match s.enter() {
-      (None, None) => (),
+      (None, Some(QueueEmpty)) => (),
       (e, a) => panic!("unexpected action or effect: ({a:?}, {e:?})"),
     }
   }
