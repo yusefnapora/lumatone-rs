@@ -1117,8 +1117,8 @@ mod tests {
     msg.push(0x0); // board index
     msg.push(CommandId::LumaPing.into()); // command id
     msg.push(status.into()); // status byte
-    msg.push(0x0); // calibration mode flag
-    msg.push(0x0); // remaining zeros are for ping payload
+    msg.push(0x7f); // "echo" flag - must be set to 0x7f for ping response
+    msg.push(0x0); // remaining zeros are ping id payload
     msg.push(0x0);
     msg.push(0x0);
 
@@ -1126,7 +1126,7 @@ mod tests {
   }
 
   #[test]
-  fn entering_processing_response_returns_notify_message_response_effect_and_response_dispatched_action() {
+  fn entering_processing_response_with_status_ack_returns_ok_notify_message_response_effect_and_response_dispatched_action() {
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
 
@@ -1137,11 +1137,94 @@ mod tests {
     };
 
     match s.enter() {
-      (Some(Effect::NotifyMessageResponse(_, _)), Some(Action::ResponseDispatched)) => (),
+      (Some(Effect::NotifyMessageResponse(_, Ok(_))), Some(Action::ResponseDispatched)) => (),
       (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
     }
+  }
 
-    // TODO: add test cases for the other status codes
+  #[test]
+  fn entering_processing_response_with_status_nack_returns_err_notify_message_response_effect_and_response_dispatched_action() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+
+    let mut s = State::ProcessingResponse {
+      send_queue: VecDeque::new(),
+      command_sent: sub,
+      response_msg: response_with_status(ResponseStatusCode::Nack)
+    };
+
+    match s.enter() {
+      (Some(Effect::NotifyMessageResponse(_, Err(_))), Some(Action::ResponseDispatched)) => (),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+    }
+  }
+
+  #[test]
+  fn entering_processing_response_with_status_error_returns_err_notify_message_response_effect_and_response_dispatched_action() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+
+    let mut s = State::ProcessingResponse {
+      send_queue: VecDeque::new(),
+      command_sent: sub,
+      response_msg: response_with_status(ResponseStatusCode::Error)
+    };
+
+    match s.enter() {
+      (Some(Effect::NotifyMessageResponse(_, Err(_))), Some(Action::ResponseDispatched)) => (),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+    }
+  }
+
+  #[test]
+  fn entering_processing_response_with_status_busy_returns_no_effect_and_device_busy_action() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+
+    let mut s = State::ProcessingResponse {
+      send_queue: VecDeque::new(),
+      command_sent: sub,
+      response_msg: response_with_status(ResponseStatusCode::Busy)
+    };
+
+    match s.enter() {
+      (None, Some(Action::DeviceBusy)) => (),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+    }
+  }
+
+  #[test]
+  fn entering_processing_response_with_status_state_returns_no_effect_and_device_busy_action() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+
+    let mut s = State::ProcessingResponse {
+      send_queue: VecDeque::new(),
+      command_sent: sub,
+      response_msg: response_with_status(ResponseStatusCode::State)
+    };
+
+    match s.enter() {
+      (None, Some(Action::DeviceBusy)) => (),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+    }
+  }
+
+  #[test]
+  fn entering_processing_response_with_status_unknown_returns_no_effect_and_response_dispatched_action() {
+    let cmd = Command::Ping(1);
+    let (sub, _) = CommandSubmission::new(cmd.clone());
+
+    let mut s = State::ProcessingResponse {
+      send_queue: VecDeque::new(),
+      command_sent: sub,
+      response_msg: response_with_status(ResponseStatusCode::Unknown)
+    };
+
+    match s.enter() {
+      (None, Some(Action::ResponseDispatched)) => (),
+      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+    }
   }
 
   // endregion
