@@ -1,4 +1,3 @@
-#![allow(unused)]
 use lumatone_midi::{
   commands::Command,
   constants::{
@@ -9,15 +8,13 @@ use lumatone_midi::{
 /// Utilities for working with the .ltn Lumatone preset file format.
 ///
 use std::collections::HashMap;
-use std::fmt::{Debug, Formatter};
-use std::io::BufWriter;
+use std::fmt::Debug;
 
 use ini::{Ini, Properties};
 use num_traits::FromPrimitive;
 
 use super::{
   error::LumatoneKeymapError,
-  table_defaults,
   tables::{
     parse_velocity_intervals, velocity_intervals_to_string, ConfigTableDefinition,
     ConfigurationTables,
