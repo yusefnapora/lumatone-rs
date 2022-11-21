@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 //! Implements a driver for the Lumatone's Midi SysEx protocol using a finite state machine.
 //!
 //! ## Public API
