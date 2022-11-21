@@ -35,7 +35,6 @@ pub fn reverse_table(t: &SysexTable) -> SysexTable {
 }
 
 pub fn create_sysex(board_index: BoardIndex, cmd: CommandId, data: Vec<u8>) -> EncodedSysex {
-  // FIXME: add sysex start / end bytes
   let mut sysex: Vec<u8> = vec![SYSEX_START];
   sysex.extend(MANUFACTURER_ID.iter());
   sysex.push(board_index.into());
