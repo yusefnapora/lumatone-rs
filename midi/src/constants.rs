@@ -302,6 +302,7 @@ impl LumatoneKeyFunction {
     }
   }
 
+  /// The midi channel number (0-indexed)
   pub fn midi_channel_byte(&self) -> u8 {
     use LumatoneKeyFunction::*;
     match *self {
@@ -310,6 +311,11 @@ impl LumatoneKeyFunction {
       LumaTouch { channel, .. } => channel.get_as_zero_indexed(),
       Disabled => 0,
     }
+  }
+
+  /// The midi channel number (1-indexed)
+  pub fn midi_channel_num(&self) -> u8 {
+    self.midi_channel_byte() + 1
   }
 }
 

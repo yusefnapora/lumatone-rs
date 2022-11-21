@@ -380,6 +380,11 @@ impl State {
         ProcessingQueue { send_queue }
       }
 
+      // Getting a DeviceBusy signal when we're processing a response transitions to WaitingToRetry
+      (DeviceBusy, ProcessingResponse { send_queue, command_sent, ..}) => {
+        WaitingToRetry { send_queue, to_retry: command_sent }
+      }
+
       // Getting a ResponseTimedOut action while waiting for a response logs a warning
       // and transitions to ProcessingQueue.
       // TODO: this should retry or return a failure on the response channel instead of ignoring
@@ -1110,6 +1115,7 @@ mod tests {
   }
 
   // helper fn to return a "pong" response message with a given status code
+  #[allow(dead_code)]
   fn response_with_status(status: ResponseStatusCode) -> Vec<u8> {
     let mut msg = Vec::from(MANUFACTURER_ID);
     msg.push(0x0); // board index

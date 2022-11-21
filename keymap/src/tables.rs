@@ -5,12 +5,14 @@ use lumatone_midi::sysex::{SysexTable, VelocityIntervalTable};
 
 use ini::Ini;
 
+#[derive(Debug)]
 pub enum EditingStrategy {
   FreeDrawing,
   LinearSegments,
   QuadraticCurves,
 }
 
+#[derive(Debug)]
 pub struct ConfigurationTables {
   pub on_off_velocity: Option<ConfigTableDefinition>,
   pub fader_velocity: Option<ConfigTableDefinition>,
@@ -31,6 +33,7 @@ impl Default for ConfigurationTables {
   }
 }
 
+#[derive(Debug)]
 pub struct ConfigTableDefinition {
   pub table: SysexTable,
   pub edit_strategy: EditingStrategy,

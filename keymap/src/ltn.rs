@@ -9,6 +9,8 @@ use lumatone_midi::{
 /// Utilities for working with the .ltn Lumatone preset file format.
 ///
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
+use std::io::BufWriter;
 
 use ini::{Ini, Properties};
 use num_traits::FromPrimitive;
@@ -22,11 +24,13 @@ use super::{
   },
 };
 
+#[derive(Debug)]
 pub struct KeyDefinition {
   pub function: LumatoneKeyFunction,
   pub color: RGBColor,
 }
 
+#[derive(Debug)]
 pub struct GeneralOptions {
   pub after_touch_active: bool,
   pub light_on_key_strokes: bool,
@@ -98,6 +102,7 @@ impl Default for GeneralOptions {
   }
 }
 
+#[derive(Debug)]
 pub struct LumatoneKeyMap {
   keys: HashMap<LumatoneKeyLocation, KeyDefinition>,
   general: GeneralOptions,
@@ -111,13 +116,17 @@ impl LumatoneKeyMap {
     }
   }
 
-  pub fn set_key<'a>(
-    &'a mut self,
+  pub fn set_key(
+    &mut self,
     location: LumatoneKeyLocation,
     def: KeyDefinition,
-  ) -> &'a mut LumatoneKeyMap {
+  ) -> &mut LumatoneKeyMap {
     self.keys.insert(location, def);
     self
+  }
+
+  pub fn get_key(&self, location: LumatoneKeyLocation) -> Option<&KeyDefinition> {
+    self.keys.get(&location)
   }
 
   // TODO: add batch key update fn that takes HashMap or seq of (location, definition) tuples
@@ -190,7 +199,7 @@ impl LumatoneKeyMap {
         .iter()
         .filter(|(loc, _)| loc.board_index() == board_index);
 
-      let section_name = format!("Board{}", b - 1);
+      let section_name = format!("Board{}", b);
       for (loc, def) in keys {
         let key_index: u8 = loc.key_index().into();
         let key_type = def.function.key_type_code();
@@ -203,7 +212,7 @@ impl LumatoneKeyMap {
           )
           .set(
             format!("Chan_{key_index}"),
-            def.function.midi_channel_byte().to_string(),
+            def.function.midi_channel_num().to_string(),
           )
           .set(format!("Col_{key_index}"), def.color.to_hex_string());
 
@@ -231,6 +240,13 @@ impl LumatoneKeyMap {
     }
 
     conf
+  }
+
+  pub fn to_ini_string(&self) -> String {
+    let ini = self.to_ini();
+    let mut w = Vec::new();
+    ini.write_to(&mut w).expect("ini to string error");
+    std::str::from_utf8(&w[..]).expect("utf8 error").to_string()
   }
 
   pub fn from_ini_str<S: AsRef<str>>(source: S) -> Result<LumatoneKeyMap, LumatoneKeymapError> {
