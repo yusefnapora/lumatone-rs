@@ -1,3 +1,15 @@
+//! Utilities for working with the .ltn Lumatone preset file format.
+//!
+//! A .ltn file is an ini-style property file with definitions for each key,
+//! plus some general options (sensitivity thresholds, etc)
+//!
+//! A [LumatoneKeyMap] consists of a HashMap of [LumatoneKeyLocation] to
+//! [KeyDefinition]. A KeyDefinition specifies a color and a [LumatoneKeyFunction],
+//! which determines the type of key (note on/off, fader, lumatouch, etc) and the
+//! Midi note and channel number.
+//!
+//! You can convert [LumatoneKeyMap]s to and from strings in ini format.
+
 use lumatone_midi::{
   commands::Command,
   constants::{
@@ -5,8 +17,7 @@ use lumatone_midi::{
     MidiChannel, RGBColor,
   },
 };
-/// Utilities for working with the .ltn Lumatone preset file format.
-///
+
 use std::collections::HashMap;
 use std::fmt::Debug;
 
