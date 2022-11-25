@@ -83,9 +83,8 @@ use tokio::{
   time::{sleep, Sleep},
 };
 
+use crate::driver::Action::{MessageSent, QueueEmpty, ResponseDispatched};
 use error_stack::{report, IntoReport, Report, Result, ResultExt};
-use crate::driver::Action::QueueEmpty;
-
 
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
@@ -102,7 +101,10 @@ impl CommandSubmission {
   /// for the command's [ResponseResult].
   fn new(command: Command) -> (Self, mpsc::Receiver<ResponseResult>) {
     let (response_tx, response_rx) = mpsc::channel(1);
-    let sub = CommandSubmission { command, response_tx };
+    let sub = CommandSubmission {
+      command,
+      response_tx,
+    };
     (sub, response_rx)
   }
 }
@@ -203,7 +205,7 @@ impl Display for State {
 /// Actions are inputs into the state machine.
 /// An Action may trigger a state transition, but not all actions are applicable to all states.
 /// See the code of [`State::next`] for the valid (action, state) pairings.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Action {
   /// A user of the driver has submitted a command to send to the device.
   SubmitCommand(CommandSubmission),
@@ -263,6 +265,10 @@ enum Effect {
   /// The state machine has received a response to a message and wants to notify
   /// the outside world about its success or failure.
   NotifyMessageResponse(CommandSubmission, Result<Response, LumatoneMidiError>),
+
+  /// The [State] we just [enter](State::enter)ed wants to transition to a new state,
+  /// and we should feed the given [Action] into the state machine next.
+  DispatchAction(Action),
 }
 
 impl Display for Effect {
@@ -275,6 +281,7 @@ impl Display for Effect {
       NotifyMessageResponse(cmd, res) => {
         write!(f, "NotfiyMessageResponse({}, {:?})", cmd.command, res)
       }
+      DispatchAction(action) => write!(f, "DispatchAction({})", action),
     }
   }
 }
@@ -341,9 +348,20 @@ impl State {
 
       // Submitting a command while we're processing a response transitions to a new ProcessingResponse state
       // with the new command pushed onto the queue
-      (SubmitCommand(cmd), ProcessingResponse { mut send_queue, command_sent, response_msg }) => {
+      (
+        SubmitCommand(cmd),
+        ProcessingResponse {
+          mut send_queue,
+          command_sent,
+          response_msg,
+        },
+      ) => {
         send_queue.push_back(cmd);
-        ProcessingResponse { send_queue, command_sent, response_msg }
+        ProcessingResponse {
+          send_queue,
+          command_sent,
+          response_msg,
+        }
       }
 
       // Getting confirmation that a message was sent out while we're processing the queue transitions to
@@ -376,19 +394,24 @@ impl State {
         state
       }
 
-
       // Getting confirmation that we're done processing a response while we're in the ProcessingResponse state
       // transitions to ProcessingQueue
       // TODO: add a response_msg field to ResponseDispatched action, so we can make sure it matches the one
       // in the ProcessingResponse state.
-      (ResponseDispatched, ProcessingResponse { send_queue, .. }) => {
-        ProcessingQueue { send_queue }
-      }
+      (ResponseDispatched, ProcessingResponse { send_queue, .. }) => ProcessingQueue { send_queue },
 
       // Getting a DeviceBusy signal when we're processing a response transitions to WaitingToRetry
-      (DeviceBusy, ProcessingResponse { send_queue, command_sent, ..}) => {
-        WaitingToRetry { send_queue, to_retry: command_sent }
-      }
+      (
+        DeviceBusy,
+        ProcessingResponse {
+          send_queue,
+          command_sent,
+          ..
+        },
+      ) => WaitingToRetry {
+        send_queue,
+        to_retry: command_sent,
+      },
 
       // Getting a ResponseTimedOut action while waiting for a response logs a warning
       // and transitions to ProcessingQueue.
@@ -401,9 +424,7 @@ impl State {
         },
       ) => {
         warn!("Timed out waiting for response to msg: {:?}", command_sent);
-        ProcessingQueue {
-          send_queue,
-        }
+        ProcessingQueue { send_queue }
       }
 
       // Getting a ResponseTimedOut when we're not waiting for a response logs a warning.
@@ -427,12 +448,12 @@ impl State {
 
       // Getting a QueueEmpty action when we're in the ProcessingQueue state transitions to Idle.
       // If the queue is not actually empty, transitions to Failed, as that shouldn't happen
-      (
-        QueueEmpty,
-        ProcessingQueue { send_queue }
-      ) => {
+      (QueueEmpty, ProcessingQueue { send_queue }) => {
         if !send_queue.is_empty() {
-          let msg = format!("Received QueueEmpty action, but queue has {} elements", send_queue.len());
+          let msg = format!(
+            "Received QueueEmpty action, but queue has {} elements",
+            send_queue.len()
+          );
           Failed(report!(LumatoneMidiError::InvalidStateTransition(msg)))
         } else {
           Idle
@@ -459,23 +480,20 @@ impl State {
   /// Note that `enter` does not perform any effects or apply actions, just returns instructions
   /// to do so. See [MidiDriverInternal] for the bit that performs effects and advances the state
   /// machine.
-  fn enter(&mut self) -> (Option<Effect>, Option<Action>) {
+  fn enter(&mut self) -> Option<Effect> {
     use Effect::*;
     use State::*;
 
     // debug!("entering state {:?}", self);
 
     match self {
-      Idle => (None, None),
+      Idle => None,
       ProcessingQueue { send_queue } => match send_queue.pop_front() {
-        None => (None, Some(QueueEmpty)),
-        Some(cmd) => (
-          Some(SendMidiMessage(cmd.clone())),
-          Some(Action::MessageSent(cmd)),
-        ),
+        None => Some(DispatchAction(QueueEmpty)),
+        Some(cmd) => Some(SendMidiMessage(cmd.clone())),
       },
-      WaitingToRetry { .. } => (Some(StartRetryTimeout), None),
-      AwaitingResponse { .. } => (Some(StartReceiveTimeout), None),
+      WaitingToRetry { .. } => Some(StartRetryTimeout),
+      AwaitingResponse { .. } => Some(StartReceiveTimeout),
       ProcessingResponse {
         command_sent,
         response_msg,
@@ -489,48 +507,49 @@ impl State {
         log_message_status(&status, &command_sent.command);
 
         match status {
-          ResponseStatusCode::Busy => {
-            (None, Some(Action::DeviceBusy))
-          },
+          ResponseStatusCode::Busy => Some(DispatchAction(Action::DeviceBusy)),
 
           ResponseStatusCode::State => {
             warn!("device is in demo mode!");
             // FIXME: demo mode should probably have its own action that triggers
             // sending a command to exit demo mode.
-            (None, Some(Action::DeviceBusy))
-          },
+            Some(DispatchAction(Action::DeviceBusy))
+          }
 
           ResponseStatusCode::Error => {
-            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage("Device response had error flag set".to_string())));
+            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(
+              "Device response had error flag set".to_string()
+            )));
             let effect = NotifyMessageResponse(command_sent.clone(), res);
-            (Some(effect), Some(Action::ResponseDispatched))
-          },
+            Some(effect)
+          }
 
           ResponseStatusCode::Nack => {
-            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(format!("Device sent NACK in response to command {command_sent:?}"))));
+            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(format!(
+              "Device sent NACK in response to command {command_sent:?}"
+            ))));
             let effect = NotifyMessageResponse(command_sent.clone(), res);
-            (Some(effect), Some(Action::ResponseDispatched))
-          },
+            Some(effect)
+          }
 
           ResponseStatusCode::Ack => {
             let response_res = Response::from_sysex_message(response_msg);
 
             let effect = NotifyMessageResponse(command_sent.clone(), response_res);
-            (Some(effect), Some(Action::ResponseDispatched))
-          },
+            Some(effect)
+          }
 
           ResponseStatusCode::Unknown => {
             // Unknown means the device sent a status code we don't know about.
             // log a warning and pretend it's all good
             warn!("Unknown response status code received");
-            (None, Some(Action::ResponseDispatched))
+            None
           }
         }
-
       }
       Failed(err) => {
         error!("midi driver - unrecoverable error: {err}");
-        (None, None) // todo: return ExitWithError effect
+        None // todo: return ExitWithError effect
       }
     }
   }
@@ -554,7 +573,6 @@ pub struct MidiDriver {
 }
 
 impl MidiDriver {
-
   /// Sends a [Command] to the device asynchronously, returning a Future that will resolve
   /// with the Command's [Response] on success, or a [LumatoneMidiError] report on failure.
   pub async fn send(&self, command: Command) -> Result<Response, LumatoneMidiError> {
@@ -599,7 +617,6 @@ impl MidiDriver {
 }
 
 impl MidiDriver {
-
   /// Creates a new [MidiDriver] targeting the given [LumatoneDevice].
   ///
   /// May fail if unable to connect to the device.
@@ -636,30 +653,36 @@ impl MidiDriverInternal {
     })
   }
 
-  /// Performs some Effect.
-  async fn perform_effect(&mut self, effect: Effect) -> Result<(), LumatoneMidiError> {
+  /// Performs some Effect. On success, returns an `Option<Action>`, which should be fed into
+  /// the state machine if it's `Some`.
+  async fn perform_effect(&mut self, effect: Effect) -> Result<Option<Action>, LumatoneMidiError> {
     use Effect::*;
-    match effect {
+    let maybe_action = match effect {
       SendMidiMessage(cmd) => {
         self.device_io.send(&cmd.command.to_sysex_message())?;
+        Some(MessageSent(cmd))
       }
       StartReceiveTimeout => {
         let timeout_sec = 30;
         let timeout = sleep(Duration::from_secs(timeout_sec));
         self.receive_timeout = Some(Box::pin(timeout));
+        None
       }
       StartRetryTimeout => {
         let timeout_sec = 3;
         let timeout = sleep(Duration::from_secs(timeout_sec));
         self.retry_timeout = Some(Box::pin(timeout));
+        None
       }
       NotifyMessageResponse(cmd_submission, result) => {
         if let Err(err) = cmd_submission.response_tx.send(result).await {
           error!("error sending response notification: {err}");
         }
+        Some(ResponseDispatched)
       }
+      DispatchAction(action) => Some(action),
     };
-    Ok(())
+    Ok(maybe_action)
   }
 
   /// Run the MidiDriver I/O event loop.
@@ -673,50 +696,58 @@ impl MidiDriverInternal {
     mut done_signal: mpsc::Receiver<()>,
   ) {
     let mut state = State::Idle;
+    let mut next_action: Option<Action> = None;
     loop {
-      // if either timeout is None, use a timeout with Duration::MAX, to make the select! logic a bit simpler
-      let mut receive_timeout = &mut Box::pin(sleep(Duration::MAX));
-      if let Some(t) = &mut self.receive_timeout {
-        receive_timeout = t;
-      }
+      // The previous state may have resulted in an Action that we should feed into the
+      // state machine. If not, we poll our inputs until something happens.
+      let a = match next_action {
+        Some(action) => action.clone(),
+        None => {
+          // if either timeout is None, use a timeout with Duration::MAX, to make the select! logic a bit simpler
+          let mut receive_timeout = &mut Box::pin(sleep(Duration::MAX));
+          if let Some(t) = &mut self.receive_timeout {
+            receive_timeout = t;
+          }
 
-      let mut retry_timeout = &mut Box::pin(sleep(Duration::MAX));
-      if let Some(t) = &mut self.retry_timeout {
-        retry_timeout = t;
-      }
+          let mut retry_timeout = &mut Box::pin(sleep(Duration::MAX));
+          if let Some(t) = &mut self.retry_timeout {
+            retry_timeout = t;
+          }
 
-      // There are two incoming streams of information: incoming midi messages,
-      // and incoming commands (requests to send out midi messages)
-      // There are also two timeouts: receive_timeout for when we're waiting for a response to a command,
-      // and retry_timeout for when we're waiting to re-send a command (because the device was busy last time).
-      //
-      // This select pulls whatever is available next and maps it to an Action that will advance the state machine.
-      let a = tokio::select! {
-        _ = receive_timeout => {
-          info!("receive timeout triggered");
-          self.receive_timeout = None;
-          Action::ResponseTimedOut
-        },
+          // There are two incoming streams of information: incoming midi messages,
+          // and incoming commands (requests to send out midi messages)
+          // There are also two timeouts: receive_timeout for when we're waiting for a response to a command,
+          // and retry_timeout for when we're waiting to re-send a command (because the device was busy last time).
+          //
+          // This select pulls whatever is available next and maps it to an Action that will advance the state machine.
+          tokio::select! {
+            _ = receive_timeout => {
+              info!("receive timeout triggered");
+              self.receive_timeout = None;
+              Action::ResponseTimedOut
+            },
 
-        _ = retry_timeout => {
-          info!("retry timeout triggered");
-          self.retry_timeout = None;
-          Action::ReadyToRetry
-        },
+            _ = retry_timeout => {
+              info!("retry timeout triggered");
+              self.retry_timeout = None;
+              Action::ReadyToRetry
+            },
 
-        Some(msg) = self.device_io.incoming_messages.recv() => {
-          // info!("message received, forwarding to state machine");
-          self.receive_timeout = None;
-          Action::MessageReceived(msg)
-        }
+            Some(msg) = self.device_io.incoming_messages.recv() => {
+              // info!("message received, forwarding to state machine");
+              self.receive_timeout = None;
+              Action::MessageReceived(msg)
+            }
 
-        Some(cmd) = commands.recv() => {
-          Action::SubmitCommand(cmd)
-        }
+            Some(cmd) = commands.recv() => {
+              Action::SubmitCommand(cmd)
+            }
 
-        _ = done_signal.recv() => {
-          debug!("done signal received, exiting");
-          return;
+            _ = done_signal.recv() => {
+              debug!("done signal received, exiting");
+              return;
+            }
+          }
         }
       };
 
@@ -724,28 +755,33 @@ impl MidiDriverInternal {
       state = state.next(a);
 
       if let State::Failed(err) = state {
-        // return Err(err);
+        // TODO: propagate fatal error & return it from `run`
         error!("state machine error: {err}");
         break;
       }
 
-      // The new state's `enter` fn may return an Effect and/or an Action.
-      // If there's an effect, perform it. If there's an action, feed it into state.next()
-      // to advance the state machine.
-      let (maybe_effect, maybe_action) = state.enter();
-      if let Some(effect) = maybe_effect {
-        if let Err(err) = self.perform_effect(effect).await {
-          error!("effect error: {err}");
-          // state = State::Failed(err);
-          break;
-        }
-      }
-      if let Some(action) = maybe_action {
-        state = state.next(action);
-      }
-    }
+      // The new state's `enter` fn may return an Effect.
+      next_action = match state.enter() {
+        // if there was no effect, there's no next_action
+        None => None,
 
-    // Ok(())
+        // If there's an effect, perform it.
+        // If the effect returns Some(action), it will be dispatched on the next
+        // round of the loop. If the effect returns None, the next iteration
+        // will poll our inputs to determine the next action.
+        Some(effect) => {
+          match self.perform_effect(effect).await {
+            Ok(maybe_action) => maybe_action,
+
+            // TODO: propagate fatal error & return it from `run`
+            Err(err) => {
+              error!("effect error: {err}");
+              break;
+            }
+          }
+        }
+      };
+    }
   }
 }
 
@@ -773,9 +809,9 @@ fn to_hex_debug_str(msg: &[u8]) -> String {
   format!("[ {s} ]")
 }
 
-
 mod tests {
   use crate::constants::{CommandId, MANUFACTURER_ID};
+
   #[allow(unused_imports)]
   use super::*;
 
@@ -794,8 +830,8 @@ mod tests {
         assert_eq!(send_queue.len(), 1);
         let c = send_queue.pop_front().unwrap();
         assert_eq!(c.command, command);
-      },
-      s => panic!("Unexpected state: {:?}", s)
+      }
+      s => panic!("Unexpected state: {:?}", s),
     }
   }
 
@@ -808,16 +844,22 @@ mod tests {
     let (sub2, _) = CommandSubmission::new(cmd2.clone());
 
     let send_queue = VecDeque::from(vec![sub1.clone()]);
-    let init = State::AwaitingResponse { send_queue, command_sent: sub1 };
+    let init = State::AwaitingResponse {
+      send_queue,
+      command_sent: sub1,
+    };
     let action = Action::SubmitCommand(sub2);
 
     match init.next(action) {
-      State::AwaitingResponse { mut send_queue, command_sent } => {
+      State::AwaitingResponse {
+        mut send_queue,
+        command_sent,
+      } => {
         assert_eq!(send_queue.len(), 2);
         assert_eq!(command_sent.command, cmd1);
         let c2 = send_queue.pop_back().unwrap();
         assert_eq!(c2.command, cmd2);
-      },
+      }
 
       s => panic!("Unexpected state: {:?}", s),
     }
@@ -832,16 +874,22 @@ mod tests {
     let (sub2, _) = CommandSubmission::new(cmd2.clone());
 
     let send_queue = VecDeque::from(vec![sub1.clone()]);
-    let init = State::WaitingToRetry { send_queue, to_retry: sub1 };
+    let init = State::WaitingToRetry {
+      send_queue,
+      to_retry: sub1,
+    };
     let action = Action::SubmitCommand(sub2);
 
     match init.next(action) {
-      State::WaitingToRetry { mut send_queue, to_retry } => {
+      State::WaitingToRetry {
+        mut send_queue,
+        to_retry,
+      } => {
         assert_eq!(send_queue.len(), 2);
         assert_eq!(to_retry.command, cmd1);
         let c2 = send_queue.pop_back().unwrap();
         assert_eq!(c2.command, cmd2);
-      },
+      }
 
       s => panic!("Unexpected state: {:?}", s),
     }
@@ -864,7 +912,7 @@ mod tests {
         assert_eq!(send_queue.len(), 2);
         let c2 = send_queue.pop_back().unwrap();
         assert_eq!(c2.command, cmd2);
-      },
+      }
 
       s => panic!("Unexpected state: {:?}", s),
     }
@@ -879,7 +927,11 @@ mod tests {
     let (sub2, _) = CommandSubmission::new(cmd2.clone());
 
     let send_queue = VecDeque::from(vec![sub1.clone()]);
-    let init = State::ProcessingResponse { send_queue, command_sent: sub1, response_msg: vec![] };
+    let init = State::ProcessingResponse {
+      send_queue,
+      command_sent: sub1,
+      response_msg: vec![],
+    };
     let action = Action::SubmitCommand(sub2);
 
     match init.next(action) {
@@ -887,7 +939,7 @@ mod tests {
         assert_eq!(send_queue.len(), 2);
         let c2 = send_queue.pop_back().unwrap();
         assert_eq!(c2.command, cmd2);
-      },
+      }
 
       s => panic!("Unexpected state: {:?}", s),
     }
@@ -906,13 +958,16 @@ mod tests {
     let action = Action::MessageSent(sub1);
 
     match init.next(action) {
-      State::AwaitingResponse { mut send_queue, command_sent } => {
+      State::AwaitingResponse {
+        mut send_queue,
+        command_sent,
+      } => {
         assert_eq!(send_queue.len(), 1);
         let c2 = send_queue.pop_front().unwrap();
         assert_eq!(c2.command, cmd2);
 
         assert_eq!(command_sent.command, cmd1);
-      },
+      }
 
       s => panic!("Unexpected state: {:?}", s),
     }
@@ -924,16 +979,23 @@ mod tests {
     let (sub, _) = CommandSubmission::new(cmd.clone());
 
     let send_queue = VecDeque::new();
-    let init = State::AwaitingResponse { send_queue, command_sent: sub };
+    let init = State::AwaitingResponse {
+      send_queue,
+      command_sent: sub,
+    };
     let response: Vec<u8> = vec![0xf0, 0x00];
     let action = Action::MessageReceived(response.clone());
 
     match init.next(action) {
-      State::ProcessingResponse { send_queue, command_sent, response_msg } => {
+      State::ProcessingResponse {
+        send_queue,
+        command_sent,
+        response_msg,
+      } => {
         assert_eq!(send_queue.len(), 0);
         assert_eq!(command_sent.command, cmd);
         assert_eq!(response_msg, response);
-      },
+      }
 
       s => panic!("Unexpected state: {:?}", s),
     }
@@ -959,13 +1021,17 @@ mod tests {
 
     let response: Vec<u8> = vec![0xf0, 0x00];
     let send_queue = VecDeque::from(vec![sub2]);
-    let init = State::ProcessingResponse { send_queue, command_sent: sub, response_msg: response.clone() };
+    let init = State::ProcessingResponse {
+      send_queue,
+      command_sent: sub,
+      response_msg: response.clone(),
+    };
     let action = Action::ResponseDispatched;
 
     match init.next(action) {
       State::ProcessingQueue { send_queue } => {
         assert_eq!(send_queue.len(), 1);
-      },
+      }
 
       s => panic!("Unexpected state: {:?}", s),
     }
@@ -978,13 +1044,16 @@ mod tests {
     let (sub2, _) = CommandSubmission::new(Command::Ping(2));
 
     let send_queue = VecDeque::from(vec![sub2]);
-    let init = State::AwaitingResponse { send_queue, command_sent: sub };
+    let init = State::AwaitingResponse {
+      send_queue,
+      command_sent: sub,
+    };
     let action = Action::ResponseTimedOut;
 
     match init.next(action) {
       State::ProcessingQueue { send_queue } => {
         assert_eq!(send_queue.len(), 1);
-      },
+      }
 
       s => panic!("Unexpected state: {:?}", s),
     }
@@ -1007,7 +1076,10 @@ mod tests {
     let (sub2, _) = CommandSubmission::new(Command::Ping(2));
 
     let send_queue = VecDeque::from(vec![sub2]);
-    let init = State::WaitingToRetry { send_queue, to_retry: sub };
+    let init = State::WaitingToRetry {
+      send_queue,
+      to_retry: sub,
+    };
     let action = Action::ReadyToRetry;
 
     match init.next(action) {
@@ -1015,7 +1087,7 @@ mod tests {
         assert_eq!(send_queue.len(), 2);
         let head = send_queue.pop_front().unwrap();
         assert_eq!(head.command, cmd);
-      },
+      }
 
       s => panic!("unexpected state: {:?}", s),
     }
@@ -1033,7 +1105,9 @@ mod tests {
 
   #[test]
   fn queue_empty_while_processing_queue_transitions_to_idle() {
-    let init = State::ProcessingQueue { send_queue: VecDeque::new() };
+    let init = State::ProcessingQueue {
+      send_queue: VecDeque::new(),
+    };
     let action = QueueEmpty;
     match init.next(action) {
       State::Idle => (),
@@ -1045,7 +1119,9 @@ mod tests {
   fn queue_empty_while_processing_queue_transitions_to_failed_if_queue_is_non_empty() {
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
-    let init = State::ProcessingQueue { send_queue: VecDeque::from(vec![sub]) };
+    let init = State::ProcessingQueue {
+      send_queue: VecDeque::from(vec![sub]),
+    };
     let action = QueueEmpty;
     match init.next(action) {
       State::Failed(_) => (),
@@ -1065,57 +1141,77 @@ mod tests {
 
   // endregion
 
-  // region State entry tests (for expected Effect and Action)
+  // region State entry tests (for expected Effect)
 
   #[test]
-  fn entering_idle_state_has_no_action_or_effect() {
+  fn entering_idle_state_has_no_effect() {
     let mut s = State::Idle;
     match s.enter() {
-      (None, None) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      None => (),
+      Some(e) => panic!("unexpected effect: {:?}", e),
     }
   }
 
   #[test]
-  fn entering_processing_queue_while_queue_returns_no_effect_and_queue_empty_action() {
-    let mut s = State::ProcessingQueue { send_queue: VecDeque::new() };
+  fn entering_processing_queue_while_queue_dispatches_queue_empty_action() {
+    use Action::QueueEmpty;
+    use Effect::DispatchAction;
+
+    let mut s = State::ProcessingQueue {
+      send_queue: VecDeque::new(),
+    };
     match s.enter() {
-      (None, Some(QueueEmpty)) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      Some(DispatchAction(QueueEmpty)) => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
   #[test]
-  fn entering_processing_queue_while_queue_is_full_returns_send_midi_message_effect_and_message_sent_action() {
+  fn entering_processing_queue_while_queue_is_full_returns_send_midi_message_effect() {
+    use Effect::SendMidiMessage;
+    use State::ProcessingQueue;
+
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
     let send_queue = VecDeque::from(vec![sub]);
-    let mut s = State::ProcessingQueue { send_queue };
+    let mut s = ProcessingQueue { send_queue };
     match s.enter() {
-      (Some(Effect::SendMidiMessage(_)), Some(Action::MessageSent(_))) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      Some(SendMidiMessage(_)) => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
   #[test]
-  fn entering_device_busy_returns_start_retry_timeout_effect_and_no_action() {
+  fn entering_waiting_to_retry_returns_start_retry_timeout_effect() {
+    use Effect::StartRetryTimeout;
+    use State::WaitingToRetry;
+
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
-    let mut s = State::WaitingToRetry { send_queue: VecDeque::new(), to_retry: sub };
+    let mut s = WaitingToRetry {
+      send_queue: VecDeque::new(),
+      to_retry: sub,
+    };
     match s.enter() {
-      (Some(Effect::StartRetryTimeout), None) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      Some(StartRetryTimeout) => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
   #[test]
-  fn entering_awaiting_response_returns_start_receive_timeout_effect_and_no_action() {
+  fn entering_awaiting_response_returns_start_receive_timeout_effect() {
+    use Effect::StartReceiveTimeout;
+    use State::AwaitingResponse;
+
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
-    let mut s = State::AwaitingResponse { send_queue: VecDeque::new(), command_sent: sub };
+    let mut s = AwaitingResponse {
+      send_queue: VecDeque::new(),
+      command_sent: sub,
+    };
     match s.enter() {
-      (Some(Effect::StartReceiveTimeout), None) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      Some(StartReceiveTimeout) => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
@@ -1135,104 +1231,121 @@ mod tests {
   }
 
   #[test]
-  fn entering_processing_response_with_status_ack_returns_ok_notify_message_response_effect_and_response_dispatched_action() {
+  fn entering_processing_response_with_status_ack_returns_ok_notify_message_response_effect() {
+    use Effect::NotifyMessageResponse;
+    use State::ProcessingResponse;
+
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
 
-    let mut s = State::ProcessingResponse {
+    let mut s = ProcessingResponse {
       send_queue: VecDeque::new(),
       command_sent: sub,
-      response_msg: response_with_status(ResponseStatusCode::Ack)
+      response_msg: response_with_status(ResponseStatusCode::Ack),
     };
 
     match s.enter() {
-      (Some(Effect::NotifyMessageResponse(_, Ok(_))), Some(Action::ResponseDispatched)) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      Some(NotifyMessageResponse(_, Ok(_))) => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
   #[test]
-  fn entering_processing_response_with_status_nack_returns_err_notify_message_response_effect_and_response_dispatched_action() {
+  fn entering_processing_response_with_status_nack_returns_err_notify_message_response_effect() {
+    use Effect::NotifyMessageResponse;
+    use State::ProcessingResponse;
+
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
 
-    let mut s = State::ProcessingResponse {
+    let mut s = ProcessingResponse {
       send_queue: VecDeque::new(),
       command_sent: sub,
-      response_msg: response_with_status(ResponseStatusCode::Nack)
+      response_msg: response_with_status(ResponseStatusCode::Nack),
     };
 
     match s.enter() {
-      (Some(Effect::NotifyMessageResponse(_, Err(_))), Some(Action::ResponseDispatched)) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      Some(NotifyMessageResponse(_, Err(_))) => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
   #[test]
-  fn entering_processing_response_with_status_error_returns_err_notify_message_response_effect_and_response_dispatched_action() {
+  fn entering_processing_response_with_status_error_returns_err_notify_message_response_effect() {
+    use Effect::NotifyMessageResponse;
+    use State::ProcessingResponse;
+
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
 
-    let mut s = State::ProcessingResponse {
+    let mut s = ProcessingResponse {
       send_queue: VecDeque::new(),
       command_sent: sub,
-      response_msg: response_with_status(ResponseStatusCode::Error)
+      response_msg: response_with_status(ResponseStatusCode::Error),
     };
 
     match s.enter() {
-      (Some(Effect::NotifyMessageResponse(_, Err(_))), Some(Action::ResponseDispatched)) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      Some(NotifyMessageResponse(_, Err(_))) => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
   #[test]
-  fn entering_processing_response_with_status_busy_returns_no_effect_and_device_busy_action() {
+  fn entering_processing_response_with_status_busy_dispatches_device_busy_action() {
+    use Action::DeviceBusy;
+    use Effect::DispatchAction;
+    use State::ProcessingResponse;
+
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
 
-    let mut s = State::ProcessingResponse {
+    let mut s = ProcessingResponse {
       send_queue: VecDeque::new(),
       command_sent: sub,
-      response_msg: response_with_status(ResponseStatusCode::Busy)
+      response_msg: response_with_status(ResponseStatusCode::Busy),
     };
 
     match s.enter() {
-      (None, Some(Action::DeviceBusy)) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      Some(DispatchAction(DeviceBusy)) => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
   #[test]
-  fn entering_processing_response_with_status_state_returns_no_effect_and_device_busy_action() {
+  fn entering_processing_response_with_status_state_dispatches_device_busy_action() {
+    use Action::DeviceBusy;
+    use Effect::DispatchAction;
+    use State::ProcessingResponse;
+
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
 
-    let mut s = State::ProcessingResponse {
+    let mut s = ProcessingResponse {
       send_queue: VecDeque::new(),
       command_sent: sub,
-      response_msg: response_with_status(ResponseStatusCode::State)
+      response_msg: response_with_status(ResponseStatusCode::State),
     };
 
     match s.enter() {
-      (None, Some(Action::DeviceBusy)) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      Some(DispatchAction(DeviceBusy)) => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
   #[test]
-  fn entering_processing_response_with_status_unknown_returns_no_effect_and_response_dispatched_action() {
+  fn entering_processing_response_with_status_unknown_returns_no_effect() {
     let cmd = Command::Ping(1);
     let (sub, _) = CommandSubmission::new(cmd.clone());
 
     let mut s = State::ProcessingResponse {
       send_queue: VecDeque::new(),
       command_sent: sub,
-      response_msg: response_with_status(ResponseStatusCode::Unknown)
+      response_msg: response_with_status(ResponseStatusCode::Unknown),
     };
 
     match s.enter() {
-      (None, Some(Action::ResponseDispatched)) => (),
-      (e, a) => panic!("unexpected effect or action: ({:?}, {:?})", e, a),
+      None => (),
+      e => panic!("unexpected effect: {:?}", e),
     }
   }
 
