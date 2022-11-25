@@ -19,7 +19,7 @@ pub async fn run_send_preset(path: &PathBuf) {
   let commands = keymap.to_midi_commands();
   log::debug!("sending commands");
   for c in commands {
-    log::debug!("sending command");
+    log::debug!("sending command {}", c);
     let res = driver.send(c).await;
     log::debug!("received response: {res:?}");
   }

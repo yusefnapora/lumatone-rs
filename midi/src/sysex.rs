@@ -34,6 +34,15 @@ pub fn reverse_table(t: &SysexTable) -> SysexTable {
   r
 }
 
+pub fn to_hex_debug_str(msg: &[u8]) -> String {
+  let s = msg
+    .iter()
+    .map(|b| format!("{b:x}"))
+    .collect::<Vec<String>>()
+    .join(" ");
+  format!("[ {s} ]")
+}
+
 pub fn create_sysex(board_index: BoardIndex, cmd: CommandId, data: Vec<u8>) -> EncodedSysex {
   let mut sysex: Vec<u8> = vec![SYSEX_START];
   sysex.extend(MANUFACTURER_ID.iter());
