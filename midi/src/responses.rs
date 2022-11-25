@@ -366,7 +366,7 @@ fn unpack_channel_config(msg: &[u8]) -> Result<Response, LumatoneMidiError> {
   let payload = message_payload(msg)?;
   let mut channels = Vec::with_capacity(payload.len());
   for byte in payload {
-    let ch = MidiChannel::try_from(*byte)?;
+    let ch = MidiChannel::try_from_zero_indexed(*byte)?;
     channels.push(ch);
   }
   let response = Response::ChannelConfig(board_index, channels);
