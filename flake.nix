@@ -1,34 +1,48 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    flake-utils = {
-      url = "github:numtide/flake-utils";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }@inputs:
-    flake-utils.lib.eachDefaultSystem (system: 
-    let
-      pkgs = nixpkgs.legacyPackages.${system};
-    in {
-      devShell = pkgs.mkShell {
-        buildInputs = with pkgs; [
-          # TODO: depend on rustc and cargo instead... bit fiddly tho
-          # note that after installing standard toolchain, you also need to run
-          # rustup target add wasm32-unknown-unknown
-          rustup
+ outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
 
-          # native deps for tauri / dioxus
+        libraries = with pkgs;[
           webkitgtk
           gtk3
-          libayatana-appindicator
-          openssl.dev
-          alsa-lib.dev
-          pkg-config
+          cairo
+          gdk-pixbuf
+          glib.out
+          dbus.lib
+          openssl_3.out
         ];
-      };
 
-      # TODO: add package derivation for app, etc
-    });
+        packages = with pkgs; [
+          curl
+          wget
+          pkg-config
+          dbus
+          openssl_3
+          glib
+          gtk3
+          libsoup
+          webkitgtk
+        ];
+      in
+      {
+        devShell = pkgs.mkShell {
+          buildInputs = packages;
+
+          shellHook =
+            let
+              joinLibs = libs: builtins.concatStringsSep ":" (builtins.map (x: "${x}/lib") libs);
+              libs = joinLibs libraries;
+            in
+            ''
+              export LD_LIBRARY_PATH=${libs}:$LD_LIBRARY_PATH
+            '';
+        };
+      });
 }
