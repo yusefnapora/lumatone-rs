@@ -29,6 +29,8 @@
           gtk3
           libsoup
           webkitgtk
+          rustup
+          nodejs
         ];
       in
       {
