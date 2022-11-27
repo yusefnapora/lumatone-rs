@@ -1,45 +1,44 @@
-<script lang="ts">
-  import svelteLogo from './assets/svelte.svg'
-  import Counter from './lib/Counter.svelte'
+
+<script>
+	import { AppShell, AppBar, GradientHeading } from '@brainandbones/skeleton';
 </script>
 
-<main>
-  <div>
-    <a href="https://vitejs.dev" target="_blank" rel="noreferrer"> 
-      <img src="/vite.svg" class="logo" alt="Vite Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank" rel="noreferrer"> 
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
+<AppShell slotSidebarLeft="bg-surface-500/5 w-56 p-4">
+	<!-- Header -->
+	<svelte:fragment slot="header">
+    <AppBar>
+      <svelte:fragment slot="lead">
+        <h1>Skeleton</h1>
+      </svelte:fragment>
+      <svelte:fragment slot="trail">
+        <a class="btn btn-sm" href="https://github.com/" target="_blank" rel="noreferrer">GitHub</a>
+      </svelte:fragment>
+    </AppBar>
+  </svelte:fragment>
+	<!-- Sidebar -->
+	<svelte:fragment slot="sidebarLeft">
+    <nav class="list-nav">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/about">About</a></li>
+      </ul>
+    </nav>
+  </svelte:fragment>
+	<!-- Page Content -->
+	<div id="page" class="container mx-auto p-8 space-y-8">
+    <GradientHeading tag="h1" direction="bg-gradient-to-br" from="from-primary-500" to="to-accent-500">
+      Homepage
+    </GradientHeading>
+    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit.</p>
+    <hr />
+    <section class="card card-body">
+      <p>Lorem ipsum dolor sit amet consectetur adipisicing elit.</p>
+    </section>
+    <hr />
+    <section class="flex space-x-2">
+        <a class="btn btn-filled-primary" href="https://kit.svelte.dev/" target="_blank" rel="noreferrer">SvelteKit</a>
+        <a class="btn btn-filled-accent" href="https://tailwindcss.com/" target="_blank" rel="noreferrer">Tailwind</a>
+        <a class="btn btn-filled-tertiary" href="https://github.com/" target="_blank" rel="noreferrer">GitHub</a>
+      </section>
   </div>
-  <h1>Vite + Svelte</h1>
-
-  <div class="card">
-    <Counter />
-  </div>
-
-  <p>
-    Check out <a href="https://github.com/sveltejs/kit#readme" target="_blank" rel="noreferrer">SvelteKit</a>, the official Svelte app framework powered by Vite!
-  </p>
-
-  <p class="read-the-docs">
-    Click on the Vite and Svelte logos to learn more
-  </p>
-</main>
-
-<style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
-</style>
+</AppShell>
