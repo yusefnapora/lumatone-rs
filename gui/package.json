@@ -13,15 +13,19 @@
     "@brainandbones/skeleton": "^0.76.0",
     "@sveltejs/vite-plugin-svelte": "^1.1.0",
     "@tsconfig/svelte": "^3.0.0",
+    "autoprefixer": "^10.4.7",
+    "postcss": "^8.4.14",
+    "postcss-load-config": "^4.0.1",
     "svelte": "^3.52.0",
     "svelte-check": "^2.9.2",
     "svelte-preprocess": "^4.10.7",
+    "tailwindcss": "^3.1.5",
     "tslib": "^2.4.0",
     "typescript": "^4.6.4",
-    "vite": "^3.2.3",
-    "postcss": "^8.4.14",
-    "postcss-load-config": "^4.0.1",
-    "autoprefixer": "^10.4.7",
-    "tailwindcss": "^3.1.5"
+    "vite": "^3.2.3"
+  },
+  "dependencies": {
+    "@tonaljs/tonal": "^4.6.10",
+    "tinycolor2": "^1.4.2"
   }
 }
