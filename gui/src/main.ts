@@ -1,4 +1,4 @@
-import '@brainandbones/skeleton/themes/theme-rocket.css';
+import '@brainandbones/skeleton/themes/theme-modern.css';
 import '@brainandbones/skeleton/styles/all.css';
 import "./app.postcss";
 import App from "./App.svelte";
