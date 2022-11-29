@@ -1,8 +1,7 @@
-
 <script>
-	import { AppShell, GradientHeading } from '@brainandbones/skeleton';
-    import RailNav from "./ui/RailNav.svelte";
-    import Wedge from "./ui/wheel/Wedge.svelte";
+  import {AppShell, GradientHeading} from '@brainandbones/skeleton';
+  import RailNav from "./ui/RailNav.svelte";
+  import Wedge from "./ui/wheel/Wedge.svelte";
 </script>
 
 <AppShell slotSidebarLeft="bg-surface-500/5">
