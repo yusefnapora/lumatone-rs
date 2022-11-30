@@ -44,18 +44,12 @@
         ></circle>
       </mask>
     </defs>
-    <g
-        mask="url(#rim-clip)"
-        transform={`rotate(${ringRotation}, ${center.x}, ${center.y})`}
-    >
+    <g mask="url(#rim-clip)"
+       transform={`rotate(${ringRotation}, ${center.x}, ${center.y})`} >
+
       {#each Array(divisions) as _, i}
         <Wedge {...wedgeProps(i)} />
-      {/each}      <circle
-          cx={center.x}
-          cy={center.y}
-          r={holeRadius}
-          onClick={(e) => e.preventDefault()}
-      />
+      {/each}
     </g>
   </svg>
 </div>
