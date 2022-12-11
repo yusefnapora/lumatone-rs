@@ -1480,6 +1480,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "rust-ini",
+ "tune",
 ]
 
 [[package]]
@@ -3073,6 +3074,12 @@ checksum = "761e8d5ad7ce14bb82b7e61ccc0ca961005a275a060b9644a2431aa11553c2ff"
 dependencies = [
  "serde_json",
 ]
+
+[[package]]
+name = "tune"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d61cef8e2abe3608b366e6d2c6143d9e2ce08f3c27feebe1420a2069f28055fc"
 
 [[package]]
 name = "typenum"
