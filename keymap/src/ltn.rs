@@ -343,7 +343,6 @@ impl LumatoneKeyMap {
       commands.push(SetVelocityIntervals(Box::new(t)));
     }
 
-    let mut commands = vec![];
     for (location, definition) in self.keys.iter() {
       commands.push(SetKeyFunction {
         location: *location,
