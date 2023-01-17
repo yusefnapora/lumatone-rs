@@ -1,9 +1,10 @@
 {
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
     "devPath": "http://localhost:5173",
-    "distDir": "../dist"
+    "distDir": "../build"
   },
   "package": {
     "productName": "lumachromatic",
@@ -57,7 +58,7 @@
         "fullscreen": false,
         "height": 600,
         "resizable": true,
-        "title": "LumaChromatic",
+        "title": "Lumachromatic",
         "width": 800
       }
     ]

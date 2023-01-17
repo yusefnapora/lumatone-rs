@@ -1,10 +1,11 @@
 <script>
-  import {AppShell, GradientHeading} from '@brainandbones/skeleton';
-  import RailNav from "./ui/RailNav.svelte";
-  import Wheel from "./ui/wheel/Wheel.svelte";
+  import {AppShell, GradientHeading} from '@skeletonlabs/skeleton';
+  import RailNav from "../ui/RailNav.svelte";
+  import Wheel from "../ui/wheel/Wheel.svelte";
 </script>
 
 <AppShell slotSidebarLeft="bg-surface-500/5">
+  
   <!-- Header -->
   <svelte:fragment slot="header">
   </svelte:fragment>

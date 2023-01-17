@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {AppRail, AppRailTile} from '@brainandbones/skeleton';
+  import {AppRail, AppRailTile} from '@skeletonlabs/skeleton';
   import {writable, type Writable} from 'svelte/store';
 
   const selectedTile: Writable<number> = writable(1);
