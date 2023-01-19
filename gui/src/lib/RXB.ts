@@ -105,11 +105,7 @@ function hex2rxb(hex: string): RXBArray {
  * @param value  {float} a number -1>=value<=1 representing the value to step the color
  * @param limit  {int}   the upper limit of the color range, defaults to 255
  */
-function stepcolor(
-  hex: string | RXBArray,
-  value: number,
-  limit: number = 255
-): RXBArray {
+function stepcolor(hex: string | RXBArray, value: number, limit: number = 255): RXBArray {
   var rxb = typeof hex === 'string' ? hex2rxb(hex) : hex
 
   var r = rxb[0]
@@ -143,11 +139,7 @@ function stepcolor(
  *
  * returns a complementary array
  */
-function complementary(
-  color: RXBArray,
-  value: number,
-  limit?: number
-): RXBArray {
+function complementary(color: RXBArray, value: number, limit?: number): RXBArray {
   limit = limit || 255
   var colorstepped = stepcolor(color, value, limit)
   var r = colorstepped[0]
@@ -176,11 +168,7 @@ function complementary(
  *
  * Ex: var neutrals = neutrals('ff00ff', 0, 4);
  */
-function neutrals(
-  hex: string | RXBArray,
-  value: number,
-  count: number = 8
-): RXBArray[] {
+function neutrals(hex: string | RXBArray, value: number, count: number = 8): RXBArray[] {
   var ryb: RXBArray
   if (typeof hex === 'string') {
     ryb = hex2rxb(hex)
@@ -283,12 +271,7 @@ function cubicInt(t: number, A: number, B: number): number {
   return A + weight * (B - A)
 }
 
-function getR(
-  iR: number,
-  iY: number,
-  iB: number,
-  magic: RXBArray[] = MAGIC_COLORS
-): number {
+function getR(iR: number, iY: number, iB: number, magic: RXBArray[] = MAGIC_COLORS): number {
   // red
   var x0 = cubicInt(iB, magic[0][0], magic[4][0])
   var x1 = cubicInt(iB, magic[1][0], magic[5][0])
@@ -299,12 +282,7 @@ function getR(
   return cubicInt(iR, y0, y1)
 }
 
-function getG(
-  iR: number,
-  iY: number,
-  iB: number,
-  magic: RXBArray[] = MAGIC_COLORS
-): number {
+function getG(iR: number, iY: number, iB: number, magic: RXBArray[] = MAGIC_COLORS): number {
   // green
   var x0 = cubicInt(iB, magic[0][1], magic[4][1])
   var x1 = cubicInt(iB, magic[1][1], magic[5][1])
@@ -315,12 +293,7 @@ function getG(
   return cubicInt(iR, y0, y1)
 }
 
-function getB(
-  iR: number,
-  iY: number,
-  iB: number,
-  magic: RXBArray[] = MAGIC_COLORS
-): number {
+function getB(iR: number, iY: number, iB: number, magic: RXBArray[] = MAGIC_COLORS): number {
   // blue
   var x0 = cubicInt(iB, magic[0][2], magic[4][2])
   var x1 = cubicInt(iB, magic[1][2], magic[5][2])
@@ -331,11 +304,7 @@ function getB(
   return cubicInt(iR, y0, y1)
 }
 
-function ryb2rgb(
-  color: RXBArray,
-  limit: number = 255,
-  magic: RXBArray[] = MAGIC_COLORS
-): RXBArray {
+function ryb2rgb(color: RXBArray, limit: number = 255, magic: RXBArray[] = MAGIC_COLORS): RXBArray {
   var R = color[0] / limit
   var Y = color[1] / limit
   var B = color[2] / limit

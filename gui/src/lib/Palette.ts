@@ -57,10 +57,7 @@ export default class Palette {
     }
   }
 
-  colorForNoteName(
-    noteName: string,
-    scale: Scale | undefined = undefined
-  ): HexColor | undefined {
+  colorForNoteName(noteName: string, scale: Scale | undefined = undefined): HexColor | undefined {
     const note = Note.get(noteName)
     if (!note || note.chroma == null) {
       return undefined

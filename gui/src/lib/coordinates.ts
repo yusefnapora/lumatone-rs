@@ -2,13 +2,12 @@
  * OffsetCoord is a point on the hex grid in "offset coordinates," using the "odd-r" layout described
  * here: https://www.redblobgames.com/grids/hexagons/#coordinates
  */
- export interface OffsetCoord {
+export interface OffsetCoord {
   q: number
   r: number
 }
 
-export const stringifyCoord = (coord: OffsetCoord): string =>
-  `${coord.q},${coord.r}`
+export const stringifyCoord = (coord: OffsetCoord): string => `${coord.q},${coord.r}`
 
 export class CoordinateMap<V> {
   #m: Map<string, V> = new Map()
@@ -34,11 +33,7 @@ export class KeyCoordinates {
   static #coordToKeyNum: CoordinateMap<number>
 
   private static _initialize = (() => {
-    const row = (
-      r: number,
-      numCols: number,
-      startCol: number = 0
-    ): OffsetCoord[] => {
+    const row = (r: number, numCols: number, startCol: number = 0): OffsetCoord[] => {
       const points = []
       const endCol = startCol + numCols
       for (let q = startCol; q < endCol; q++) {
@@ -71,11 +66,7 @@ export class KeyCoordinates {
 
   static coord(key: number): OffsetCoord | undefined {
     if (key < 0 || key >= this.#keyCoords.length) {
-      throw new Error(
-        `key number ${key} out of range. Valid range: 0-${
-          this.#keyCoords.length
-        }.`
-      )
+      throw new Error(`key number ${key} out of range. Valid range: 0-${this.#keyCoords.length}.`)
     }
     return this.#keyCoords[key]
   }

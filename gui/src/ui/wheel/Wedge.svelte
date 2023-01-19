@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type {Point, HexColor} from "../../lib/drawing";
-  import {polarToCartesian, describeArc, lineTo} from "../../lib/drawing";
+  import type { Point, HexColor } from '../../lib/drawing'
+  import { polarToCartesian, describeArc, lineTo } from '../../lib/drawing'
 
   export let radius: number = 300
-  export let center: Point = {x: 0, y: 0}
+  export let center: Point = { x: 0, y: 0 }
   export let rotation: number = 0
   export let arcDegrees: number = 30
 
@@ -19,29 +19,17 @@
   $: fontSize = `${fontSizePct}%`
   $: point = polarToCartesian(center, radius, halfArc)
   $: labelPoint = polarToCartesian(center, radius * 0.9, 0)
-  $: wedgePath = [
-    describeArc(center, radius, -halfArc, halfArc),
-    lineTo(center),
-    lineTo(point),
-  ].join(' ')
-
+  $: wedgePath = [describeArc(center, radius, -halfArc, halfArc), lineTo(center), lineTo(point)].join(' ')
 </script>
 
-<g transform={`rotate(${rotation}, ${center.x}, ${center.y})`}
-   fill={fill || color}
-   stroke={stroke || color}
-   onClick={() => console.log('clicked', label)}
+<g
+  transform={`rotate(${rotation}, ${center.x}, ${center.y})`}
+  fill={fill || color}
+  stroke={stroke || color}
+  onClick={() => console.log('clicked', label)}
 >
-  <path d={wedgePath} stroke-width="{0}" stroke="none"></path>
-  <text
-      font-size="{fontSize}"
-      text-anchor="middle"
-      x={labelPoint.x}
-      y={labelPoint.y}
-      stroke={textColor}
-      fill={textColor}
-  >
+  <path d={wedgePath} stroke-width={0} stroke="none" />
+  <text font-size={fontSize} text-anchor="middle" x={labelPoint.x} y={labelPoint.y} stroke={textColor} fill={textColor}>
     {label}
   </text>
 </g>
-

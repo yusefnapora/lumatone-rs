@@ -15,7 +15,7 @@ export interface BoardGeometryProps {
  * The idea is that individial keys are addressed by {@link OffsetCoord}s, which are (column, row) tuples that identify a hex key.
  * Using {@link centerPoint(coodr)} and {@link hexPath(coord)}, you can get the center point location and SVG path,
  * respectively.
- * 
+ *
  */
 export class BoardGeometry {
   #keyDiameter: number
@@ -87,11 +87,7 @@ export class BoardGeometry {
     return h * (rows + 0.5)
   }
 
-  rotatedBoundingBox(
-    rotationDegrees: number,
-    cols: number = 6,
-    rows: number = 11
-  ): Rect {
+  rotatedBoundingBox(rotationDegrees: number, cols: number = 6, rows: number = 11): Rect {
     const rect = {
       origin: this.#origin,
       size: {

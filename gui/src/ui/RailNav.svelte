@@ -1,10 +1,15 @@
 <script lang="ts">
-  import {AppRail, AppRailTile} from '@skeletonlabs/skeleton';
-  import {writable, type Writable} from 'svelte/store';
+  import { AppRail, AppRailTile } from '@skeletonlabs/skeleton'
+  import { writable, type Writable } from 'svelte/store'
+  import { goto } from '$app/navigation'
+  import { onDestroy } from 'svelte'
 
-  const selectedTile: Writable<number> = writable(1);
+  const selectedTile: Writable<string> = writable('/edit')
+  const unsubscribe = selectedTile.subscribe((route) => {
+    goto(route)
+  })
 
-  // TODO: change route on selection change
+  onDestroy(() => unsubscribe())
 </script>
 
 <AppRail selected={selectedTile}>
@@ -12,16 +17,16 @@
     <!--        TODO: logo-->
   </svelte:fragment>
 
-  <AppRailTile label="Edit" title="Edit" value={1}>
+  <AppRailTile label="Edit" title="Edit" value="/edit">
     <!--        TODO: icon-->
   </AppRailTile>
 
-  <AppRailTile label="Play" title="Play" value={2}>
+  <AppRailTile label="Play" title="Play" value="/play">
     <!--        TODO: icon-->
   </AppRailTile>
 
   <svelte:fragment slot="trail">
-    <AppRailTile label="Settings" title="Settings" value={20}>
+    <AppRailTile label="Settings" title="Settings" value="/settings">
       <!--        TODO: icon-->
     </AppRailTile>
   </svelte:fragment>

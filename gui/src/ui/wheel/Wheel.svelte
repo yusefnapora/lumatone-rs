@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Wedge from "./Wedge.svelte";
-  import Palette from "../../lib/Palette";
+  import Wedge from './Wedge.svelte'
+  import Palette from '../../lib/Palette'
 
   export let radius: number = 280
   export let divisions: number = 12
@@ -8,7 +8,7 @@
   let ringRotation = 0 // TODO: rotate whee so that tonic is at 0 degrees
 
   $: size = radius * 2
-  $: center = {x: radius, y: radius}
+  $: center = { x: radius, y: radius }
   $: holeRadius = radius * 0.8
   $: arcDegrees = 360.0 / divisions
 
@@ -35,18 +35,11 @@
     <defs>
       <!--  Clipping mask to cut out the center of the circle, leaving just the rim -->
       <mask id="rim-clip">
-        <circle cx={center.x} cy={center.y} r={radius} fill="white"/>
-        <circle
-            cx={center.x}
-            cy={center.y}
-            r={holeRadius}
-            fill="black"
-        ></circle>
+        <circle cx={center.x} cy={center.y} r={radius} fill="white" />
+        <circle cx={center.x} cy={center.y} r={holeRadius} fill="black" />
       </mask>
     </defs>
-    <g mask="url(#rim-clip)"
-       transform={`rotate(${ringRotation}, ${center.x}, ${center.y})`} >
-
+    <g mask="url(#rim-clip)" transform={`rotate(${ringRotation}, ${center.x}, ${center.y})`}>
       {#each Array(divisions) as _, i}
         <Wedge {...wedgeProps(i)} />
       {/each}

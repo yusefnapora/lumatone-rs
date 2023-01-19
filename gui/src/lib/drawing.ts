@@ -1,14 +1,9 @@
-
 export type Point = { x: number; y: number }
 export type Size = { w: number; h: number }
 export type Rect = { origin: Point; size: Size }
 export type HexColor = string
 
-export function polarToCartesian(
-  center: Point,
-  radius: number,
-  angleInDegrees: number
-): { x: number; y: number } {
+export function polarToCartesian(center: Point, radius: number, angleInDegrees: number): { x: number; y: number } {
   let angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0
 
   return {
@@ -17,30 +12,13 @@ export function polarToCartesian(
   }
 }
 
-export function describeArc(
-  center: Point,
-  radius: number,
-  startAngle: number,
-  endAngle: number
-): string {
+export function describeArc(center: Point, radius: number, startAngle: number, endAngle: number): string {
   let start = polarToCartesian(center, radius, endAngle)
   let end = polarToCartesian(center, radius, startAngle)
 
   let largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1'
 
-  let d = [
-    'M',
-    start.x,
-    start.y,
-    'A',
-    radius,
-    radius,
-    0,
-    largeArcFlag,
-    0,
-    end.x,
-    end.y,
-  ].join(' ')
+  let d = ['M', start.x, start.y, 'A', radius, radius, 0, largeArcFlag, 0, end.x, end.y].join(' ')
 
   return d
 }
@@ -49,21 +27,12 @@ export function lineTo(pt: Point): string {
   return `L ${pt.x}, ${pt.y}`
 }
 
-export function hexagonPoints(
-  center: Point,
-  size: number,
-  rotation: number = 0
-): string {
+export function hexagonPoints(center: Point, size: number, rotation: number = 0): string {
   const corners = [0, 1, 2, 3, 4, 5].map((i) => hexCorner(center, size, i))
   return corners.map((pt) => `${pt.x},${pt.y}`).join(' ')
 }
 
-function hexCorner(
-  center: Point,
-  size: number,
-  i: number,
-  rotation: number = 0
-): Point {
+function hexCorner(center: Point, size: number, i: number, rotation: number = 0): Point {
   const angleDeg = 60 * i - 30 + rotation
   const angleRad = (Math.PI / 180) * angleDeg
   return {
@@ -72,20 +41,10 @@ function hexCorner(
   }
 }
 
-function rotatePoint(
-  pt: Point,
-  angleDeg: number,
-  center: Point = { x: 0, y: 0 }
-): Point {
+function rotatePoint(pt: Point, angleDeg: number, center: Point = { x: 0, y: 0 }): Point {
   const theta = (Math.PI / 180) * angleDeg
-  const x =
-    center.x +
-    (pt.x - center.x) * Math.cos(theta) +
-    (pt.y - center.y) * Math.sin(theta)
-  const y =
-    center.y -
-    (pt.x - center.x) * Math.sin(theta) +
-    (pt.y - center.y) * Math.cos(theta)
+  const x = center.x + (pt.x - center.x) * Math.cos(theta) + (pt.y - center.y) * Math.sin(theta)
+  const y = center.y - (pt.x - center.x) * Math.sin(theta) + (pt.y - center.y) * Math.cos(theta)
   return { x, y }
 }
 
