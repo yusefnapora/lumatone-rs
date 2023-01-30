@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation'
   import { onDestroy } from 'svelte'
 
-  const selectedTile: Writable<string> = writable('/edit')
+  const selectedTile: Writable<string> = writable('/keymaps')
   const unsubscribe = selectedTile.subscribe((route) => {
     goto(route)
   })
@@ -17,11 +17,11 @@
     <!--        TODO: logo-->
   </svelte:fragment>
 
-  <AppRailTile label="Edit" title="Edit" value="/edit">
+  <AppRailTile label="Keymaps" title="Keymaps" value="/keymaps">
     <!--        TODO: icon-->
   </AppRailTile>
 
-  <AppRailTile label="Play" title="Play" value="/play">
+  <AppRailTile label="Setlists" title="Setlists" value="/setlists">
     <!--        TODO: icon-->
   </AppRailTile>
 
