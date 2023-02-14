@@ -82,7 +82,7 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
         g {
           mask: "url(#rim-clip)",
           transform: "rotate({ring_rotation}, {center.x}, {center.y})",
-          wedges
+          // wedges.iter()
         }
       }
     }

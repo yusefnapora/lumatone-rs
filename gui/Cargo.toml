@@ -10,5 +10,13 @@ edition = "2021"
 lumatone-midi = { path = "../midi" }
 lumatone-keymap = { path = "../keymap" }
 
-dioxus = { version = "0.2.4", features = ["desktop", "ayatana", "web", "liveview", "fermi", "router"] }
 palette = "0.6.1"
+
+
+[dependencies.dioxus]
+  git = "https://github.com/DioxusLabs/dioxus"
+  rev = "bea16f151f3eb519ca8da3e3c20482d345067561"
+
+[dependencies.dioxus-desktop]
+  git = "https://github.com/DioxusLabs/dioxus"
+  rev = "bea16f151f3eb519ca8da3e3c20482d345067561"
