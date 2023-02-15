@@ -33,7 +33,7 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
     let color = color_palette.get(i);
     let text_color = color_palette.get_text_color(i); 
     let label = String::from("x");//labels[i].to_string();
-    let wedge = rsx!(Wedge {
+    let wedge_props = WedgeProps {
       radius: r,
       center: center,
       rotation: rotation,
@@ -41,8 +41,8 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
       color: color,
       text_color: text_color,
       label: label
-    });
-    wedges.push(wedge);
+    };
+    wedges.push(wedge_props);
   }
 
   cx.render(rsx! {
@@ -82,7 +82,18 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
         g {
           mask: "url(#rim-clip)",
           transform: "rotate({ring_rotation}, {center.x}, {center.y})",
-          // wedges.iter()
+          for w in wedges.into_iter() {
+            // TODO: figure out if it's possible to just pass in the props struct
+            Wedge {
+              radius: w.radius,
+              center: w.center,
+              rotation: w.rotation,
+              arc_angle: w.arc_angle,
+              color: w.color,
+              text_color: w.text_color,
+              label: w.label,
+            }
+          }
         }
       }
     }
