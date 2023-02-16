@@ -17,6 +17,7 @@
           webkitgtk
           libayatana-appindicator.dev
           rustup
+          alsa-lib.dev
         ];
 
         packages-darwin = with pkgs; [
