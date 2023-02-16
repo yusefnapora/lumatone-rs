@@ -22,27 +22,29 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
   let r = cx.props.radius;
   let center = Point { x: r, y: r };
   let hole_radius = r * 0.8;
-  let mut wedges = vec![];
 
   let arc_angle = Angle::Degrees(360.0 / (divisions as f64));
   let ring_rotation = 0.0; // TODO: rotate so tonic of current scale is north
 
-  for i in 0..divisions {
+  // render all the wedges
+  let wedges = (0..divisions).map(|i| {
     let rotation: Float = arc_angle.as_degrees() * (i as Float);
     let color = tuning.get_color(i);
     let text_color = tuning.get_text_color(i);
-    let label = tuning.get_pitch_class(i).name.clone(); // TODO: use references instead of cloning
-    let wedge_props = WedgeProps {
-      radius: r,
-      center: center,
-      rotation: rotation,
-      arc_angle: arc_angle,
-      color: color,
-      text_color: text_color,
-      label: label.clone(),
-    };
-    wedges.push((wedge_props, label));
-  }
+    let label = tuning.get_pitch_class(i).name();   
+    rsx! {
+      Wedge {
+        key: "{label}",
+        radius: r,
+        center: center,
+        rotation: rotation,
+        arc_angle: arc_angle,
+        color: color,
+        text_color: text_color,
+        label: String::from(label),
+      }
+    }
+  });
 
   cx.render(rsx! {
     div {
@@ -81,19 +83,7 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
         g {
           mask: "url(#rim-clip)",
           transform: "rotate({ring_rotation}, {center.x}, {center.y})",
-          for (w, key) in wedges.into_iter() {
-            // TODO: figure out if it's possible to just pass in the props struct
-            Wedge {
-              key: "{key}",
-              radius: w.radius,
-              center: w.center,
-              rotation: w.rotation,
-              arc_angle: w.arc_angle,
-              color: w.color,
-              text_color: w.text_color,
-              label: w.label,
-            }
-          }
+          wedges
         }
       }
     }
@@ -108,6 +98,7 @@ struct WedgeProps {
   center: Point,
   color: Color,
   text_color: Color,
+  #[props(into)]
   label: String,
   rotation: Float,
   arc_angle: Angle,

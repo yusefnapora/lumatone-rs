@@ -7,8 +7,14 @@ pub mod view_model {
 
   #[derive(PartialEq)]
   pub struct PitchClass {
-    pub name: String,
+    name: String,
     // TODO: add optional enharmonic name(s)
+  }
+
+  impl PitchClass {
+    pub fn name(&self) -> &str {
+      &self.name
+    }
   }
 
   #[derive(PartialEq)]

@@ -9,6 +9,7 @@ use components::scratchpad::Scratchpad;
 use dioxus::prelude::*;
 
 fn main() {
+  hot_reload_init!();  
   dioxus_desktop::launch(app);
 }
 
