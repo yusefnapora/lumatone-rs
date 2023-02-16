@@ -19,7 +19,7 @@ pub struct WedgeProps {
   arc_angle: Angle,
 }
 
-/// A component that renders an partial element with a "wedge" shape, to be used
+/// A component that renders a partial element with a "wedge" shape, to be used
 /// as part of the rim of the color wheel.
 ///
 /// Note that this returns a `<g>` (group) element, not a full SVG, so it must be

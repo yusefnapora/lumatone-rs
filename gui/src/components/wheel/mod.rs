@@ -1,3 +1,4 @@
+mod constellation;
 mod wedge;
 pub mod wheel;
 

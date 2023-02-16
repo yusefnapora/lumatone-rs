@@ -1,8 +1,10 @@
 //! WIP view models for tuning & scales. needs a lot of revision to fully cover the domain
+use std::collections::HashSet;
+
 use crate::drawing::color::ColorPalette;
 use palette::LinSrgb;
 
-#[derive(PartialEq)]
+#[derive(Hash, Eq, PartialEq)]
 pub struct PitchClass {
   name: String,
   // TODO: add optional enharmonic name(s)
@@ -88,5 +90,41 @@ impl Tuning {
 
   pub fn get_text_color(&self, index: usize) -> LinSrgb {
     self.palette.get_text_color(index)
+  }
+}
+
+#[derive(PartialEq)]
+pub struct Scale {
+  name: String,
+  // TODO: optional vec of alternate names
+
+  tonic: PitchClass,
+  scale_tones: HashSet<PitchClass>
+}
+
+impl Scale {
+  pub fn new(name: String, tonic: PitchClass, scale_tones: HashSet<PitchClass>) -> Scale {
+    Scale { name, tonic, scale_tones }
+  }
+
+  pub fn contains(&self, pc: &PitchClass) -> bool {
+    self.scale_tones.contains(pc)
+  }
+
+  // TODO: generate scales instead of hard-coding :)
+  pub fn c_major() -> Scale {
+    Scale {
+      name: String::from("C major"),
+      tonic: PitchClass { name: String::from("C") },
+      scale_tones: HashSet::from([
+        PitchClass { name: String::from("C") },
+        PitchClass { name: String::from("D") },
+        PitchClass { name: String::from("E") },
+        PitchClass { name: String::from("F") },
+        PitchClass { name: String::from("G") },
+        PitchClass { name: String::from("A") },
+        PitchClass { name: String::from("B") },
+      ])
+    }
   }
 }
