@@ -4,21 +4,20 @@
 use dioxus::prelude::*;
 use palette::LinSrgb;
 
-use crate::drawing::{arc_svg_path, line_to, polar_to_cartesian, Angle, Float, Point, color::{ColorPalette, ToHexColorStr}};
+use crate::{
+  drawing::{arc_svg_path, color::ToHexColorStr, line_to, polar_to_cartesian, Angle, Float, Point},
+  harmony::view_model::Tuning,
+};
 
 #[derive(PartialEq, Props)]
 pub struct Props {
   pub radius: Float,
-  // TODO: add props for color palette, scale / harmonic structure, etc
+  pub tuning: Tuning,
 }
 
 pub fn ColorWheel(cx: Scope<Props>) -> Element {
-  // TODO: convert divisions, scale, etc to props
-  let divisions = 32;
-  let color_palette = ColorPalette::default_gradient(divisions);
-  // let labels = vec![
-  //   "C", "C# / Db", "D", "D# / Eb", "E", "F", "F# / Gb", "G", "G# / Ab", "A", "A# / Bb", "B",
-  // ];
+  let tuning = &cx.props.tuning;
+  let divisions = tuning.divisions();
 
   let r = cx.props.radius;
   let center = Point { x: r, y: r };
@@ -28,11 +27,11 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
   let arc_angle = Angle::Degrees(360.0 / (divisions as f64));
   let ring_rotation = 0.0; // TODO: rotate so tonic of current scale is north
 
-  for i in 0..divisions as usize {
+  for i in 0..divisions {
     let rotation: Float = arc_angle.as_degrees() * (i as Float);
-    let color = color_palette.get(i);
-    let text_color = color_palette.get_text_color(i); 
-    let label = String::from("x");//labels[i].to_string();
+    let color = tuning.get_color(i);
+    let text_color = tuning.get_text_color(i);
+    let label = tuning.get_pitch_class(i).name.clone(); // TODO: use references instead of cloning
     let wedge_props = WedgeProps {
       radius: r,
       center: center,
@@ -40,9 +39,9 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
       arc_angle: arc_angle,
       color: color,
       text_color: text_color,
-      label: label
+      label: label.clone(),
     };
-    wedges.push(wedge_props);
+    wedges.push((wedge_props, label));
   }
 
   cx.render(rsx! {
@@ -82,9 +81,10 @@ pub fn ColorWheel(cx: Scope<Props>) -> Element {
         g {
           mask: "url(#rim-clip)",
           transform: "rotate({ring_rotation}, {center.x}, {center.y})",
-          for w in wedges.into_iter() {
+          for (w, key) in wedges.into_iter() {
             // TODO: figure out if it's possible to just pass in the props struct
             Wedge {
+              key: "{key}",
               radius: w.radius,
               center: w.center,
               rotation: w.rotation,

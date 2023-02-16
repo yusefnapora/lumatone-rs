@@ -348,7 +348,10 @@ impl LumatoneKeyMap {
         location: *location,
         function: definition.function,
       });
-      commands.push(SetKeyColor { location: *location, color: definition.color });
+      commands.push(SetKeyColor {
+        location: *location,
+        color: definition.color,
+      });
     }
 
     commands

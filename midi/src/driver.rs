@@ -84,8 +84,8 @@ use tokio::{
 };
 
 use crate::driver::Action::{MessageSent, QueueEmpty, ResponseDispatched};
-use error_stack::{report, IntoReport, Report, Result, ResultExt};
 use crate::sysex::to_hex_debug_str;
+use error_stack::{report, IntoReport, Report, Result, ResultExt};
 
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;

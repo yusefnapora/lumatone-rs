@@ -1,27 +1,27 @@
+use palette::{Gradient, IntoColor, LinSrgb, Srgb, Xyz};
 use std::str::FromStr;
-use palette::{LinSrgb, Gradient, Xyz, Srgb, IntoColor};
 
+#[derive(PartialEq)]
 pub struct ColorPalette {
-  gradient: Gradient<LinSrgb>,
-  divisions: u16,
-  colors: Vec<LinSrgb>
+  // gradient: Gradient<LinSrgb>,
+  divisions: usize,
+  colors: Vec<LinSrgb>,
 }
 
 impl ColorPalette {
-  pub fn new(gradient: Gradient<LinSrgb>, divisions: u16) -> Self {
-    let colors = gradient.take(divisions as usize).collect();
-    ColorPalette { gradient, divisions, colors }
+  pub fn new(gradient: Gradient<LinSrgb>, divisions: usize) -> Self {
+    let colors = gradient.take(divisions).collect();
+    ColorPalette { divisions, colors }
   }
 
-  pub fn default_gradient(divisions: u16) -> Self {
+  pub fn default_gradient(divisions: usize) -> Self {
     Self::new(wheel_gradient(), divisions)
   }
 
   pub fn get(&self, index: usize) -> LinSrgb {
-    let index = index % (self.divisions as usize);
+    let index = index % self.divisions;
     self.colors[index]
   }
-
 
   pub fn get_text_color(&self, index: usize) -> LinSrgb {
     let c = self.get(index);
@@ -46,7 +46,10 @@ fn wheel_gradient() -> Gradient<LinSrgb> {
   let ryb_colors: Vec<LinSrgb<f32>> = vec![
     "#ff0000", "#bf0041", "#800080", "#55308d", "#2a6099", "#158466", "#00a933", "#81d41a",
     "#ffff00", "#ffbf00", "#ff8000", "#ff4000",
-  ].iter().map(|s| LinSrgb::<u8>::from_str(*s).unwrap().into_format()).collect();
+  ]
+  .iter()
+  .map(|s| LinSrgb::<u8>::from_str(*s).unwrap().into_format())
+  .collect();
 
   Gradient::new(ryb_colors)
 }
@@ -62,7 +65,7 @@ pub fn color_hex(col: LinSrgb) -> String {
 }
 
 /// Returns a legible text color for the given background color.
-/// 
+///
 /// Returns white for "dark" colors (luminance < 0.5) and black for "bright" colors.
 pub fn text_color_for_bgcolor(bg: LinSrgb) -> LinSrgb {
   let xyz: Xyz = Srgb::from_linear(bg).into_color();

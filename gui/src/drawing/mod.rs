@@ -1,5 +1,4 @@
 /// Types and helper functions for drawing things as SVG shapes & paths.
-
 pub mod color;
 
 /// Just a typedef for the floating point type used for coordinates, etc.

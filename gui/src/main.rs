@@ -2,8 +2,9 @@
 #![allow(dead_code)] // TODO: remove this once things settle down a bit...
 pub mod components;
 pub mod drawing;
+pub mod harmony;
 
-use components::wheel::ColorWheel;
+use components::scratchpad::Scratchpad;
 
 use dioxus::prelude::*;
 
@@ -13,11 +14,6 @@ fn main() {
 
 fn app(cx: Scope) -> Element {
   cx.render(rsx! {
-    div {
-      width: "1000px",
-      height: "1000px",
-
-      ColorWheel { radius: 500.0 }
-    }
+    Scratchpad { }
   })
 }
