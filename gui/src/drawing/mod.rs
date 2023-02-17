@@ -79,3 +79,28 @@ pub fn arc_svg_path(center: Point, radius: Float, start: Angle, end: Angle) -> S
 pub fn line_to(p: Point) -> String {
   format!("L {}, {}", p.x, p.y)
 }
+
+
+/// Given a center point and the size (indiameter) of a hexagon, return
+/// the x,y position of a single corner, identfied by an index from 0-5.
+pub fn hex_corner(center: Point, size: Float, corner_index: u8) -> Point {
+  assert!(corner_index < 6, "invalid hex corner index {corner_index}");
+
+  let angle = Angle::Degrees((60.0 * (corner_index as Float)) - 30.0);
+  let radians = angle.as_radians();
+  Point {
+    x: center.x + size * radians.cos(),
+    y: center.y + size * radians.sin(),
+  }
+}
+
+/// Given a center point and the size (indiameter) of a hexagon,
+/// return a String describing the points needed to render an SVG
+/// <polygon> element.
+pub fn hexagon_svg_points(center: Point, size: Float) -> String {
+  (0..6)
+    .map(|i| hex_corner(center, size, i))
+    .map(|pt| format!("{},{}", pt.x, pt.y))
+    .collect::<Vec<String>>()
+    .join(" ")
+}
