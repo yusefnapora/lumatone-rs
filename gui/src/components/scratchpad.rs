@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 
 pub fn Scratchpad(cx: Scope<()>) -> Element {
   let tuning = Tuning::edo_12();
-  let scale = Scale::c_major();
+  let scale = Scale::d_major();
   cx.render(rsx! {
     div {
       width: "600px",

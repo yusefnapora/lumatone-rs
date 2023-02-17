@@ -27,14 +27,19 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
   let hole_radius = r * 0.8;
 
   let arc_angle = Angle::Degrees(360.0 / (divisions as f64));
-  let ring_rotation = 0.0; // TODO: rotate so tonic of current scale is north
+  let ring_rotation = match tuning.pitch_class_index(scale.tonic()) {
+    Some(i) => -(arc_angle.as_degrees() * (i as Float)),
+    _ => 0.0,
+  };
 
   // render all the wedges
   let wedges = (0..divisions).map(|i| {
     let rotation: Float = arc_angle.as_degrees() * (i as Float);
     let color = tuning.get_color(i);
     let text_color = tuning.get_text_color(i);
-    let label = tuning.get_pitch_class(i).name();
+    let pc = tuning.get_pitch_class(i);
+    let label = pc.name();
+
     rsx! {
       Wedge {
         key: "{label}",
@@ -84,16 +89,18 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
         }
 
         g {
-          mask: "url(#rim-clip)",
           transform: "rotate({ring_rotation}, {center.x}, {center.y})",
-          wedges
-        }
+          g {
+            mask: "url(#rim-clip)",
+            wedges
+          }
 
-        PitchConstellation {
-          radius: hole_radius,
-          center: center,
-          tuning: tuning,
-          scale: scale,
+          PitchConstellation {
+            radius: hole_radius,
+            center: center,
+            tuning: tuning,
+            scale: scale,
+          }
         }
       }
     }

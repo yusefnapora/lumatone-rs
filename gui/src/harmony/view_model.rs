@@ -91,6 +91,15 @@ impl Tuning {
   pub fn get_text_color(&self, index: usize) -> LinSrgb {
     self.palette.get_text_color(index)
   }
+
+  pub fn pitch_class_index(&self, pc: &PitchClass) -> Option<usize> {
+    for (i, p) in self.pitch_classes.iter().enumerate() {
+      if pc == p {
+        return Some(i)
+      }
+    }
+    None
+  }
 }
 
 #[derive(PartialEq)]
@@ -111,6 +120,10 @@ impl Scale {
     self.scale_tones.contains(pc)
   }
 
+  pub fn tonic(&self) -> &PitchClass {
+    &self.tonic
+  }
+
   // TODO: generate scales instead of hard-coding :)
   pub fn c_major() -> Scale {
     Scale {
@@ -127,4 +140,19 @@ impl Scale {
       ])
     }
   }
-}
+  
+  pub fn d_major() -> Scale {
+    Scale {
+      name: String::from("C major"),
+      tonic: PitchClass { name: String::from("D") },
+      scale_tones: HashSet::from([
+        PitchClass { name: String::from("D") },
+        PitchClass { name: String::from("E") },
+        PitchClass { name: String::from("F#") },
+        PitchClass { name: String::from("G") },
+        PitchClass { name: String::from("A") },
+        PitchClass { name: String::from("B") },
+        PitchClass { name: String::from("C#") },
+      ])
+    }
+  }}
