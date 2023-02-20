@@ -1,20 +1,28 @@
 use dioxus::prelude::*;
-use crate::components::tabs::{TabContainer, TabItem};
+use crate::{components::{
+  tabs::{TabContainer, TabItem},
+  wheel::ColorWheel,
+}, harmony::view_model::{Tuning, Scale}};
 
 pub fn Scratchpad(cx: Scope<()>) -> Element {
+  let tuning = Tuning::edo_12();
+  let scale = Scale::c_major();
+
   cx.render(rsx! {
     div {
-      width: "600px",
-      height: "600px",
+      width: "100%",
+      height: "100%",
     
       TabContainer {
         tabs: vec![
           TabItem {
-            title: "Foo",
-            id: "foo",
+            title: "Wheel",
+            id: "wheel",
             content: cx.render(rsx! {
-              div { 
-                "foo"
+              ColorWheel {
+                tuning: tuning,
+                scale: scale,
+                radius: 300.0,
               }
             })
           },

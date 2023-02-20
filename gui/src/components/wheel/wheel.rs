@@ -23,6 +23,7 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
   let divisions = tuning.divisions();
 
   let r = cx.props.radius;
+  let size = r * 2.0;
   let center = Point { x: r, y: r };
   let hole_radius = r * 0.8;
 
@@ -56,15 +57,15 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
 
   cx.render(rsx! {
     div {
-      width: "100%",
-      height: "100%",
+      width: "{size}px",
+      height: "{size}px",
       display: "flex",
       align_items: "center",
       justify_content: "center",
 
       svg {
-        width: "inherit",
-        height: "inherit",
+        width: "{size}px",
+        height: "{size}px",
 
         defs {
           // clipping mask to cut out the center of the wheel.
