@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use crate::{
   components::wheel::{wedge::Wedge, constellation::PitchConstellation},
   drawing::{Angle, Float, Point},
-  harmony::view_model::{Tuning, Scale},
+  harmony::view_model::{Tuning, Scale}, hooks::useuniqueid::use_unique_id,
 };
 
 #[derive(PartialEq, Props)]
@@ -18,6 +18,8 @@ pub struct WheelProps {
 /// where each color is mapped to a pitch class in some musical tuning. 
 /// In the center of the wheel, a pitch constellation shows which notes are included in the current scale.
 pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
+  let container_id = use_unique_id(cx, "color-wheel");
+
   let tuning = &cx.props.tuning;
   let scale = &cx.props.scale;
   let divisions = tuning.divisions();
@@ -57,6 +59,7 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
 
   cx.render(rsx! {
     div {
+      id: "{container_id}",
       width: "{size}px",
       height: "{size}px",
       display: "flex",

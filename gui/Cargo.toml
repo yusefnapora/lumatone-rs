@@ -20,3 +20,7 @@ palette = "0.6.1"
 [dependencies.dioxus-desktop]
   git = "https://github.com/DioxusLabs/dioxus"
   rev = "bea16f151f3eb519ca8da3e3c20482d345067561"
+
+[dependencies.fermi]
+  git = "https://github.com/DioxusLabs/dioxus"
+  rev = "bea16f151f3eb519ca8da3e3c20482d345067561"

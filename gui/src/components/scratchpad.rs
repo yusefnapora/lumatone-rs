@@ -28,8 +28,8 @@ pub fn Scratchpad(cx: Scope<()>) -> Element {
           },
 
           TabItem {
-            title: "Bar",
-            id: "bar",
+            title: "Keyboard",
+            id: "keyboard",
             content: cx.render(rsx! {
               div { 
                 "bar"
