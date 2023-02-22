@@ -10,6 +10,7 @@ use crate::{harmony::view_model::{Tuning, Scale}, drawing::{Float, Point, polar_
 pub struct ConstellationProps<'a> {
   radius: Float,
   center: Point,
+  opacity: Option<Float>,
   tuning: &'a Tuning,
   scale: &'a Scale,
 }
@@ -17,6 +18,7 @@ pub struct ConstellationProps<'a> {
 pub fn PitchConstellation<'a>(cx: Scope<'a, ConstellationProps<'a>>) -> Element {
   let radius = cx.props.radius;
   let center = cx.props.center;
+  let opacity = cx.props.opacity.unwrap_or(0.6);
   let tuning = cx.props.tuning;
   let scale = cx.props.scale;
 
@@ -27,14 +29,14 @@ pub fn PitchConstellation<'a>(cx: Scope<'a, ConstellationProps<'a>>) -> Element 
   // for each scale tone
   let lines = (0..tuning.divisions()).map(|i| {
     let pc = tuning.get_pitch_class(i);
+    let key = pc.name();
     // skip non scale tones
     if !scale.contains(pc) {
-      return rsx! { g { key: "{pc.name()}" } };
+      return rsx! { g { key: "{key}" } };
     }
 
     let angle = degrees_per_division * (i as f64);
     let color = tuning.get_color(i);
-    let key = pc.name();
 
     rsx! {
       PitchLine {
@@ -43,7 +45,7 @@ pub fn PitchConstellation<'a>(cx: Scope<'a, ConstellationProps<'a>>) -> Element 
         angle: angle,
         radius: radius,
         stroke_width: stroke_width,
-        opacity: 0.6, // TODO: add optional opacity to constellation props
+        opacity: opacity,
         color: color,
       }
     }

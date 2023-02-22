@@ -118,15 +118,13 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
             tuning: tuning,
             scale: scale,
           }
-          
+
           g {
             mask: "url(#rim-clip)",
             g {
               wedges
             }
           }
-
-
         }
       }
   }
