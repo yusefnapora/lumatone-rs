@@ -75,7 +75,6 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
 
   cx.render(rsx! {
     div {
-      key: "{container_id}",
       id: "{container_id}",
       overflow: "hidden",
       width: "100%",
@@ -121,9 +120,7 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
 
           g {
             mask: "url(#rim-clip)",
-            g {
-              wedges
-            }
+            wedges
           }
         }
       }
