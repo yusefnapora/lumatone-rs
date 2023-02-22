@@ -12,18 +12,22 @@ pub fn Scratchpad(cx: Scope<()>) -> Element {
     div {
       width: "100%",
       height: "100%",
-    
+
       TabContainer {
         tabs: vec![
           TabItem {
             title: "Wheel",
             id: "wheel",
             content: cx.render(rsx! {
+              div {
+                max_width: "600px",
+                max_height: "600px",
+              
               ColorWheel {
                 tuning: tuning,
                 scale: scale,
-                radius: 300.0,
               }
+            }
             })
           },
 

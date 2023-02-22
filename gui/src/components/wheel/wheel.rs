@@ -9,7 +9,6 @@ use crate::{
 
 #[derive(PartialEq, Props)]
 pub struct WheelProps {
-  pub radius: Float,
   pub tuning: Tuning,
   pub scale: Scale,
 }
@@ -26,22 +25,22 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
   let tuning = &cx.props.tuning;
   let scale = &cx.props.scale;
   let divisions = tuning.divisions();
+  let default_radius = 300.0;
 
   // if the container div has an observed size (meaning it's actually been rendered),
   // constrain the radius to fit within it. Otherwise, use the radius from props.
   let r = match *container_size.current() {
     Some((w, h)) => {
-      let min = if w < h {
-        w
-      } else {
-        h
-      };
+      let min = f64::min(w, h);
       min / 2.0
     },
-    None => cx.props.radius 
+    None => default_radius 
   };
   let size = r * 2.0;
-  println!("wheel radius: {r}");
+
+  let scale_factor = r/ default_radius;
+  let font_size = format!("{}em", 1.0 * scale_factor);
+  println!("wheel radius: {r} - scale: {scale_factor}");
 
   let center = Point { x: r, y: r };
   let hole_radius = r * 0.8;
@@ -78,15 +77,15 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
     div {
       key: "{container_id}",
       id: "{container_id}",
+      overflow: "hidden",
       width: "100%",
       height: "100%",
-      display: "flex",
-      align_items: "center",
-      justify_content: "center",
+      font_size: "{font_size}",
 
       svg {
-        width: "{size}px",
-        height: "{size}px",
+        width: "100%",
+        height: "100%",
+        view_box: "0 0 {size} {size}",
 
         defs {
           // clipping mask to cut out the center of the wheel.
@@ -112,6 +111,14 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
 
         g {
           transform: "rotate({ring_rotation}, {center.x}, {center.y})",
+          
+          PitchConstellation {
+            radius: hole_radius,
+            center: center,
+            tuning: tuning,
+            scale: scale,
+          }
+          
           g {
             mask: "url(#rim-clip)",
             g {
@@ -119,14 +126,9 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
             }
           }
 
-          PitchConstellation {
-            radius: hole_radius,
-            center: center,
-            tuning: tuning,
-            scale: scale,
-          }
+
         }
       }
-    }
+  }
   })
 }

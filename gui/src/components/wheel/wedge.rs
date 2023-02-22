@@ -31,7 +31,7 @@ pub fn Wedge(cx: Scope<WedgeProps>) -> Element {
   let end_angle = Angle::Degrees(props.arc_angle.as_degrees() / 2.0);
   let start_angle = Angle::Degrees(-(end_angle.as_degrees()));
   let p = polar_to_cartesian(props.center, props.radius, end_angle);
-  let label_pt = polar_to_cartesian(props.center, props.radius * 0.9, 0.0.into());
+  let label_pt = polar_to_cartesian(props.center, props.radius * 0.875, 0.0.into());
 
   let wedge_path = vec![
     arc_svg_path(props.center, props.radius, start_angle, end_angle),
