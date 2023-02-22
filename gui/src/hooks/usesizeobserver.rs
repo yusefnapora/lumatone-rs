@@ -5,7 +5,15 @@ use dioxus_desktop::use_eval;
 use serde_json::Value::Number;
 
 
-
+/// A hook that spawns a coroutine which periodically polls for the size of the element with
+/// the given id. The returned `&UseState<Option<(f64, f64)>>` will have a value of `None`
+/// before the element is rendered. Once the element is rendered, it will be `Some((width, height))`,
+/// and the value will update if the size changes.
+/// 
+/// Note that the current implementation uses polling because there's not yet a way to call into
+/// rust from a JS callback, so we can't use a JS ResizeObserver.
+/// This whole approach should be revisited once 
+/// [node refs](https://github.com/DioxusLabs/dioxus/issues/631) are implemented.
 pub fn use_size_observer<'a>(cx: &'a ScopeState, element_id: String) -> &'a UseState<Option<(f64, f64)>> {
   let size_state = use_state(cx, || None);
   let eval = use_eval(cx);
@@ -22,20 +30,12 @@ pub fn use_size_observer<'a>(cx: &'a ScopeState, element_id: String) -> &'a UseS
       }}
     ");
 
-    // println!("js script:\n{get_size_js}");
     async move {
-      // println!("size observer for element id {element_id} starting");
       let mut first_iteration = true;
       loop {
         if first_iteration {
           first_iteration = false;
         } else {
-          // periodically poll for size changes. ideally we'd be able to use
-          // a ResizeObserver instead, but that would require calling a rust fn
-          // from a JS callback, which I don't think is possible yet.
-          // revisit this whole approach once 
-          // [node refs](https://github.com/DioxusLabs/dioxus/issues/631)
-          // are implemented.
           tokio::time::sleep(poll_interval).await;
         }
 
