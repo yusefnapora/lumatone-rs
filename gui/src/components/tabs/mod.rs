@@ -149,8 +149,12 @@ fn TabContent<'a>(cx: Scope<'a, TabContentProps<'a>>) -> Element<'a> {
   let TabContentProps { id, active_tab, children } = cx.props;
   let active = *id == *active_tab;
   cx.render(rsx! {
-    if active {
-      children
+    div {
+      key: "{id}",
+      
+      if active {
+        children
+      }
     }
   })
 }

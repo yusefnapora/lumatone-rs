@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use crate::{
   components::wheel::{wedge::Wedge, constellation::PitchConstellation},
   drawing::{Angle, Float, Point},
-  harmony::view_model::{Tuning, Scale}, hooks::useuniqueid::use_unique_id,
+  harmony::view_model::{Tuning, Scale}, hooks::{useuniqueid::use_unique_id, usesizeobserver::use_size_observer},
 };
 
 #[derive(PartialEq, Props)]
@@ -18,14 +18,31 @@ pub struct WheelProps {
 /// where each color is mapped to a pitch class in some musical tuning. 
 /// In the center of the wheel, a pitch constellation shows which notes are included in the current scale.
 pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
-  let container_id = use_unique_id(cx, "color-wheel");
+  let container_id_ref = use_unique_id(cx, "color-wheel");
+  let container_id = container_id_ref.read().clone();
+  let container_size = use_size_observer(cx, container_id.clone());
+  println!("wheel container size: {:?}", container_size);
 
   let tuning = &cx.props.tuning;
   let scale = &cx.props.scale;
   let divisions = tuning.divisions();
 
-  let r = cx.props.radius;
+  // if the container div has an observed size (meaning it's actually been rendered),
+  // constrain the radius to fit within it. Otherwise, use the radius from props.
+  let r = match *container_size.current() {
+    Some((w, h)) => {
+      let min = if w < h {
+        w
+      } else {
+        h
+      };
+      min / 2.0
+    },
+    None => cx.props.radius 
+  };
   let size = r * 2.0;
+  println!("wheel radius: {r}");
+
   let center = Point { x: r, y: r };
   let hole_radius = r * 0.8;
 
@@ -59,9 +76,10 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
 
   cx.render(rsx! {
     div {
+      key: "{container_id}",
       id: "{container_id}",
-      width: "{size}px",
-      height: "{size}px",
+      width: "100%",
+      height: "100%",
       display: "flex",
       align_items: "center",
       justify_content: "center",
@@ -96,7 +114,9 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
           transform: "rotate({ring_rotation}, {center.x}, {center.y})",
           g {
             mask: "url(#rim-clip)",
-            wedges
+            g {
+              wedges
+            }
           }
 
           PitchConstellation {
