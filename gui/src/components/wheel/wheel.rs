@@ -16,10 +16,11 @@ pub struct WheelProps {
 /// A component that renders a colored [chromatic circle](https://en.wikipedia.org/wiki/Chromatic_circle),
 /// where each color is mapped to a pitch class in some musical tuning. 
 /// In the center of the wheel, a pitch constellation shows which notes are included in the current scale.
+///
+/// The wheel adjusts its size to fit within its parent element.
 pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
-  let container_id_ref = use_unique_id(cx, "color-wheel");
-  let container_id = container_id_ref.read().clone();
-  let container_size = use_size_observer(cx, container_id.clone());
+  let container_id = use_unique_id(cx, "color-wheel");
+  let container_size = use_size_observer(cx, String::from(container_id.current().as_str()));
   println!("wheel container size: {:?}", container_size);
 
   let tuning = &cx.props.tuning;
