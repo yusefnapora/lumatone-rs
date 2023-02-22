@@ -29,7 +29,7 @@ pub fn PitchConstellation<'a>(cx: Scope<'a, ConstellationProps<'a>>) -> Element 
     let pc = tuning.get_pitch_class(i);
     // skip non scale tones
     if !scale.contains(pc) {
-      return rsx! { g {} };
+      return rsx! { g { key: "{pc.name()}" } };
     }
 
     let angle = degrees_per_division * (i as f64);
