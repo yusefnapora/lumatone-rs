@@ -44,7 +44,12 @@ pub fn use_size_observer<'a>(cx: &'a ScopeState, element_id: String) -> &'a UseS
             // println!("Got size value from js: {:?}", value);
             match size_from_json_value(&value) {
               Ok(size) => {
-                size_state.set(Some(size));
+                match *size_state.current() {
+                  // only update size_state if the value has changed, to avoid
+                  // a bunch of pointless re-renders
+                  Some((w, h)) if w == size.0 && h == size.1 => (),
+                  _ => size_state.set(Some(size))
+                };
               },
               Err(err) => {
                 eprintln!("error unpacking JS size value: {err}");
