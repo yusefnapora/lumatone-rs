@@ -27,7 +27,7 @@
 //!
 //! 
 use dioxus::prelude::*;
-use crate::components::keyboard::layout::Layout;
+use crate::components::keyboard::{coords::gen_octave_coords, key::Key, layout::Layout};
 
 
 #[derive(PartialEq, Props)]
@@ -41,5 +41,24 @@ pub struct OctaveProps {
 	//   the definition for each key on the board.
 }
 
+/// Renders an SVG `<g>` element containing one octave of a Lumatone layout
+pub fn Octave(cx: Scope<OctaveProps>) -> Element {
+	let coords = gen_octave_coords(cx.props.octave_num);
+	
+	let keys = coords.iter().map(|c| {
+		rsx! {
+			Key {
+				fill_color: "red".into(), // TODO: get from delegate fn in props
+				layout: &cx.props.layout,
+				coord: *c,
+			}
+		}
+	});
 
+	cx.render(rsx! {
+		g {
+			keys
+		}
+	})
+}
 

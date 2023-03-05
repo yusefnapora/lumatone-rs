@@ -1,12 +1,19 @@
 use dioxus::prelude::*;
-use crate::{components::{
-  tabs::{TabContainer, TabItem},
-  wheel::ColorWheel,
-}, harmony::view_model::{Tuning, Scale}};
+use crate::{
+	drawing::Point,
+	components::{
+  	tabs::{TabContainer, TabItem},
+		keyboard::{layout::Layout, octave::Octave},
+  	wheel::ColorWheel,
+	}, 
+	harmony::view_model::{Tuning, Scale}
+};
 
 pub fn Scratchpad(cx: Scope<()>) -> Element {
   let tuning = Tuning::edo_12();
   let scale = Scale::c_major();
+	let hex_size = Point { x: 30.0, y: 30.0 };
+	let layout = Layout::new(hex_size);
 
   cx.render(rsx! {
     div {
@@ -35,9 +42,20 @@ pub fn Scratchpad(cx: Scope<()>) -> Element {
             title: "Keyboard",
             id: "keyboard",
             content: cx.render(rsx! {
-              div { 
-                "bar"
-              }
+							svg {
+								width: "1200px",
+								height: "1200px",
+
+								Octave { 
+									layout: layout,
+									octave_num: 0,
+								}
+
+								Octave {
+									layout: layout,
+									octave_num: 1
+								}
+							}
             })
           },
 

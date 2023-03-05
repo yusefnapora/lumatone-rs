@@ -22,7 +22,7 @@ impl PartialEq for Layout {
 
 impl Layout {
 	pub fn new(size: Point) -> Layout {
-		let origin = Point { x: 0.0, y: 0.0 };
+		let origin = size;
 		Layout(_Layout { 
 			orientation: LAYOUT_ORIENTATION_POINTY,
 			size,
@@ -45,5 +45,13 @@ impl Layout {
 
 	pub fn polygon_corners(&self, hex: Hex) -> Vec<Point> {
 		LayoutTool::polygon_corners(**self, *hex)
+	}
+
+	pub fn svg_polygon_points(&self, hex: Hex) -> String {
+		self.polygon_corners(hex).iter()
+			.map(|c| format!("{},{}", c.x, c.y))
+			.collect::<Vec<String>>()
+			.join(" ")
+			
 	}
 }

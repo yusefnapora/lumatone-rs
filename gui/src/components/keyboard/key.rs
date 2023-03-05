@@ -1,24 +1,26 @@
 use dioxus::prelude::*;
 use palette::LinSrgb;
 
-use crate::drawing::{color::ToHexColorStr, hexagon_svg_points, Point, Float};
+use crate::components::keyboard::{coords::Hex, layout::Layout};
+use crate::drawing::color::ToHexColorStr;
 
-#[derive(PartialEq, Props)]
-pub struct KeyProps {
+#[derive(Props)]
+pub struct KeyProps<'a> {
+	layout: &'a Layout,
   fill_color: String, // TODO: use LinSrgb?
-  center: Point,
-  size: Float,
+  coord: Hex,
+
   #[props(into)]
   label: Option<String>,
   label_color: Option<LinSrgb>,
 }
 
-pub fn Key(cx: Scope<KeyProps>) -> Element {
+pub fn Key<'a>(cx: Scope<'a, KeyProps<'a>>) -> Element {
   let fill = cx.props.fill_color.clone();
   let stroke = "black"; // TODO: add to props?
-  let center = cx.props.center;
-  let size = cx.props.size;
-  let points = hexagon_svg_points(center, size);
+	let layout = cx.props.layout;
+	let center = layout.hex_to_pixel(cx.props.coord);
+	let points = layout.svg_polygon_points(cx.props.coord);
 
   let label = cx.props.label.clone().unwrap_or(String::new());
   let label_color = cx.props.label_color
