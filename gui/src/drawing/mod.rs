@@ -1,22 +1,12 @@
 /// Types and helper functions for drawing things as SVG shapes & paths.
 pub mod color;
 
+pub use hexagon_tiles::point::Point;
+
 /// Just a typedef for the floating point type used for coordinates, etc.
 /// This only exists to make it a bit easier to change to f64 if that's ever
 /// needed.
 pub type Float = f64;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Point {
-  pub x: Float,
-  pub y: Float,
-}
-
-impl From<(Float, Float)> for Point {
-  fn from(p: (Float, Float)) -> Self {
-    Point { x: p.0, y: p.1 }
-  }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Angle {

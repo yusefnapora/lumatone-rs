@@ -1,203 +1,63 @@
+use core::hash::Hasher;
+use std::{collections::HashSet, hash::Hash, ops::Deref};
+use hexagon_tiles::hexagon::Hex as _Hex;
+pub use hexagon_tiles::hexagon::FractionalHex;
 
-/// A coordinate on a hex grid, using the "axial" coordinate representation
-/// described at https://www.redblobgames.com/grids/hexagons/#coordinates
-/// The third `s` coordinate used by the "cube" representation is available
-/// via the `s()` accessor method.
-#[derive(Debug, PartialEq)]
-pub struct Hex {
-  q: i64,
-  r: i64,
-}
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Hex(_Hex);
 
 impl Hex {
-  pub const fn new(q: i64, r: i64) -> Hex {
-    Hex { q, r }
-  }
+	pub fn new(q: i32, r: i32) -> Hex {
+		Hex(_Hex::new(q, r))
+	}
+}
 
+impl Deref for Hex {
+	type Target = _Hex;
 
-  pub fn q(&self) -> i64 {
-    self.q
-  }
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
 
-  pub fn r(&self) -> i64 {
-    self.r
-  }
+impl Hash for Hex {
+	fn hash<H: Hasher>(&self, h: &mut H) {
+		h.write_i32(self.q());
+		h.write_i32(self.r());
+		h.write_i32(self.s());
+		h.finish();
+	}
+}
 
-  pub fn s(&self) -> i64 {
-    -self.q - self.r
-  }
+/// Generates Hex coordinates that cover a 56-key "octave" section of the board.
+pub fn gen_octave_coords(octave_num: u8) -> HashSet<Hex> {
+	const BOARD_OFFSET_COL: u8 = 6;
+	const BOARD_OFFSET_ROW: u8 = 2;
 
-	pub fn to_fractional(&self) -> FractionalHex {
-		FractionalHex {
-			q: self.q as f64,
-			r: self.r as f64,
+	let mut s = HashSet::with_capacity(56);
+	let start_col = 0 + (BOARD_OFFSET_COL * octave_num) as i32;
+	let start_row = 0 + (BOARD_OFFSET_ROW * octave_num) as i32;
+	let end_col = start_col + 5;
+	let end_row = start_row + 10;
+
+	for r in start_row..end_row {
+		let r_offset = (r as f64 / 2.0).floor() as i32;
+		let start_col = start_col - r_offset;
+		let end_col = end_col - r_offset;
+		for q in start_col..end_col {
+			s.insert(Hex::new(q, r));
 		}
 	}
 
-  pub fn add(&self, other: Hex) -> Hex {
-    Hex {
-      q: self.q + other.q,
-      r: self.r + other.r,
-    }
-  }
-
-  pub fn subtract(&self, other: Hex) -> Hex {
-    Hex {
-      q: self.q - other.q,
-      r: self.r - other.r,
-    }
-  }
-
-  pub fn multiply(&self, other: Hex) -> Hex {
-    Hex {
-      q: self.q * other.q,
-      r: self.r * other.r,
-    }
-  }
-
-  pub fn length(hex: Hex) -> i64 {
-    hex.q.abs() + hex.r.abs() + hex.s().abs()
-  }
-
-  pub fn distance(&self, other: Hex) -> i64 {
-    Hex::length(self.subtract(other))
-  }
-
-  pub fn neighbor(&self, dir: HexDirection) -> Hex {
-    self.add(*dir.hex())
-  }
-
-	pub fn line_to(&self, other: Hex) -> Vec<Hex> {
-		let n = self.distance(other);
-		// nudge the coords a bit to consistently push points that are
-		// directly in-between a hex to one side
-		// see https://www.redblobgames.com/grids/hexagons/implementation.html#fractionalhex
-		let epsilon = FractionalHex::new(1e6, 1e6);
-		let a = self.to_fractional().add(epsilon);
-		let b = other.to_fractional().add(epsilon);
-		let step = 1.0 / (i64::max(n, 1) as f64);
-
-		(0..n).map(|i| {
-			a.lerp(b, step * (i as f64)).round()
-		}).collect()
-	}
-}
-
-pub const fn hex(q: i64, r: i64) -> Hex {
-  Hex::new(q, r)
-}
-
-#[repr(usize)]
-#[derive(Copy, Clone)]
-pub enum HexDirection {
-	East,
-	NorthEast,
-	NorthWest,
-	West,
-	SouthWest,
-	SouthEast,
-}
-
-impl HexDirection {
-	pub fn hex(&self) -> &'static Hex {
-		let index = *self as usize;
-		direction(index)
-	}
-}
-
-static HEX_DIRECTIONS: [Hex; 6] = {
-  [
-    hex(1, 0),
-    hex(1, -1),
-    hex(0, -1),
-    hex(-1, 0),
-    hex(-1, 1),
-    hex(0,1),
-  ]
-};
-
-fn direction(dir_index: usize) -> &'static Hex {
-  let d = (6 + (dir_index % 6)) % 6;
-  &HEX_DIRECTIONS[d]
+	s
 }
 
 
-pub struct FractionalHex {
-	q: f64,
-	r: f64,
-}
-
-impl FractionalHex {
-	pub const fn new(q: f64, r: f64) -> FractionalHex {
-		FractionalHex { q, r }
+/// Generates Hex coordinates the cover the full range of a Lumatone.
+pub fn gen_full_board_coords() -> HashSet<Hex> {
+	let mut s = HashSet::with_capacity(280);
+	for i in 0..5 {
+		s.extend(gen_octave_coords(i));
 	}
-
-	pub fn q(&self) -> f64 {
-		self.q
-	}
-
-	pub fn r(&self) -> f64 {
-		self.r
-	}
-
-	pub fn s(&self) -> f64 {
-		-self.q - self.r
-	}
-
-	pub fn round(&self) -> Hex {
-		let mut q = self.q.round();
-		let mut r = self.r.round();
-		let s = self.s().round();
-		let q_diff = f64::abs(q - self.q);
-		let r_diff = f64::abs(r - self.r);
-		let s_diff = f64::abs(s - self.s());
-		if q_diff > r_diff && q_diff > s_diff {
-			q = -r - s;
-		} else if r_diff > s_diff {
-			r = -q - s;
-		}
-
-		Hex { q: q as i64, r: r as i64 }
-	}
-
-	pub fn lerp(&self, other: FractionalHex, t: f64) -> FractionalHex {
-		FractionalHex {
-			q: lerp(self.q, other.q, t),
-			r: lerp(self.r, other.r, t),
-		}
-	}
-
-  pub fn add(&self, other: FractionalHex) -> FractionalHex {
-    FractionalHex {
-      q: self.q + other.q,
-      r: self.r + other.r,
-    }
-  }
-
-  pub fn subtract(&self, other: FractionalHex) -> FractionalHex {
-    FractionalHex {
-      q: self.q - other.q,
-      r: self.r - other.r,
-    }
-  }
-
-  pub fn multiply(&self, other: FractionalHex) -> FractionalHex {
-    FractionalHex {
-      q: self.q * other.q,
-      r: self.r * other.r,
-    }
-  }
-
-  pub fn length(hex: FractionalHex) -> f64 {
-    hex.q.abs() + hex.r.abs() + hex.s().abs()
-  }
-
-  pub fn distance(&self, other: FractionalHex) -> f64 {
-    FractionalHex::length(self.subtract(other))
-  }
-
-}
-
-fn lerp(a: f64, b: f64, t: f64) -> f64 {
-	a * (1.0-t) + b * t
+	s
 }
