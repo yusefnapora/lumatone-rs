@@ -2,28 +2,36 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
- outputs = { self, nixpkgs, flake-utils }:
+ outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
+    let
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs {
+          inherit system overlays;
+        };
         inherit (pkgs) lib;
         inherit (pkgs.stdenv) isLinux;
 
+        rust-toolchain = pkgs.rust-bin.stable.latest.default.override {
+          targets = ["wasm32-unknown-unknown"];
+        };
+
         packages-linux = with pkgs; [
+          rust-toolchain
           pkg-config
           gtk3
           webkitgtk
           libayatana-appindicator.dev
-          rustup
           alsa-lib.dev
         ];
 
         packages-darwin = with pkgs; [
+          rust-toolchain
           curl
           wget
-          rustup
           pkg-config
           libiconv
           darwin.apple_sdk.frameworks.Security
