@@ -274,7 +274,7 @@ fn message_board_index(msg: &[u8]) -> Result<BoardIndex, LumatoneMidiError> {
     }
   );
 
-  BoardIndex::try_from(msg[BOARD_IND]).report()
+  BoardIndex::try_from(msg[BOARD_IND]).into_report()
 }
 
 // region: Sysex Decoders
@@ -322,7 +322,7 @@ fn valid_lumatone_msg<'a>(msg: &'a [u8]) -> Result<&'a [u8], LumatoneMidiError> 
   } else {
     Ok(msg)
   }
-  .report()
+  .into_report()
 }
 
 fn payload_with_len<'a>(msg: &'a [u8], len: usize) -> Result<&'a [u8], LumatoneMidiError> {
@@ -337,7 +337,7 @@ fn payload_with_len<'a>(msg: &'a [u8], len: usize) -> Result<&'a [u8], LumatoneM
   } else {
     Ok(&payload[0..len])
   }
-  .report()
+  .into_report()
 }
 
 fn unpack_sysex_config_table(msg: &[u8]) -> Result<Box<SysexTable>, LumatoneMidiError> {

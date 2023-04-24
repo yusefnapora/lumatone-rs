@@ -18,11 +18,11 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
   debug!("beginning lumatone device detection");
 
   let output = MidiOutput::new(CLIENT_NAME)
-    .report()
+    .into_report()
     .change_context(DeviceDetectionFailed)?;
 
   let input = MidiInput::new(CLIENT_NAME)
-    .report()
+    .into_report()
     .change_context(DeviceDetectionFailed)?;
   let in_ports = input.ports();
   let out_ports = output.ports();
@@ -40,11 +40,11 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
     // unfortunately, it doesn't seem to be possible to use the same MidiInput to connect to
     // multiple ports in parallel, since MidiInput.connect consumes self.
     let midi_in = MidiInput::new(CLIENT_NAME)
-      .report()
+      .into_report()
       .change_context(DeviceDetectionFailed)?;
     let port_name = midi_in
       .port_name(p)
-      .report()
+      .into_report()
       .change_context(DeviceDetectionFailed)?;
     let my_tx = tx.clone();
     let conn_res = midi_in.connect(
@@ -75,11 +75,11 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
   // send a ping message on all output ports, with the ping value set to the output port index
   for (port_index, p) in out_ports.iter().enumerate() {
     let midi_out = MidiOutput::new(CLIENT_NAME)
-      .report()
+      .into_report()
       .change_context(DeviceDetectionFailed)?;
     let port_name = midi_out
       .port_name(p)
-      .report()
+      .into_report()
       .change_context(DeviceDetectionFailed)?;
     if let Ok(mut conn) = midi_out.connect(p, &port_name) {
       let cmd = ping(port_index as u32);
@@ -106,11 +106,11 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
 
   let output_port_name = output
     .port_name(&out_ports[out_port_idx.unwrap()])
-    .report()
+    .into_report()
     .change_context(DeviceDetectionFailed)?;
   let input_port_name = input
     .port_name(&in_ports[in_port_idx.unwrap()])
-    .report()
+    .into_report()
     .change_context(DeviceDetectionFailed)?;
 
   info!("detected lumatone ports: in: {input_port_name}, out: {output_port_name}");

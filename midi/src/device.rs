@@ -32,10 +32,10 @@ impl LumatoneDevice {
 
     let client_name = "lumatone-rs";
     let input = MidiInput::new(client_name)
-      .report()
+      .into_report()
       .change_context(DeviceConnectionError)?;
     let output = MidiOutput::new(client_name)
-      .report()
+      .into_report()
       .change_context(DeviceConnectionError)?;
 
     let in_port =
@@ -97,7 +97,7 @@ impl LumatoneIO {
     self
       .output_conn
       .send(msg)
-      .report()
+      .into_report()
       .change_context(LumatoneMidiError::DeviceSendError)
   }
 

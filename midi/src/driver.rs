@@ -601,7 +601,7 @@ impl MidiDriver {
     self
       .command_tx
       .blocking_send(submission)
-      .report()
+      .into_report()
       .change_context(LumatoneMidiError::DeviceSendError)?;
     Ok(response_rx)
   }
@@ -612,7 +612,7 @@ impl MidiDriver {
       .done_tx
       .send(())
       .await
-      .report()
+      .into_report()
       .change_context(LumatoneMidiError::DeviceSendError)
   }
 }
