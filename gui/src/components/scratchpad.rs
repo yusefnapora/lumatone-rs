@@ -3,7 +3,7 @@ use crate::{
 	drawing::Point,
 	components::{
   	tabs::{TabContainer, TabItem},
-		keyboard::{layout::Layout, octave::Octave},
+		keyboard::{layout::Layout, coords::gen_full_board_coords, board::Board},
   	wheel::ColorWheel,
 	}, 
 	harmony::view_model::{Tuning, Scale}
@@ -46,15 +46,10 @@ pub fn Scratchpad(cx: Scope<()>) -> Element {
 								width: "1200px",
 								height: "1200px",
 
-								Octave { 
-									layout: layout,
-									octave_num: 0,
-								}
-
-								Octave {
-									layout: layout,
-									octave_num: 1
-								}
+                Board {
+                  layout: layout,
+                  coordinates: gen_full_board_coords(),
+                }
 							}
             })
           },

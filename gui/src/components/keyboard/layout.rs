@@ -1,7 +1,27 @@
 use crate::drawing::Point;
 use super::coords::{FractionalHex, Hex};
 use std::ops::Deref;
-use hexagon_tiles::layout::{Layout as _Layout, LayoutTool, LAYOUT_ORIENTATION_POINTY};
+use hexagon_tiles::layout::{Layout as _Layout, LayoutTool, LAYOUT_ORIENTATION_POINTY, Orientation};
+
+// the lumatone has what's essentially a "pointy hex" layout that's rotated by -17.42 degrees
+const LUMATONE_ROTATION_DEGREES: f64 = -17.42;
+
+fn rot_vec2d(x: f64, y: f64, r: f64) -> (f64, f64) {
+	let r = r.to_radians();
+	let x2 = (x * r.cos()) - (y * r.sin());
+	let y2 = (x * r.sin()) + (y * r.cos());
+	(x2, y2)
+}
+
+fn rotate_orientation(o: Orientation, r: f64) -> Orientation {
+	let (f0, f2) = rot_vec2d(o.f0, o.f2, r);
+	let (f1, f3) = rot_vec2d(o.f1, o.f3, r);
+	let (b0, b2) = rot_vec2d(o.b0,o.b2, r);
+	let (b1, b3) = rot_vec2d(o.b1, o.b3, r);
+	let start_angle = o.start_angle + r.to_radians();
+
+	Orientation { f0, f1, f2, f3, b0, b1, b2, b3, start_angle }
+}
 
 #[derive(Clone, Copy)]
 pub struct Layout(_Layout);
@@ -22,9 +42,14 @@ impl PartialEq for Layout {
 
 impl Layout {
 	pub fn new(size: Point) -> Layout {
-		let origin = size;
+		// translate the default origin a bit, so that the rotated tips of the hexagons
+		// don't get clipped off. This constant was derived from trial & error and could
+		// use more thought.
+		let origin = Point { x: size.x, y: size.y * 3.0 };
+
+		let orientation = rotate_orientation(LAYOUT_ORIENTATION_POINTY, LUMATONE_ROTATION_DEGREES);
 		Layout(_Layout { 
-			orientation: LAYOUT_ORIENTATION_POINTY,
+			orientation,
 			size,
 			origin
 		})
