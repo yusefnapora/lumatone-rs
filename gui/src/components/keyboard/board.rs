@@ -18,16 +18,10 @@ pub fn Board(cx: Scope<BoardProps>) -> Element {
 		}
 	});
 
-	// the "pointy hex" layout needs to be rotated to match the layout
-	// of the physical keyboard. A much better solution would be to
-	// actually apply a rotation to the matrix in the layout struct,
-	// but I'm not sure how to do that yet...
-	// let transform = "rotate(-15)";
 
 	cx.render(
     rsx! {
       g { 
-				// transform: transform,
 				keys 
 			}
     }
