@@ -10,6 +10,8 @@ pub struct KeyProps<'a> {
   fill_color: String, // TODO: use LinSrgb?
   coord: Hex,
 
+  on_click: Option<EventHandler<'a, Hex>>,
+
   #[props(into)]
   label: Option<String>,
   label_color: Option<LinSrgb>,
@@ -27,12 +29,19 @@ pub fn Key<'a>(cx: Scope<'a, KeyProps<'a>>) -> Element {
     .map(|c| c.to_hex_color())
     .unwrap_or(String::from("white"));
 
+  let coord = cx.props.coord;
+
   cx.render(rsx!{
     g {
       polygon {
         fill: "{fill}",
         stroke: stroke,
         points: "{points}",
+        onclick: move |_event| {
+          if let Some(handler) = &cx.props.on_click {
+            handler.call(coord);
+          }
+        },
       }
       text {
         x: center.x,

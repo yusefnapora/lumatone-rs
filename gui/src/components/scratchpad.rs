@@ -12,7 +12,7 @@ use crate::{
 pub fn Scratchpad(cx: Scope<()>) -> Element {
   let tuning = Tuning::edo_12();
   let scale = Scale::c_major();
-	let hex_size = Point { x: 30.0, y: 30.0 };
+	let hex_size = Point { x: 25.0, y: 25.0 };
 	let layout = Layout::new(hex_size);
 
   cx.render(rsx! {
@@ -43,7 +43,7 @@ pub fn Scratchpad(cx: Scope<()>) -> Element {
             id: "keyboard",
             content: cx.render(rsx! {
 							svg {
-								width: "1200px",
+								width: "2000px",
 								height: "1200px",
 
                 Board {
@@ -52,17 +52,7 @@ pub fn Scratchpad(cx: Scope<()>) -> Element {
                 }
 							}
             })
-          },
-
-          TabItem {
-            title: "Baz",
-            id: "baz",
-            content: cx.render(rsx! {
-              div { 
-                "baz"
-              }
-            })
-          }          
+          }       
         ]
       }
     }

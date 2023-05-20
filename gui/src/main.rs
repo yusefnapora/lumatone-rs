@@ -8,11 +8,18 @@ pub(crate) mod hooks;
 use components::scratchpad::Scratchpad;
 
 use dioxus::prelude::*;
+use dioxus_desktop::{Config, WindowBuilder};
 use hooks::useuniqueid::use_unique_id_provider;
 
 fn main() {
   hot_reload_init!();
-  dioxus_desktop::launch(app);
+  let config = Config::default()
+    .with_window(
+      WindowBuilder::new()
+        .with_maximized(true)
+        .with_title("Lumatone Playground")
+    );
+  dioxus_desktop::launch_cfg(app, config);
 }
 
 fn app(cx: Scope) -> Element {

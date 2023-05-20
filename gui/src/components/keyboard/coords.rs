@@ -1,5 +1,5 @@
 use core::hash::Hasher;
-use std::{collections::HashSet, hash::Hash, ops::Deref};
+use std::{collections::HashSet, hash::Hash, ops::Deref, fmt::Debug};
 use hexagon_tiles::hexagon::Hex as _Hex;
 pub use hexagon_tiles::hexagon::FractionalHex;
 
@@ -22,6 +22,16 @@ impl Deref for Hex {
 	fn deref(&self) -> &Self::Target {
 		&self.0
 	}
+}
+
+impl Debug for Hex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Hex")
+					.field("q", &self.0.q())
+					.field("r", &self.0.r())
+					.field("s", &self.0.s())
+					.finish()
+    }
 }
 
 impl Hash for Hex {
