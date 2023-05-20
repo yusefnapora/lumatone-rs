@@ -9,11 +9,14 @@ use crate::{
 	harmony::view_model::{Tuning, Scale}
 };
 
+use super::keyboard::map::DebugMapper;
+
 pub fn Scratchpad(cx: Scope<()>) -> Element {
   let tuning = Tuning::edo_12();
   let scale = Scale::c_major();
 	let hex_size = Point { x: 25.0, y: 25.0 };
 	let layout = Layout::new(hex_size);
+  let keymapper = Box::new(DebugMapper { color: "blue".to_string() });
 
   cx.render(rsx! {
     div {
@@ -22,6 +25,23 @@ pub fn Scratchpad(cx: Scope<()>) -> Element {
 
       TabContainer {
         tabs: vec![
+          TabItem {
+            title: "Keyboard",
+            id: "keyboard",
+            content: cx.render(rsx! {
+							svg {
+								width: "2000px",
+								height: "1200px",
+
+                Board {
+                  layout: layout,
+                  coordinates: gen_full_board_coords(),
+                  mapper: keymapper,
+                }
+							}
+            })
+          },
+
           TabItem {
             title: "Wheel",
             id: "wheel",
@@ -36,23 +56,7 @@ pub fn Scratchpad(cx: Scope<()>) -> Element {
               }
             }
             })
-          },
-
-          TabItem {
-            title: "Keyboard",
-            id: "keyboard",
-            content: cx.render(rsx! {
-							svg {
-								width: "2000px",
-								height: "1200px",
-
-                Board {
-                  layout: layout,
-                  coordinates: gen_full_board_coords(),
-                }
-							}
-            })
-          }       
+          },    
         ]
       }
     }
