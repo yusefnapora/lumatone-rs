@@ -31,6 +31,12 @@ pub fn Key<'a>(cx: Scope<'a, KeyProps<'a>>) -> Element {
 
   let coord = cx.props.coord;
 
+  // scale label size, based on the default font size looking decent for 30px hexes
+  // note that the y offset to center the label is a bit brittle (assumes 16px / em)
+  let hex_size = f64::max(layout.size.x, layout.size.y);
+  let font_scalar = hex_size / 30.0;
+  let y_offset = font_scalar * 4.0;
+
   cx.render(rsx!{
     g {
       polygon {
@@ -49,6 +55,8 @@ pub fn Key<'a>(cx: Scope<'a, KeyProps<'a>>) -> Element {
         text_anchor: "middle",
         stroke: "{label_color}",
         fill: "{label_color}",
+        font_size: "{font_scalar}em",
+        transform: "translate(0 {y_offset})",
 
         label
       }
