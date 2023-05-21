@@ -55,6 +55,10 @@ impl Layout {
 		})
 	}
 
+	pub fn size(&self) -> Point {
+		self.0.size
+	}
+
 	pub fn with_origin(&mut self, origin: Point) -> Self {
 		self.0.origin = origin;
 		*self

@@ -2,12 +2,12 @@ use dioxus::prelude::*;
 use palette::LinSrgb;
 
 use crate::components::keyboard::{coords::Hex, layout::Layout};
-use crate::drawing::color::ToHexColorStr;
+use crate::drawing::color::{ToHexColorStr, text_color_for_bgcolor};
 
 #[derive(Props)]
 pub struct KeyProps<'a> {
 	layout: &'a Layout,
-  fill_color: String, // TODO: use LinSrgb?
+  fill_color: LinSrgb,
   coord: Hex,
 
   on_click: Option<EventHandler<'a, Hex>>,
@@ -18,7 +18,7 @@ pub struct KeyProps<'a> {
 }
 
 pub fn Key<'a>(cx: Scope<'a, KeyProps<'a>>) -> Element {
-  let fill = cx.props.fill_color.clone();
+  let fill = cx.props.fill_color.to_hex_color();
   let stroke = "black"; // TODO: add to props?
 	let layout = cx.props.layout;
 	let center = layout.hex_to_pixel(cx.props.coord);
@@ -27,7 +27,7 @@ pub fn Key<'a>(cx: Scope<'a, KeyProps<'a>>) -> Element {
   let label = cx.props.label.clone().unwrap_or(String::new());
   let label_color = cx.props.label_color
     .map(|c| c.to_hex_color())
-    .unwrap_or(String::from("white"));
+    .unwrap_or(text_color_for_bgcolor(cx.props.fill_color).to_hex_color());
 
   let coord = cx.props.coord;
 

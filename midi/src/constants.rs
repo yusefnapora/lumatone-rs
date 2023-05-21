@@ -87,9 +87,36 @@ bounded_integer! {
   pub struct LumatoneKeyIndex { 0..=55 }
 }
 
+impl LumatoneKeyIndex {
+  pub fn unchecked(val: u8) -> Self {
+    Self::new(val).expect(format!("invalid lumatone key index: {val}").as_str())
+  }
+
+  pub fn all() -> Vec<Self> {
+    { Self::MIN_VALUE..=Self::MAX_VALUE }
+      .map(|v| unsafe { Self::new_unchecked(v) })
+      .collect()
+  }
+}
+
+impl TryFrom<u8> for LumatoneKeyIndex {
+    type Error = LumatoneMidiError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+      Self::new(value).ok_or(LumatoneMidiError::InvalidLumatoneKeyIndex(value))
+    }
+}
+
 bounded_integer! {
   /// A zero-indexed Lumatone preset number (identifies the macro / preset keys above the keyboard)
   pub struct PresetNumber { 0 ..= 9 }
+}
+
+
+impl PresetNumber {
+  pub fn uncheked(val: u8) -> Self {
+    Self::new(val).expect(format!("invalid preset numer: {val}").as_str())
+  }
 }
 
 impl MidiChannel {
@@ -119,23 +146,8 @@ impl Default for MidiChannel {
   }
 }
 
-impl LumatoneKeyIndex {
-  pub fn unchecked(val: u8) -> Self {
-    Self::new(val).expect(format!("invalid lumatone key index: {val}").as_str())
-  }
 
-  pub fn all() -> Vec<Self> {
-    { Self::MIN_VALUE..=Self::MAX_VALUE }
-      .map(|v| unsafe { Self::new_unchecked(v) })
-      .collect()
-  }
-}
 
-impl PresetNumber {
-  pub fn uncheked(val: u8) -> Self {
-    Self::new(val).expect(format!("invalid preset numer: {val}").as_str())
-  }
-}
 
 /// Identifies which "board" a message should be routed to.
 ///

@@ -27,6 +27,7 @@
 //!
 //! 
 use dioxus::prelude::*;
+use palette::LinSrgb;
 use crate::components::keyboard::{coords::gen_octave_coords, key::Key, layout::Layout};
 
 
@@ -48,7 +49,7 @@ pub fn Octave(cx: Scope<OctaveProps>) -> Element {
 	let keys = coords.iter().map(|c| {
 		rsx! {
 			Key {
-				fill_color: "red".into(), // TODO: get from delegate fn in props
+				fill_color: LinSrgb::new(1.0, 0.0, 0.0), // TODO: get from delegate fn in props
 				layout: &cx.props.layout,
 				coord: *c,
 			}

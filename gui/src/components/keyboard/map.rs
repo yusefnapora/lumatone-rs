@@ -1,8 +1,12 @@
-use super::coords::Hex;
+use palette::LinSrgb;
+
+use crate::drawing::color::{wheel_colors, ToHexColorStr};
+
+use super::coords::{Hex, LumatoneCoordinateMapping};
 
 
 pub struct KeyDefinition {
-  pub color: String, // TODO: use proper color type
+  pub color: LinSrgb,
   pub label: String,
   // TODO: everything else...
 }
@@ -12,7 +16,7 @@ pub trait KeyMapper {
 }
 
 pub struct DebugMapper {
-  pub color: String,
+  pub color: LinSrgb,
 }
 
 impl KeyMapper for DebugMapper {
@@ -20,4 +24,19 @@ impl KeyMapper for DebugMapper {
         let label = format!("{},{}", coord.q(), coord.r());
         Some(KeyDefinition { color: self.color.clone(), label })
     }
+}
+
+pub struct LumatoneLocationDebugMapper {}
+
+impl KeyMapper for LumatoneLocationDebugMapper {
+  fn key_definition_for_coordinate(&self, coord: &Hex) -> Option<KeyDefinition> {
+    let mapping = LumatoneCoordinateMapping::new(); // TODO: use static one once it exists
+    let colors = wheel_colors(5);
+    mapping.get_lumatone_key(coord).map(|loc| {
+      let board_index: u8 = loc.board_index().into();
+      let color = colors[(board_index as usize)-1];
+      let label = format!("{}", loc.key_index());
+      KeyDefinition { color, label }
+    })
+  }
 }
