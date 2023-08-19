@@ -4,6 +4,7 @@ use hexagon_tiles::hexagon::{Hex as _Hex, HexMath};
 pub use hexagon_tiles::hexagon::FractionalHex;
 use lumatone_midi::constants::{LumatoneKeyIndex, BoardIndex, LumatoneKeyLocation};
 
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Hex(_Hex);
 
@@ -63,6 +64,29 @@ impl Hash for Hex {
 }
 
 /// Generates Hex coordinates that cover a 56-key "octave" section of the board.
+/// If we number the rows from top to bottom, with the origin at top-left,
+/// each octave is layed out as a rectangle with
+/// 11 rows of six columns, with a few grid locations "missing" in rows 0, 1, 9, and 10.
+/// 
+///
+///  0: <><>            - row 0 only has two keys
+///  1:  <><><><><>     - row 1 has 5 keys
+///  2: <><><><><><>    - rows 2-8 have 6 keys
+///  3:  <><><><><><>
+///  4: <><><><><><>
+///  5:  <><><><><><>
+///  6: <><><><><><>
+///  7:  <><><><><><>
+///  8: <><><><><><>
+///  9:    <><><><><>   - row 9 has 5 keys
+/// 10:         <><>    - row 10 has 2 keys
+///
+/// The `octave_num` prop affects the coordinate space covered by this component.
+/// Each successive octave effectively shifts the origin 6 columns to the right
+/// and two columns down.
+///
+/// Thinking in "offset coordinates", where coords are (col, row) tuples,
+/// octave 0 starts at (0,0), octave 1 starts at (6, 2), etc.
 pub fn gen_octave_coords(octave_num: u8) -> Vec<Hex> {
 	const BOARD_OFFSET_COL: u8 = 5;
 	const BOARD_OFFSET_ROW: u8 = 2;
@@ -99,7 +123,7 @@ pub fn gen_octave_coords(octave_num: u8) -> Vec<Hex> {
 }
 
 
-/// Generates Hex coordinates the cover the full range of a Lumatone.
+/// Generates Hex coordinates that cover the full 280 key range of a Lumatone.
 pub fn gen_full_board_coords() -> HashSet<Hex> {
 	let mut s = HashSet::with_capacity(280);
 	for i in 0..5 {
@@ -108,14 +132,28 @@ pub fn gen_full_board_coords() -> HashSet<Hex> {
 	s
 }
 
-// TOOD: use lazy_static to gerate this mapping once
-pub struct LumatoneCoordinateMapping {
+pub fn lumatone_location_for_hex(hex: &Hex) -> Option<&LumatoneKeyLocation> {
+	LUMATONE_MAPPING.get_lumatone_key(hex)
+}
+
+pub fn hex_for_lumatone_location(location: &LumatoneKeyLocation) -> &Hex {
+	LUMATONE_MAPPING.get_hex(location)
+}
+
+/// Contains mappings from [LumatoneKeyLocation] to [Hex] coordinates,
+/// and vice-versa. No public constructor. Instead, use the public
+/// accessors [lumatone_location_for_hex] and [hex_for_lumatone_location].
+struct LumatoneCoordinateMapping {
 	from_lumatone: HashMap<LumatoneKeyLocation, Hex>,
 	from_hex: HashMap<Hex, LumatoneKeyLocation>,
 }
 
+lazy_static! {
+	static ref LUMATONE_MAPPING: LumatoneCoordinateMapping = LumatoneCoordinateMapping::new();
+}
+
 impl LumatoneCoordinateMapping {
-	pub fn new() -> LumatoneCoordinateMapping {
+	fn new() -> LumatoneCoordinateMapping {
 		let mut from_lumatone= HashMap::with_capacity(280);
 		let mut from_hex = HashMap::with_capacity(280);
 		for i in 0..5 {
@@ -131,11 +169,11 @@ impl LumatoneCoordinateMapping {
 		LumatoneCoordinateMapping { from_lumatone, from_hex }
 	}
 
-	pub fn get_hex(&self, location: &LumatoneKeyLocation) -> &Hex {
+	fn get_hex(&self, location: &LumatoneKeyLocation) -> &Hex {
 		self.from_lumatone.get(location).unwrap()
 	}
 
-	pub fn get_lumatone_key(&self, hex: &Hex) -> Option<&LumatoneKeyLocation> {
+	fn get_lumatone_key(&self, hex: &Hex) -> Option<&LumatoneKeyLocation> {
 		self.from_hex.get(hex)
 	}
 }

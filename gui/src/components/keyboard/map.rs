@@ -1,8 +1,8 @@
 use palette::LinSrgb;
 
-use crate::drawing::color::{wheel_colors, ToHexColorStr};
+use crate::drawing::color::wheel_colors;
 
-use super::coords::{Hex, LumatoneCoordinateMapping};
+use super::coords::{Hex, lumatone_location_for_hex};
 
 
 pub struct KeyDefinition {
@@ -30,9 +30,8 @@ pub struct LumatoneLocationDebugMapper {}
 
 impl KeyMapper for LumatoneLocationDebugMapper {
   fn key_definition_for_coordinate(&self, coord: &Hex) -> Option<KeyDefinition> {
-    let mapping = LumatoneCoordinateMapping::new(); // TODO: use static one once it exists
     let colors = wheel_colors(5);
-    mapping.get_lumatone_key(coord).map(|loc| {
+    lumatone_location_for_hex(coord).map(|loc| {
       let board_index: u8 = loc.board_index().into();
       let color = colors[(board_index as usize)-1];
       let label = format!("{}", loc.key_index());

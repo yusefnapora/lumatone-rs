@@ -1925,6 +1925,7 @@ dependencies = [
  "dioxus",
  "dioxus-desktop",
  "hexagon_tiles",
+ "lazy_static",
  "lumatone-keymap",
  "lumatone-midi",
  "palette",
