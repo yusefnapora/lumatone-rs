@@ -15,7 +15,7 @@ use dioxus_desktop::{Config, WindowBuilder};
 use hooks::useuniqueid::use_unique_id_provider;
 
 fn main() {
-  hot_reload_init!();
+  // hot_reload_init!();
   let config = Config::default()
     .with_window(
       WindowBuilder::new()

@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use crate::{
   components::wheel::{wedge::Wedge, constellation::PitchConstellation},
   drawing::{Angle, Float, Point},
-  harmony::view_model::{Tuning, Scale}, hooks::{useuniqueid::use_unique_id, usesizeobserver::use_size_observer},
+  harmony::view_model::{Tuning, Scale}, hooks::{useuniqueid::use_unique_id},
 };
 
 #[derive(PartialEq, Props)]
@@ -20,7 +20,7 @@ pub struct WheelProps {
 /// The wheel adjusts its size to fit within its parent element.
 pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
   let container_id = use_unique_id(cx, "color-wheel");
-  let container_size = use_size_observer(cx, String::from(container_id.current().as_str()));
+  let container_size = 600.0; // use_size_observer(cx, String::from(container_id.current().as_str()));
   println!("wheel container size: {:?}", container_size);
 
   let tuning = &cx.props.tuning;
@@ -30,13 +30,7 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
 
   // if the container div has an observed size (meaning it's actually been rendered),
   // constrain the radius to fit within it. Otherwise, use the radius from props.
-  let r = match *container_size.current() {
-    Some((w, h)) => {
-      let min = f64::min(w, h);
-      min / 2.0
-    },
-    None => default_radius 
-  };
+  let r = default_radius;
   let size = r * 2.0;
 
   let scale_factor = r/ default_radius;
