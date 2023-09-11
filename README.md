@@ -2,7 +2,7 @@
 
 > Tools for controlling the Lumatone isomorphic keyboard.
 
-This repo contains a work-in-progress library and GUI app for controlling the [Lumatone](https://lumatone.io), a super cool MIDI keyboard with 155 hexagonal keys arranged in a regular pattern.
+This repo contains a work-in-progress library and GUI app for controlling the [Lumatone](https://lumatone.io), a super cool MIDI keyboard with 280 hexagonal keys arranged in a regular pattern.
 
 This work is a continuation of the [lumachromatic](https://github.com/latentspacecraft/lumachromatic) app I wrote a while back. I decided to implement the MIDI bits in rust, partly to get better at rust, but also to make it easier to bundle a standalone desktop app without getting Electron into the mix.
 
