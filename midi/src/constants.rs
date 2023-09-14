@@ -100,18 +100,17 @@ impl LumatoneKeyIndex {
 }
 
 impl TryFrom<u8> for LumatoneKeyIndex {
-    type Error = LumatoneMidiError;
+  type Error = LumatoneMidiError;
 
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-      Self::new(value).ok_or(LumatoneMidiError::InvalidLumatoneKeyIndex(value))
-    }
+  fn try_from(value: u8) -> Result<Self, Self::Error> {
+    Self::new(value).ok_or(LumatoneMidiError::InvalidLumatoneKeyIndex(value))
+  }
 }
 
 bounded_integer! {
   /// A zero-indexed Lumatone preset number (identifies the macro / preset keys above the keyboard)
   pub struct PresetNumber { 0 ..= 9 }
 }
-
 
 impl PresetNumber {
   pub fn uncheked(val: u8) -> Self {
@@ -145,9 +144,6 @@ impl Default for MidiChannel {
     MidiChannel::MIN
   }
 }
-
-
-
 
 /// Identifies which "board" a message should be routed to.
 ///

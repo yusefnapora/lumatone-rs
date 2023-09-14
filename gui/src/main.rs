@@ -16,12 +16,11 @@ use hooks::useuniqueid::use_unique_id_provider;
 
 fn main() {
   // hot_reload_init!();
-  let config = Config::default()
-    .with_window(
-      WindowBuilder::new()
-        .with_maximized(true)
-        .with_title("Lumatone Playground")
-    );
+  let config = Config::default().with_window(
+    WindowBuilder::new()
+      .with_maximized(true)
+      .with_title("Lumatone Playground"),
+  );
   dioxus_desktop::launch_cfg(app, config);
 }
 

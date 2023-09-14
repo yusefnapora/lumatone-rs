@@ -4,7 +4,10 @@
 use dioxus::prelude::*;
 use palette::LinSrgb;
 
-use crate::{harmony::view_model::{Tuning, Scale}, drawing::{Float, Point, polar_to_cartesian, Angle, color::ToHexColorStr}};
+use crate::{
+  drawing::{color::ToHexColorStr, polar_to_cartesian, Angle, Float, Point},
+  harmony::view_model::{Scale, Tuning},
+};
 
 #[derive(PartialEq, Props)]
 pub struct ConstellationProps<'a> {
@@ -73,7 +76,7 @@ fn PitchLine(cx: Scope<PitchLineProps>) -> Element {
   let end_point = polar_to_cartesian(p.center, p.radius, Angle::Degrees(p.angle));
   let color = p.color.to_hex_color();
 
-  cx.render(rsx!{
+  cx.render(rsx! {
     line {
       x1: p.center.x,
       y1: p.center.y,

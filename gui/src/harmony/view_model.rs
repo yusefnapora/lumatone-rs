@@ -95,7 +95,7 @@ impl Tuning {
   pub fn pitch_class_index(&self, pc: &PitchClass) -> Option<usize> {
     for (i, p) in self.pitch_classes.iter().enumerate() {
       if pc == p {
-        return Some(i)
+        return Some(i);
       }
     }
     None
@@ -106,14 +106,17 @@ impl Tuning {
 pub struct Scale {
   name: String,
   // TODO: optional vec of alternate names
-
   tonic: PitchClass,
-  scale_tones: HashSet<PitchClass>
+  scale_tones: HashSet<PitchClass>,
 }
 
 impl Scale {
   pub fn new(name: String, tonic: PitchClass, scale_tones: HashSet<PitchClass>) -> Scale {
-    Scale { name, tonic, scale_tones }
+    Scale {
+      name,
+      tonic,
+      scale_tones,
+    }
   }
 
   pub fn contains(&self, pc: &PitchClass) -> bool {
@@ -128,31 +131,64 @@ impl Scale {
   pub fn c_major() -> Scale {
     Scale {
       name: String::from("C major"),
-      tonic: PitchClass { name: String::from("C") },
+      tonic: PitchClass {
+        name: String::from("C"),
+      },
       scale_tones: HashSet::from([
-        PitchClass { name: String::from("C") },
-        PitchClass { name: String::from("D") },
-        PitchClass { name: String::from("E") },
-        PitchClass { name: String::from("F") },
-        PitchClass { name: String::from("G") },
-        PitchClass { name: String::from("A") },
-        PitchClass { name: String::from("B") },
-      ])
+        PitchClass {
+          name: String::from("C"),
+        },
+        PitchClass {
+          name: String::from("D"),
+        },
+        PitchClass {
+          name: String::from("E"),
+        },
+        PitchClass {
+          name: String::from("F"),
+        },
+        PitchClass {
+          name: String::from("G"),
+        },
+        PitchClass {
+          name: String::from("A"),
+        },
+        PitchClass {
+          name: String::from("B"),
+        },
+      ]),
     }
   }
-  
+
   pub fn d_major() -> Scale {
     Scale {
       name: String::from("C major"),
-      tonic: PitchClass { name: String::from("D") },
+      tonic: PitchClass {
+        name: String::from("D"),
+      },
       scale_tones: HashSet::from([
-        PitchClass { name: String::from("D") },
-        PitchClass { name: String::from("E") },
-        PitchClass { name: String::from("F#") },
-        PitchClass { name: String::from("G") },
-        PitchClass { name: String::from("A") },
-        PitchClass { name: String::from("B") },
-        PitchClass { name: String::from("C#") },
-      ])
+        PitchClass {
+          name: String::from("D"),
+        },
+        PitchClass {
+          name: String::from("E"),
+        },
+        PitchClass {
+          name: String::from("F#"),
+        },
+        PitchClass {
+          name: String::from("G"),
+        },
+        PitchClass {
+          name: String::from("A"),
+        },
+        PitchClass {
+          name: String::from("B"),
+        },
+        PitchClass {
+          name: String::from("C#"),
+        },
+      ]),
     }
-  }}
+  }
+}

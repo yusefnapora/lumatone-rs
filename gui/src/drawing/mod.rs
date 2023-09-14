@@ -70,7 +70,6 @@ pub fn line_to(p: Point) -> String {
   format!("L {}, {}", p.x, p.y)
 }
 
-
 /// Given a center point and the size (indiameter) of a hexagon, return
 /// the x,y position of a single corner, identfied by an index from 0-5.
 pub fn hex_corner(center: Point, size: Float, corner_index: u8) -> Point {

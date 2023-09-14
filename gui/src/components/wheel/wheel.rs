@@ -1,10 +1,10 @@
-
 use dioxus::prelude::*;
 
 use crate::{
-  components::wheel::{wedge::Wedge, constellation::PitchConstellation},
+  components::wheel::{constellation::PitchConstellation, wedge::Wedge},
   drawing::{Angle, Float, Point},
-  harmony::view_model::{Tuning, Scale}, hooks::{useuniqueid::use_unique_id},
+  harmony::view_model::{Scale, Tuning},
+  hooks::useuniqueid::use_unique_id,
 };
 
 #[derive(PartialEq, Props)]
@@ -14,7 +14,7 @@ pub struct WheelProps {
 }
 
 /// A component that renders a colored [chromatic circle](https://en.wikipedia.org/wiki/Chromatic_circle),
-/// where each color is mapped to a pitch class in some musical tuning. 
+/// where each color is mapped to a pitch class in some musical tuning.
 /// In the center of the wheel, a pitch constellation shows which notes are included in the current scale.
 ///
 /// The wheel adjusts its size to fit within its parent element.
@@ -33,7 +33,7 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
   let r = default_radius;
   let size = r * 2.0;
 
-  let scale_factor = r/ default_radius;
+  let scale_factor = r / default_radius;
   let font_size = format!("{}em", 1.0 * scale_factor);
   println!("wheel radius: {r} - scale: {scale_factor}");
 
@@ -105,7 +105,7 @@ pub fn ColorWheel(cx: Scope<WheelProps>) -> Element {
 
         g {
           transform: "rotate({ring_rotation}, {center.x}, {center.y})",
-          
+
           PitchConstellation {
             radius: hole_radius,
             center: center,

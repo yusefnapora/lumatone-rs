@@ -4,15 +4,14 @@
 // use dioxus_desktop::use_eval;
 // use serde_json::Value::Number;
 
-
 // /// A hook that spawns a coroutine which periodically polls for the size of the element with
 // /// the given id. The returned `&UseState<Option<(f64, f64)>>` will have a value of `None`
 // /// before the element is rendered. Once the element is rendered, it will be `Some((width, height))`,
 // /// and the value will update if the size changes.
-// /// 
+// ///
 // /// Note that the current implementation uses polling because there's not yet a way to call into
 // /// rust from a JS callback, so we can't use a JS ResizeObserver.
-// /// This whole approach should be revisited once 
+// /// This whole approach should be revisited once
 // /// [node refs](https://github.com/DioxusLabs/dioxus/issues/631) are implemented.
 // pub fn use_size_observer<'a>(cx: &'a ScopeState, element_id: String) -> &'a UseState<Option<(f64, f64)>> {
 //   let size_state = use_state(cx, || None);
@@ -25,7 +24,7 @@
 //     let get_size_js = format!(r"
 //       let el = document.getElementById('{element_id}')
 //       return {{
-//         width: el?.offsetWidth, 
+//         width: el?.offsetWidth,
 //         height: el?.offsetHeight
 //       }}
 //     ");
@@ -67,7 +66,6 @@
 //   });
 //   size_state
 // }
-
 
 // // TODO: use proper error type
 // fn size_from_json_value(value: &serde_json::Value) -> Result<(f64, f64), String> {
