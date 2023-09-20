@@ -23,7 +23,7 @@
           rust-toolchain
           pkg-config
           gtk3
-          webkitgtk
+          webkitgtk_4_1
           libayatana-appindicator.dev
           alsa-lib.dev
         ];
