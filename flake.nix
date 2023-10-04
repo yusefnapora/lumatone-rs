@@ -16,7 +16,16 @@
         inherit (pkgs.stdenv) isLinux;
 
         rust-toolchain = pkgs.rust-bin.stable.latest.default.override {
-          targets = ["wasm32-unknown-unknown"];
+          targets = [
+            # Enable the targets below for iOS / Android support
+            # "aarch64-apple-darwin"
+            # "aarch64-apple-ios"
+            # "aarch64-apple-ios-sim"
+            # "aarch64-linux-android"
+            # "x86_64-apple-ios"
+            
+            "wasm32-unknown-unknown"
+          ];
         };
 
         packages-linux = with pkgs; [
