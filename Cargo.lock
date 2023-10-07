@@ -251,6 +251,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa1cf2ba51439a5e5108672f8004c29924ec5999f79070d59ee54e0c7b7f9948"
 dependencies = [
  "bounded-integer-macro",
+ "serde",
 ]
 
 [[package]]
@@ -1866,6 +1867,7 @@ dependencies = [
 name = "lumatone-keymap"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "log",
  "lumatone-midi",
  "num-derive",
@@ -1878,14 +1880,19 @@ name = "lumatone-midi"
 version = "0.1.0"
 dependencies = [
  "bounded-integer",
+ "crux_core",
+ "crux_macros",
  "error-stack",
  "futures",
+ "lazy_static",
  "log",
  "midir",
  "num-derive",
  "num-traits",
  "rand 0.8.5",
+ "serde",
  "tokio",
+ "wasm-bindgen",
 ]
 
 [[package]]

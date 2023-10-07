@@ -94,7 +94,7 @@ impl ConfigTableDefinition {
       )));
     }
 
-    let mut table: SysexTable = [0; 128];
+    let mut table: SysexTable = Vec::with_capacity(128);
     for (i, s) in tokens.iter().enumerate() {
       table[i] = u8::from_str_radix(*s, 10).map_err(|e| {
         InvalidTableDefinition(format!("unable to parse int in table definition: {e}"))
@@ -119,7 +119,7 @@ pub fn parse_velocity_intervals(s: &str) -> Result<VelocityIntervalTable, Lumato
     )));
   }
 
-  let mut table: VelocityIntervalTable = [0; 127];
+  let mut table: VelocityIntervalTable = Vec::with_capacity(127);
   for (i, s) in tokens.iter().enumerate() {
     let val = u16::from_str_radix(s, 10).map_err(|e| {
       InvalidTableDefinition(format!("unable to parse in in table definition: {e}"))

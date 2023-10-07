@@ -64,7 +64,6 @@
 use super::{
   commands::Command,
   constants::ResponseStatusCode,
-  device::{LumatoneDevice, LumatoneIO},
   error::LumatoneMidiError,
   responses::Response,
   sysex::{is_response_to_message, message_answer_code, EncodedSysex},
@@ -72,20 +71,15 @@ use super::{
 use std::{
   collections::VecDeque,
   fmt::{Debug, Display},
-  pin::Pin,
-  time::Duration,
 };
 
-use futures::{Future, TryFutureExt};
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use tokio::{
   sync::mpsc,
-  time::{sleep, Sleep},
 };
 
-use crate::driver::Action::{MessageSent, QueueEmpty, ResponseDispatched};
 use crate::sysex::to_hex_debug_str;
-use error_stack::{report, IntoReport, Report, Result, ResultExt};
+use error_stack::{report, Report, Result};
 
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
@@ -490,7 +484,7 @@ impl State {
     match self {
       Idle => None,
       ProcessingQueue { send_queue } => match send_queue.pop_front() {
-        None => Some(DispatchAction(QueueEmpty)),
+        None => Some(DispatchAction(Action::QueueEmpty)),
         Some(cmd) => Some(SendMidiMessage(cmd.clone())),
       },
       WaitingToRetry { .. } => Some(StartRetryTimeout),
@@ -552,236 +546,6 @@ impl State {
         error!("midi driver - unrecoverable error: {err}");
         None // todo: return ExitWithError effect
       }
-    }
-  }
-}
-
-/// An internal helper struct for the [MidiDriver] that owns the connection to the device
-/// and timeouts needed by some "waiting" states.
-struct MidiDriverInternal {
-  device_io: LumatoneIO,
-  receive_timeout: Option<Pin<Box<Sleep>>>,
-  retry_timeout: Option<Pin<Box<Sleep>>>,
-}
-
-/// The MidiDriver provides an interface for sending [Command]s to a Lumatone device
-/// and receiving [Response]s (or [LumatoneMidiError]s).
-///
-/// Use the async [send] method
-pub struct MidiDriver {
-  command_tx: mpsc::Sender<CommandSubmission>,
-  done_tx: mpsc::Sender<()>,
-}
-
-impl MidiDriver {
-  /// Sends a [Command] to the device asynchronously, returning a Future that will resolve
-  /// with the Command's [Response] on success, or a [LumatoneMidiError] report on failure.
-  pub async fn send(&self, command: Command) -> Result<Response, LumatoneMidiError> {
-    let (submission, mut response_rx) = CommandSubmission::new(command);
-    let send_f = self
-      .command_tx
-      .send(submission)
-      .map_err(|e| report!(e).change_context(LumatoneMidiError::DeviceSendError));
-
-    send_f.await?;
-    response_rx.recv().await.unwrap()
-  }
-
-  /// Like [MidiDriver::send], but blocks the thread and returns a Result when the response is received.
-  /// Must be called from a different thread than the one running the driver loop future.
-  pub fn blocking_send(
-    &self,
-    command: Command,
-  ) -> Result<mpsc::Receiver<ResponseResult>, LumatoneMidiError> {
-    let (response_tx, response_rx) = mpsc::channel(1);
-    let submission = CommandSubmission {
-      command,
-      response_tx,
-    };
-    self
-      .command_tx
-      .blocking_send(submission)
-      .into_report()
-      .change_context(LumatoneMidiError::DeviceSendError)?;
-    Ok(response_rx)
-  }
-
-  /// Signals to the driver to shutdown the event loop.
-  pub async fn done(&self) -> Result<(), LumatoneMidiError> {
-    self
-      .done_tx
-      .send(())
-      .await
-      .into_report()
-      .change_context(LumatoneMidiError::DeviceSendError)
-  }
-}
-
-impl MidiDriver {
-  /// Creates a new [MidiDriver] targeting the given [LumatoneDevice].
-  ///
-  /// May fail if unable to connect to the device.
-  ///
-  /// On success, returns a tuple of (MidiDriver, Future<()>). The
-  /// returned future must be `await`ed to start the driver's event loop.
-  /// You probably want to spawn a new task for the driver future,
-  /// since it will not resolve until you either call [MidiDriver::done]
-  /// or an error causes the driver loop to exit.
-  // TODO: maybe have this take an already connected LumatoneIO, so we
-  // don't need to return a Result.
-  pub fn new(
-    device: &LumatoneDevice,
-  ) -> Result<(MidiDriver, impl Future<Output = ()>), LumatoneMidiError> {
-    let internal = MidiDriverInternal::new(device)?;
-    let (command_tx, command_rx) = mpsc::channel(128);
-    let (done_tx, done_rx) = mpsc::channel(1);
-
-    let driver = MidiDriver {
-      command_tx,
-      done_tx,
-    };
-    Ok((driver, internal.run(command_rx, done_rx)))
-  }
-}
-
-impl MidiDriverInternal {
-  fn new(device: &LumatoneDevice) -> Result<Self, LumatoneMidiError> {
-    let device_io = device.connect()?;
-    Ok(MidiDriverInternal {
-      device_io,
-      receive_timeout: None,
-      retry_timeout: None,
-    })
-  }
-
-  /// Performs some Effect. On success, returns an `Option<Action>`, which should be fed into
-  /// the state machine if it's `Some`.
-  async fn perform_effect(&mut self, effect: Effect) -> Result<Option<Action>, LumatoneMidiError> {
-    use Effect::*;
-    let maybe_action = match effect {
-      SendMidiMessage(cmd) => {
-        self.device_io.send(&cmd.command.to_sysex_message())?;
-        Some(MessageSent(cmd))
-      }
-      StartReceiveTimeout => {
-        let timeout_sec = 30;
-        let timeout = sleep(Duration::from_secs(timeout_sec));
-        self.receive_timeout = Some(Box::pin(timeout));
-        None
-      }
-      StartRetryTimeout => {
-        let timeout_sec = 3;
-        let timeout = sleep(Duration::from_secs(timeout_sec));
-        self.retry_timeout = Some(Box::pin(timeout));
-        None
-      }
-      NotifyMessageResponse(cmd_submission, result) => {
-        if let Err(err) = cmd_submission.response_tx.send(result).await {
-          error!("error sending response notification: {err}");
-        }
-        Some(ResponseDispatched)
-      }
-      DispatchAction(action) => Some(action),
-    };
-    Ok(maybe_action)
-  }
-
-  /// Run the MidiDriver I/O event loop.
-  /// Commands to send to the device should be sent on the `commands` channel.
-  ///
-  /// To exit the loop, send `()` on the `done_signal` channel.
-  ///
-  async fn run(
-    mut self,
-    mut commands: mpsc::Receiver<CommandSubmission>,
-    mut done_signal: mpsc::Receiver<()>,
-  ) {
-    let mut state = State::Idle;
-    let mut next_action: Option<Action> = None;
-    loop {
-      // The previous state may have resulted in an Action that we should feed into the
-      // state machine. If not, we poll our inputs until something happens.
-      let a = match next_action {
-        Some(action) => action.clone(),
-        None => {
-          // if either timeout is None, use a timeout with Duration::MAX, to make the select! logic a bit simpler
-          let mut receive_timeout = &mut Box::pin(sleep(Duration::MAX));
-          if let Some(t) = &mut self.receive_timeout {
-            receive_timeout = t;
-          }
-
-          let mut retry_timeout = &mut Box::pin(sleep(Duration::MAX));
-          if let Some(t) = &mut self.retry_timeout {
-            retry_timeout = t;
-          }
-
-          // There are two incoming streams of information: incoming midi messages,
-          // and incoming commands (requests to send out midi messages)
-          // There are also two timeouts: receive_timeout for when we're waiting for a response to a command,
-          // and retry_timeout for when we're waiting to re-send a command (because the device was busy last time).
-          //
-          // This select pulls whatever is available next and maps it to an Action that will advance the state machine.
-          tokio::select! {
-            _ = receive_timeout => {
-              info!("receive timeout triggered");
-              self.receive_timeout = None;
-              Action::ResponseTimedOut
-            },
-
-            _ = retry_timeout => {
-              info!("retry timeout triggered");
-              self.retry_timeout = None;
-              Action::ReadyToRetry
-            },
-
-            Some(msg) = self.device_io.incoming_messages.recv() => {
-              // info!("message received, forwarding to state machine");
-              self.receive_timeout = None;
-              Action::MessageReceived(msg)
-            }
-
-            Some(cmd) = commands.recv() => {
-              Action::SubmitCommand(cmd)
-            }
-
-            _ = done_signal.recv() => {
-              debug!("done signal received, exiting");
-              return;
-            }
-          }
-        }
-      };
-
-      // Transition to next state based on action
-      state = state.next(a);
-
-      if let State::Failed(err) = state {
-        // TODO: propagate fatal error & return it from `run`
-        error!("state machine error: {err}");
-        break;
-      }
-
-      // The new state's `enter` fn may return an Effect.
-      next_action = match state.enter() {
-        // if there was no effect, there's no next_action
-        None => None,
-
-        // If there's an effect, perform it.
-        // If the effect returns Some(action), it will be dispatched on the next
-        // round of the loop. If the effect returns None, the next iteration
-        // will poll our inputs to determine the next action.
-        Some(effect) => {
-          match self.perform_effect(effect).await {
-            Ok(maybe_action) => maybe_action,
-
-            // TODO: propagate fatal error & return it from `run`
-            Err(err) => {
-              error!("effect error: {err}");
-              break;
-            }
-          }
-        }
-      };
     }
   }
 }

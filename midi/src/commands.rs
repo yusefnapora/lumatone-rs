@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::fmt::Debug;
+use serde::{Serialize, Deserialize};
 
 use super::{
   constants::{
@@ -15,11 +16,11 @@ use super::{
   },
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Command {
   /// Echo the payload, 0x00-0x7f, for use in connection monitoring
   Ping(u32),
-  /// Send a single key's functionctional configuration
+  /// Send a single key's functional configuration
   SetKeyFunction {
     location: LumatoneKeyLocation,
     function: LumatoneKeyFunction,
@@ -57,15 +58,15 @@ pub enum Command {
   SetMacroButtonInactiveColor(RGBColor),
 
   /// Set the velocity lookup table
-  SetVelocityConfig(Box<SysexTable>),
+  SetVelocityConfig(SysexTable),
   /// Adjust the internal fader lookup table
-  SetFaderConfig(Box<SysexTable>),
+  SetFaderConfig(SysexTable),
   /// Adjust the internal aftertouch lookup table
-  SetAftertouchConfig(Box<SysexTable>),
+  SetAftertouchConfig(SysexTable),
   /// Adjust the Lumatouch table, a 128 byte array with value of 127 being a key fully pressed
-  SetLumatouchConfig(Box<SysexTable>),
+  SetLumatouchConfig(SysexTable),
   /// Set the velocity interval table, 127 12-bit values
-  SetVelocityIntervals(Box<VelocityIntervalTable>),
+  SetVelocityIntervals(VelocityIntervalTable),
 
   /// Set abs. distance from max value to trigger CA-004 submodule key events, ranging from 0x00 to 0xFE
   SetKeyMaximumThreshold {

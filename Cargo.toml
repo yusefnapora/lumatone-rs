@@ -11,4 +11,9 @@ members = [
 [workspace.dependencies]
 anyhow = "1.0.75"
 serde = "1.0.188"
+crux_core = "0.6"
+crux_macros = "0.3"
+lazy_static = "1.4.0"
+#uniffi = "0.24.3"
+wasm-bindgen = "0.2.87"
 

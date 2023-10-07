@@ -23,10 +23,10 @@ pub type EncodedSysex = Vec<u8>;
 
 /// Some commands send "tables" of config data (e.g. key velocity, etc).
 /// Tables are always 128 elements long.
-pub type SysexTable = [u8; 128];
+pub type SysexTable = Vec<u8>;
 
 /// The velocity interval table contains 127 12-bit values.
-pub type VelocityIntervalTable = [u16; 127];
+pub type VelocityIntervalTable = Vec<u16>;
 
 pub fn reverse_table(t: &SysexTable) -> SysexTable {
   let mut r = t.clone();

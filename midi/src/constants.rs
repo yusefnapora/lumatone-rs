@@ -2,6 +2,7 @@
 
 use std::fmt::Display;
 
+use serde::{Serialize, Deserialize};
 use bounded_integer::bounded_integer;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -14,7 +15,7 @@ pub const MANUFACTURER_ID: [u8; 3] = [0x00, 0x21, 0x50];
 pub const ECHO_FLAG: u8 = 0x5; // used to differentiate test responses from MIDI
 pub const TEST_ECHO: u8 = 0x7f; // should not be returned by lumatone
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct RGBColor(pub u8, pub u8, pub u8);
 
 impl RGBColor {
@@ -151,7 +152,7 @@ impl Default for MidiChannel {
 /// which control the five 56-key Terpstra boards that comprise the full Lumatone layout.
 ///
 /// Global operations (ping, macro keys, etc) should be sent to the Server board.
-#[derive(Debug, FromPrimitive, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, FromPrimitive, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 pub enum BoardIndex {
   Server = 0,
   Octave1,
@@ -197,7 +198,7 @@ impl Display for BoardIndex {
 ///
 /// To convert from another coordinate system, add an `impl Into<LumatoneKeyLocation>` to your coordinate type.
 ///
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LumatoneKeyLocation(pub BoardIndex, pub LumatoneKeyIndex);
 
 impl LumatoneKeyLocation {
@@ -245,7 +246,7 @@ pub fn key_loc_unchecked(board_index: u8, key_index: u8) -> LumatoneKeyLocation 
   LumatoneKeyLocation(board_index, key_index)
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum LumatoneKeyFunction {
   /// Key sends note on/off messages
   NoteOnOff {
@@ -367,7 +368,7 @@ impl Into<u8> for ResponseStatusCode {
 }
 
 /// Identifies a Lumatone command.
-#[derive(Debug, FromPrimitive, PartialEq)]
+#[derive(Debug, FromPrimitive, PartialEq, Serialize, Deserialize)]
 pub enum CommandId {
   // Start support at 55-keys firmware version, Developmental versions
   ChangeKeyNote = 0x00,

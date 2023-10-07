@@ -1,5 +1,6 @@
 #![allow(unused)]
 use std::fmt::Display;
+use serde::{Serialize, Deserialize};
 
 use super::{
   constants::{BoardIndex, CommandId, MidiChannel, TEST_ECHO},
@@ -12,7 +13,7 @@ use super::{
 
 use error_stack::{bail, ensure, report, IntoReport, Result, ResultExt};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Response {
   /// indicates that the command was successful, but no additional data was returned.
   Ack(CommandId),

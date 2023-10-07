@@ -31,6 +31,7 @@ use super::{
     ConfigurationTables,
   },
 };
+extern crate lazy_static;
 
 #[derive(Debug)]
 pub struct KeyDefinition {
@@ -328,19 +329,19 @@ impl LumatoneKeyMap {
 
     let tables = &self.general.config_tables;
     if let Some(t) = &tables.on_off_velocity {
-      commands.push(SetVelocityConfig(Box::new(t.table)));
+      commands.push(SetVelocityConfig(t.table.clone()));
     }
     if let Some(t) = &tables.aftertouch_velocity {
-      commands.push(SetAftertouchConfig(Box::new(t.table)));
+      commands.push(SetAftertouchConfig(t.table.clone()));
     }
     if let Some(t) = &tables.fader_velocity {
-      commands.push(SetFaderConfig(Box::new(t.table)));
+      commands.push(SetFaderConfig(t.table.clone()));
     }
     if let Some(t) = &tables.lumatouch_velocity {
-      commands.push(SetLumatouchConfig(Box::new(t.table)));
+      commands.push(SetLumatouchConfig(t.table.clone()));
     }
-    if let Some(t) = tables.velocity_intervals {
-      commands.push(SetVelocityIntervals(Box::new(t)));
+    if let Some(t) = &tables.velocity_intervals {
+      commands.push(SetVelocityIntervals(t.clone()));
     }
 
     for (location, definition) in self.keys.iter() {
