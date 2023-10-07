@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 use crux_core::capability::Operation;
 use crux_core::capability::CapabilityContext;
 use crux_macros::Capability;
+use crate::error::LumatoneMidiError;
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -16,8 +17,7 @@ pub struct LumatoneDeviceDescriptor {
 
 
 impl Operation for DetectDeviceOperation {
-  // FIXME: should be a Result with an error type
-  type Output = LumatoneDeviceDescriptor;
+  type Output = Result<LumatoneDeviceDescriptor, LumatoneMidiError>;
 }
 
 
@@ -35,7 +35,7 @@ impl<Ev> DetectDevice<Ev>
   }
 
   pub fn detect<F>(&self, event: F)
-    where F: Fn(LumatoneDeviceDescriptor) -> Ev + Send + 'static
+    where F: Fn(Result<LumatoneDeviceDescriptor, LumatoneMidiError>) -> Ev + Send + 'static
   {
     let ctx = self.context.clone();
     self.context.spawn(async move {

@@ -2,6 +2,11 @@
 
 pub mod detect;
 mod connect;
-mod commands;
+mod io;
 
-// TODO: define Capabilities struct
+pub struct MidiCapabilities<Ev> {
+  detect: detect::DetectDevice<Ev>,
+  connect: connect::ConnectToDevice<Ev>,
+  send_sysex: io::SendSysex<Ev>,
+  receive_sysex_stream: io::ReceiveSysexStream<Ev>,
+}

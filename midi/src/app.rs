@@ -2,12 +2,21 @@ use crate::commands::Command;
 use crate::sysex::EncodedSysex;
 
 pub enum Event {
+    /// The shell has discovered a Lumatone device
     DeviceConnected(LumatoneConnection),
+
+    /// A connected device has disconnected
     DeviceDisconnected(LumatoneConnection),
 
-
+    /// The shell (or another part of the core) wants to send a Command message to the device
     CommandSubmitted(LumatoneConnection, Command),
+
+    /// The shell has received a Lumatone Sysex message on the Midi input channel
     SysexReceived(LumatoneConnection, EncodedSysex),
+
+
+
+    // internal events, dispatched from the core to itself
     DeviceBusy(LumatoneConnection),
 
 }

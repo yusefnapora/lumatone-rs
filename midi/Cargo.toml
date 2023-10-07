@@ -24,3 +24,5 @@ serde = { workspace = true, features = ["derive"] }
 lazy_static = { workspace = true }
 #uniffi = { workspace = true }
 wasm-bindgen = { workspace = true }
+
+uuid = { version = "1.4.1", features = ["v4", "fast-rng", "macro-diagnostics"] }

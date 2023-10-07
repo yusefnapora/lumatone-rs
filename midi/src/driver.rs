@@ -84,7 +84,9 @@ use error_stack::{report, Report, Result};
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
 
-/// Request to send a command to the device, with a channel to send a response on.
+
+/// Request to send a command to the device, with a unique submission id used to correlate
+/// responses with command submissions.
 #[derive(Clone)]
 struct CommandSubmission {
   command: Command,
@@ -864,7 +866,7 @@ mod tests {
     let init = State::ProcessingQueue {
       send_queue: VecDeque::new(),
     };
-    let action = QueueEmpty;
+    let action = Action::QueueEmpty;
     match init.next(action) {
       State::Idle => (),
       s => panic!("unexpected state: {:?}", s),
@@ -878,7 +880,7 @@ mod tests {
     let init = State::ProcessingQueue {
       send_queue: VecDeque::from(vec![sub]),
     };
-    let action = QueueEmpty;
+    let action = Action::QueueEmpty;
     match init.next(action) {
       State::Failed(_) => (),
       s => panic!("unexpected state: {:?}", s),
