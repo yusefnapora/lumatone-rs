@@ -1,15 +1,16 @@
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
-
-use super::{
-  commands::ping, device::LumatoneDevice, error::LumatoneMidiError, responses::decode_ping,
-};
 use midir::{MidiInput, MidiOutput};
-
 use log::{debug, info, warn};
-
 use error_stack::{report, IntoReport, Result, ResultExt};
+
+use crate::{
+  commands::ping,
+  device::LumatoneDevice,
+  error::LumatoneMidiError,
+  responses::decode_ping,
+};
 
 const CLIENT_NAME: &'static str = "lumatone_rs";
 

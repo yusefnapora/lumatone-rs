@@ -368,7 +368,7 @@ impl Into<u8> for ResponseStatusCode {
 }
 
 /// Identifies a Lumatone command.
-#[derive(Debug, FromPrimitive, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, FromPrimitive, PartialEq, Eq, Serialize, Deserialize, Clone, Copy)]
 pub enum CommandId {
   // Start support at 55-keys firmware version, Developmental versions
   ChangeKeyNote = 0x00,

@@ -3,13 +3,14 @@ use crux_core::capability::Operation;
 use crux_core::capability::CapabilityContext;
 use crux_macros::Capability;
 use uuid::Uuid;
+use std::time::Duration;
 
 pub type TimeoutId = Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum TimeoutOperation {
   Set {
-    millis: usize,
+    millis: u128,
     timeout_id: TimeoutId,
   },
   Cancel(TimeoutId),
@@ -32,20 +33,24 @@ impl<Ev> Timeout<Ev>
     Self { context }
   }
 
-  pub fn set<F>(&self, millis: usize, timeout_id: TimeoutId, make_event: F)
-    where F: Fn(TimeoutId) -> Ev + Send
+  pub fn set<F>(&self, duration: Duration, make_event: F) -> TimeoutId
+    where F: Fn(TimeoutId) -> Ev + Send + 'static
   {
+    let millis = duration.as_millis();
+    let timeout_id = Uuid::new_v4();
     let ctx = self.context.clone();
     self.context.spawn(async move {
+      let timeout_id = timeout_id.clone();
       let op = TimeoutOperation::Set { millis, timeout_id };
       let id = ctx.request_from_shell(op).await;
       let event = make_event(id);
       ctx.update_app(event);
     });
+    timeout_id
   }
 
   pub fn cancel<F>(&self, timeout_id: TimeoutId, make_event: F)
-    where F: Fn(TimeoutId) -> Ev + Send
+    where F: Fn(TimeoutId) -> Ev + Send + 'static
   {
     let ctx = self.context.clone();
     self.context.spawn(async move {

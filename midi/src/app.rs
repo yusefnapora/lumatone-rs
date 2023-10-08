@@ -1,9 +1,16 @@
+use crux_core::App;
 use uuid::Uuid;
+use serde::{Serialize, Deserialize};
+
 use crate::capabilities::detect::LumatoneDeviceDescriptor;
-use crate::capabilities::io::IncomingSysex;
+use crate::capabilities::MidiCapabilities;
 use crate::capabilities::timeout::TimeoutId;
 use crate::commands::Command;
+use crate::sysex::EncodedSysex;
 
+type CommandSubmissionId = Uuid;
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum Event {
   /// The shell has discovered a Lumatone device
   DeviceConnected {
@@ -14,10 +21,13 @@ pub enum Event {
   DeviceDisconnected,
 
   /// The shell (or another part of the core) wants to send a Command message to the device
-  CommandSubmitted(Command),
+  CommandSubmission {
+    command: Command,
+    id: CommandSubmissionId,
+  },
 
   /// The shell has received a Lumatone Sysex message on the Midi input channel
-  SysexReceived(IncomingSysex),
+  SysexReceived(EncodedSysex),
 
   /// A timeout has been created
   TimeoutCreated(TimeoutId),
@@ -53,10 +63,30 @@ pub enum Event {
 }
 
 
-
+#[derive(Default)]
 pub struct Model {
   // TODO: add connection & driver state
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ViewModel {
+  // TODO: add connection info, etc
+}
+
 #[derive(Default)]
 pub struct MidiApp;
+
+impl App for MidiApp {
+  type Event = Event;
+  type Model = Model;
+  type ViewModel = ViewModel;
+  type Capabilities = MidiCapabilities<Event>;
+
+  fn update(&self, event: Self::Event, model: &mut Self::Model, caps: &Self::Capabilities) {
+    todo!()
+  }
+
+  fn view(&self, model: &Self::Model) -> Self::ViewModel {
+    ViewModel{}
+  }
+}

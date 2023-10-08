@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 use error_stack::Context;
 use std::fmt::Display;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum LumatoneMidiError {
   // InvalidCommandInput(CommandId, String),
   NotLumatoneMessage(Vec<u8>),

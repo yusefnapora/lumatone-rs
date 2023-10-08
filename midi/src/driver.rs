@@ -80,6 +80,7 @@ use tokio::{
 
 use crate::sysex::to_hex_debug_str;
 use error_stack::{report, Report, Result};
+use uuid::Uuid;
 use crate::capabilities::timeout::TimeoutId;
 
 /// Result type returned in response to a command submission
@@ -375,6 +376,8 @@ impl State {
       (MessageSent(command_sent), ProcessingQueue { send_queue }) => AwaitingResponse {
         send_queue,
         command_sent,
+        // FIXME: just generating the timeout_id here to get things compiling. need to set real timeout via capability
+        timeout_id: Uuid::new_v4()
       },
 
       // Receiving a message when we're awaiting a response transitions to ProcessingResponse
@@ -383,7 +386,7 @@ impl State {
         AwaitingResponse {
           send_queue,
           command_sent,
-          timeout_id, // TODO: request timeout cancellation
+          .. // TODO: request timeout cancellation
         },
       ) => ProcessingResponse {
         send_queue,
@@ -418,6 +421,8 @@ impl State {
       ) => WaitingToRetry {
         send_queue,
         to_retry: command_sent,
+        // FIXME: just generating the timeout_id here to get things compiling. need to set real timeout via capability
+        timeout_id: Uuid::new_v4()
       },
 
       // Getting a ResponseTimedOut action while waiting for a response logs a warning

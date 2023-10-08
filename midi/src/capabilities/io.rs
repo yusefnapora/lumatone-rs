@@ -5,83 +5,65 @@ use crux_macros::Capability;
 use crate::error::LumatoneMidiError;
 use crate::sysex::EncodedSysex;
 use futures::StreamExt;
-use crate::capabilities::connect::DeviceConnectionId;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct SendSysexOperation {
-  connection_id: DeviceConnectionId,
-  message: EncodedSysex,
+pub enum SysexOperation {
+  Send(EncodedSysex),
+  Listen
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SysexOutput {
+  SendResult(Result<(), LumatoneMidiError>),
+  IncomingMessage(EncodedSysex),
+}
 
-impl Operation for SendSysexOperation {
-  type Output = Result<(), LumatoneMidiError>;
+impl Operation for SysexOperation {
+  type Output = SysexOutput;
 }
 
 #[derive(Capability)]
-pub struct SendSysex<Ev> {
-  context: CapabilityContext<SendSysexOperation, Ev>,
+pub struct Sysex<Ev> {
+  context: CapabilityContext<SysexOperation, Ev>,
 }
 
-impl<Ev> SendSysex<Ev>
+impl<Ev> Sysex<Ev>
   where
     Ev: 'static
 {
-  pub fn new(context: CapabilityContext<SendSysexOperation, Ev>) -> Self {
+  pub fn new(context: CapabilityContext<SysexOperation, Ev>) -> Self {
     Self { context }
   }
 
-  pub fn send<F>(&self, connection_id: DeviceConnectionId, message: EncodedSysex, event: F)
+  pub fn send<F>(&self, message: EncodedSysex, event: F)
     where F: Fn(Result<(), LumatoneMidiError>) -> Ev + Send + 'static
   {
     let ctx = self.context.clone();
     self.context.spawn(async move {
-      let op = SendSysexOperation { connection_id, message };
-      let response = ctx.request_from_shell(op).await;
+      let op = SysexOperation::Send(message);
+      let SysexOutput::SendResult(response) = ctx.request_from_shell(op).await else {
+        panic!("expected operation output to be SysexOutput::SendResult")
+      };
       let ev = event(response);
       ctx.update_app(ev);
     });
   }
-}
 
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ReceiveSysexOperation {
-  connection_id: DeviceConnectionId
-}
-
-pub struct IncomingSysex {
-  message: EncodedSysex,
-  connection_id: DeviceConnectionId,
-}
-
-impl Operation for ReceiveSysexOperation {
-  type Output = EncodedSysex;
-}
-
-#[derive(Capability)]
-pub struct ReceiveSysexStream<Ev> {
-  context: CapabilityContext<ReceiveSysexOperation, Ev>,
-}
-
-impl<Ev> ReceiveSysexStream<Ev>
-  where Ev: 'static
-{
-  pub fn new(context: CapabilityContext<ReceiveSysexOperation, Ev>) -> Self {
-    Self { context }
-  }
-
-  pub fn receive<F>(&self, connection_id: DeviceConnectionId, make_event: F)
-    where F: Fn(IncomingSysex) -> Ev + Send + Clone + 'static
+  pub fn receive<F>(&self, make_event: F)
+    where F: Fn(EncodedSysex) -> Ev + Send + Clone + 'static
   {
     let ctx = self.context.clone();
     self.context.spawn(async move {
-      let op = ReceiveSysexOperation { connection_id };
+      let op = SysexOperation::Listen;
       let mut stream = ctx.stream_from_shell(op);
 
-      while let Some(message) = stream.next().await {
+      while let Some(output) = stream.next().await {
+        let SysexOutput::IncomingMessage(message) = output else {
+          // TODO: log a warning here?
+          continue
+        };
         let make_event = make_event.clone();
-        let ev = make_event(IncomingSysex { message, connection_id });
+        let ev = make_event(message);
         ctx.update_app(ev);
       }
     });
