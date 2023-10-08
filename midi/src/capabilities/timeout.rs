@@ -16,8 +16,13 @@ pub enum TimeoutOperation {
   Cancel(TimeoutId),
 }
 
+pub enum TimeoutOutput {
+  TimeoutElapsed(TimeoutId),
+  TimeoutCancelled(TimeoutId)
+}
+
 impl Operation for TimeoutOperation {
-  type Output = TimeoutId;
+  type Output = TimeoutOutput;
 }
 
 #[derive(Capability)]
@@ -42,22 +47,20 @@ impl<Ev> Timeout<Ev>
     self.context.spawn(async move {
       let timeout_id = timeout_id.clone();
       let op = TimeoutOperation::Set { millis, timeout_id };
-      let id = ctx.request_from_shell(op).await;
-      let event = make_event(id);
-      ctx.update_app(event);
+      if let TimeoutOutput::TimeoutElapsed(id) = ctx.request_from_shell(op).await {
+        let event = make_event(id);
+        ctx.update_app(event);
+      }
     });
     timeout_id
   }
 
-  pub fn cancel<F>(&self, timeout_id: TimeoutId, make_event: F)
-    where F: Fn(TimeoutId) -> Ev + Send + 'static
+  pub fn cancel(&self, timeout_id: TimeoutId)
   {
     let ctx = self.context.clone();
     self.context.spawn(async move {
       let op = TimeoutOperation::Cancel(timeout_id);
-      let id = ctx.request_from_shell(op).await;
-      let event = make_event(id);
-      ctx.update_app(event);
+      ctx.request_from_shell(op).await;
     });
   }
 }

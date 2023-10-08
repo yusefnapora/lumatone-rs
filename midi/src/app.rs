@@ -29,10 +29,6 @@ pub enum Event {
   /// The shell has received a Lumatone Sysex message on the Midi input channel
   SysexReceived(EncodedSysex),
 
-  /// A timeout has been created
-  TimeoutCreated(TimeoutId),
-  /// A timeout has been cancelled
-  TimeoutCanceled(TimeoutId),
   /// A timeout has triggered
   TimeoutElapsed(TimeoutId),
 
