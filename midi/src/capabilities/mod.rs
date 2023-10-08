@@ -1,8 +1,9 @@
 //! Crux capability definitions for Lumatone MIDI operations
 
 pub mod detect;
-mod connect;
-mod io;
+pub mod connect;
+pub mod io;
+pub mod timeout;
 
 pub struct MidiCapabilities<Ev> {
   detect: detect::DetectDevice<Ev>,

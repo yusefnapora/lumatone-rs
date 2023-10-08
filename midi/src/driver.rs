@@ -80,6 +80,7 @@ use tokio::{
 
 use crate::sysex::to_hex_debug_str;
 use error_stack::{report, Report, Result};
+use crate::capabilities::timeout::TimeoutId;
 
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
@@ -137,6 +138,7 @@ enum State {
   AwaitingResponse {
     send_queue: VecDeque<CommandSubmission>,
     command_sent: CommandSubmission,
+    timeout_id: TimeoutId,
   },
 
   /// We've unpacked a Response from a device message and are ready to
@@ -153,6 +155,7 @@ enum State {
   WaitingToRetry {
     send_queue: VecDeque<CommandSubmission>,
     to_retry: CommandSubmission,
+    timeout_id: TimeoutId,
   },
 
   /// Something has gone horribly wrong, and we've shut down the state machine loop.
@@ -168,6 +171,7 @@ impl Display for State {
       AwaitingResponse {
         send_queue,
         command_sent,
+        ..
       } => write!(
         f,
         "AwaitingResponse({}, {} in queue)",
@@ -188,6 +192,7 @@ impl Display for State {
       WaitingToRetry {
         send_queue,
         to_retry,
+        ..
       } => write!(
         f,
         "WaitingToRetry({}, {} in queue)",
@@ -309,6 +314,7 @@ impl State {
         AwaitingResponse {
           mut send_queue,
           command_sent,
+          timeout_id,
         },
       ) => {
         // add new command to the send_queue
@@ -316,6 +322,7 @@ impl State {
         AwaitingResponse {
           send_queue,
           command_sent,
+          timeout_id,
         }
       }
 
@@ -326,6 +333,7 @@ impl State {
         WaitingToRetry {
           mut send_queue,
           to_retry,
+          timeout_id,
         },
       ) => {
         // add new command to the send queue
@@ -333,6 +341,7 @@ impl State {
         WaitingToRetry {
           send_queue,
           to_retry,
+          timeout_id,
         }
       }
 
@@ -374,6 +383,7 @@ impl State {
         AwaitingResponse {
           send_queue,
           command_sent,
+          timeout_id, // TODO: request timeout cancellation
         },
       ) => ProcessingResponse {
         send_queue,
@@ -418,6 +428,7 @@ impl State {
         AwaitingResponse {
           send_queue,
           command_sent,
+          ..
         },
       ) => {
         warn!("Timed out waiting for response to msg: {:?}", command_sent);
@@ -437,6 +448,7 @@ impl State {
         WaitingToRetry {
           mut send_queue,
           to_retry,
+          ..
         },
       ) => {
         send_queue.push_front(to_retry);

@@ -50,6 +50,11 @@ pub struct ReceiveSysexOperation {
   connection_id: DeviceConnectionId
 }
 
+pub struct IncomingSysex {
+  message: EncodedSysex,
+  connection_id: DeviceConnectionId,
+}
+
 impl Operation for ReceiveSysexOperation {
   type Output = EncodedSysex;
 }
@@ -67,7 +72,7 @@ impl<Ev> ReceiveSysexStream<Ev>
   }
 
   pub fn receive<F>(&self, connection_id: DeviceConnectionId, make_event: F)
-    where F: Fn(EncodedSysex) -> Ev + Send + Clone + 'static
+    where F: Fn(IncomingSysex) -> Ev + Send + Clone + 'static
   {
     let ctx = self.context.clone();
     self.context.spawn(async move {
@@ -76,7 +81,7 @@ impl<Ev> ReceiveSysexStream<Ev>
 
       while let Some(message) = stream.next().await {
         let make_event = make_event.clone();
-        let ev = make_event(message);
+        let ev = make_event(IncomingSysex { message, connection_id });
         ctx.update_app(ev);
       }
     });
