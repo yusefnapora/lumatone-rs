@@ -16,6 +16,8 @@ pub enum TimeoutOperation {
   Cancel(TimeoutId),
 }
 
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum TimeoutOutput {
   TimeoutElapsed(TimeoutId),
   TimeoutCancelled(TimeoutId)
