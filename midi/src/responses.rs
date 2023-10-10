@@ -13,7 +13,7 @@ use super::{
 
 use error_stack::{bail, ensure, report, IntoReport, Result, ResultExt};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum Response {
   /// indicates that the command was successful, but no additional data was returned.
   Ack(CommandId),
