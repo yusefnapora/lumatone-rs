@@ -2,15 +2,15 @@ use serde::{Serialize, Deserialize};
 use crux_core::capability::Operation;
 use crux_core::capability::CapabilityContext;
 use crux_macros::Capability;
-use uuid::Uuid;
 use crate::error::LumatoneMidiError;
 use crate::responses::Response;
+use crate::driver::submission::CommandSubmissionId;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NotificationOperation {
 	CommandResult {
 	  result: Result<Response, LumatoneMidiError>,
-		submission_id: Uuid,
+		submission_id: CommandSubmissionId,
 	}
 }
 
@@ -33,7 +33,7 @@ impl<Ev> NotifyShell<Ev>
     Self { context }
   }
 
-  pub fn send_command_result(&self, submission_id: Uuid, result: Result<Response, LumatoneMidiError>)
+  pub fn send_command_result(&self, submission_id: CommandSubmissionId, result: Result<Response, LumatoneMidiError>)
   {
     let ctx = self.context.clone();
     self.context.spawn(async move {

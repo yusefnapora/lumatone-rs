@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use error_stack::Result;
 use crate::driver::actions::Action;
 use crate::driver::submission::CommandSubmission;
 use crate::error::LumatoneMidiError;

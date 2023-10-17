@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::fmt::Display;
-use error_stack::{Report, report};
+use error_stack::report;
 use log::{debug, error, warn};
 use uuid::Uuid;
 use crate::capabilities::timeout::TimeoutId;
@@ -14,7 +14,7 @@ use crate::responses::Response;
 use crate::sysex::{EncodedSysex, is_response_to_message, message_answer_code, to_hex_debug_str};
 
 /// One of the possible states the MIDI driver can be in at any given time.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum State {
   /// We have nothing to send, and are not waiting for anything specific to happen.
   Idle,
@@ -50,7 +50,7 @@ pub enum State {
   },
 
   /// Something has gone horribly wrong, and we've shut down the state machine loop.
-  Failed(Report<LumatoneMidiError>),
+  Failed(LumatoneMidiError),
 }
 
 impl Display for State {
@@ -275,7 +275,7 @@ impl State {
             "Received QueueEmpty action, but queue has {} elements",
             send_queue.len()
           );
-          Failed(report!(LumatoneMidiError::InvalidStateTransition(msg)))
+          Failed(LumatoneMidiError::InvalidStateTransition(msg))
         } else {
           Idle
         }
@@ -290,7 +290,7 @@ impl State {
       // All other state transitions are undefined and result in a Failed state, causing the driver loop to exit with an error.
       (action, state) => {
         let msg = format!("invalid action {:?} for current state {:?}", action, state);
-        Failed(report!(LumatoneMidiError::InvalidStateTransition(msg)))
+        Failed(LumatoneMidiError::InvalidStateTransition(msg))
       }
     }
   }
@@ -301,7 +301,7 @@ impl State {
   /// Note that `enter` does not perform any effects or apply actions, just returns instructions
   /// to do so. See [MidiDriverInternal] for the bit that performs effects and advances the state
   /// machine.
-  pub(crate) fn enter(&mut self) -> Option<Effect> {
+  pub(crate) fn enter(&self) -> Option<Effect> {
     use Effect::*;
     use State::*;
 
@@ -309,7 +309,7 @@ impl State {
 
     match self {
       Idle => None,
-      ProcessingQueue { send_queue } => match send_queue.pop_front() {
+      ProcessingQueue { send_queue } => match send_queue.front() {
         None => Some(DispatchAction(Action::QueueEmpty)),
         Some(cmd) => Some(SendMidiMessage(cmd.clone())),
       },
@@ -341,7 +341,8 @@ impl State {
             let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(
               "Device response had error flag set".to_string()
             )));
-            let effect = NotifyMessageResponse(command_sent.clone(), res);
+            let effect = NotifyMessageResponse(command_sent.clone(),
+                                               res.map_err(|err| err.current_context().clone()));
             Some(effect)
           }
 
@@ -349,14 +350,14 @@ impl State {
             let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(format!(
               "Device sent NACK in response to command {command_sent:?}"
             ))));
-            let effect = NotifyMessageResponse(command_sent.clone(), res);
+            let effect = NotifyMessageResponse(command_sent.clone(), res.map_err(|err| err.current_context().clone()));
             Some(effect)
           }
 
           ResponseStatusCode::Ack => {
             let response_res = Response::from_sysex_message(response_msg);
 
-            let effect = NotifyMessageResponse(command_sent.clone(), response_res);
+            let effect = NotifyMessageResponse(command_sent.clone(), response_res.map_err(|err| err.current_context().clone()));
             Some(effect)
           }
 
@@ -375,7 +376,11 @@ impl State {
     }
   }
 }
-
+impl Default for State {
+  fn default() -> Self {
+    State::Idle
+  }
+}
 fn log_message_status(status: &ResponseStatusCode, outgoing: &Command) {
   use ResponseStatusCode::*;
   match *status {

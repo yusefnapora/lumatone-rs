@@ -61,10 +61,10 @@
 //!                     └──────────────────────┘
 //! ```
 
-mod state;
-mod actions;
-mod effects;
-mod submission;
+pub mod state;
+pub mod actions;
+pub mod effects;
+pub mod submission;
 
 #[cfg(test)]
 mod tests {

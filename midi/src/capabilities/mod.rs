@@ -7,8 +7,9 @@ pub mod timeout;
 pub mod notify;
 
 pub struct MidiCapabilities<Ev> {
-  detect: detect::DetectDevice<Ev>,
-  connect: connect::ConnectToDevice<Ev>,
-  sysex: io::Sysex<Ev>,
-	notify: notify::NotifyShell<Ev>,
+  pub detect: detect::DetectDevice<Ev>,
+  pub connect: connect::ConnectToDevice<Ev>,
+  pub sysex: io::Sysex<Ev>,
+	pub notify: notify::NotifyShell<Ev>,
+  pub timeout: timeout::Timeout<Ev>,
 }
