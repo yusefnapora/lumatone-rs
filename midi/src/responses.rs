@@ -11,8 +11,6 @@ use super::{
   },
 };
 
-use error_stack::{bail, ensure, report, IntoReport, Result, ResultExt};
-
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum Response {
   /// indicates that the command was successful, but no additional data was returned.
@@ -196,7 +194,6 @@ impl Response {
 
       _ => Ok(Response::Ack(cmd_id)),
     }
-    .change_context(LumatoneMidiError::ResponseDecodingError)
   }
 }
 
@@ -267,15 +264,14 @@ impl Display for Response {
 }
 
 fn message_board_index(msg: &[u8]) -> Result<BoardIndex, LumatoneMidiError> {
-  ensure!(
-    msg.len() <= BOARD_IND,
-    LumatoneMidiError::MessageTooShort {
+  if !msg.len() <= BOARD_IND {
+    return Err(LumatoneMidiError::MessageTooShort {
       expected: BOARD_IND + 1,
       actual: msg.len()
-    }
-  );
+    })
+	}
 
-  BoardIndex::try_from(msg[BOARD_IND]).into_report()
+  BoardIndex::try_from(msg[BOARD_IND])
 }
 
 // region: Sysex Decoders
@@ -284,12 +280,12 @@ fn message_board_index(msg: &[u8]) -> Result<BoardIndex, LumatoneMidiError> {
 /// returning the encoded payload value on success.
 pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
   if !is_lumatone_message(msg) {
-    bail!(LumatoneMidiError::NotLumatoneMessage(msg.to_vec()));
+    return Err(LumatoneMidiError::NotLumatoneMessage(msg.to_vec()));
   }
 
   let cmd_id = message_command_id(msg)?;
   if cmd_id != CommandId::LumaPing {
-    bail!(LumatoneMidiError::UnexpectedCommandId {
+    return Err(LumatoneMidiError::UnexpectedCommandId {
       expected: CommandId::LumaPing,
       actual: cmd_id,
     });
@@ -297,14 +293,14 @@ pub fn decode_ping(msg: &[u8]) -> Result<u32, LumatoneMidiError> {
 
   let payload = message_payload(msg)?;
   if payload.len() < 4 {
-    bail!(LumatoneMidiError::MessagePayloadTooShort {
+    return Err(LumatoneMidiError::MessagePayloadTooShort {
       expected: 4,
       actual: payload.len(),
     });
   }
 
   if payload[0] != TEST_ECHO {
-    bail!(LumatoneMidiError::InvalidResponseMessage(
+    return Err(LumatoneMidiError::InvalidResponseMessage(
       "ping response has invalid echo flag value".to_string(),
     ));
   }
@@ -323,7 +319,6 @@ fn valid_lumatone_msg<'a>(msg: &'a [u8]) -> Result<&'a [u8], LumatoneMidiError> 
   } else {
     Ok(msg)
   }
-  .into_report()
 }
 
 fn payload_with_len<'a>(msg: &'a [u8], len: usize) -> Result<&'a [u8], LumatoneMidiError> {
@@ -338,7 +333,6 @@ fn payload_with_len<'a>(msg: &'a [u8], len: usize) -> Result<&'a [u8], LumatoneM
   } else {
     Ok(&payload[0..len])
   }
-  .into_report()
 }
 
 fn unpack_sysex_config_table(msg: &[u8]) -> Result<Box<SysexTable>, LumatoneMidiError> {

@@ -14,7 +14,6 @@ midir = { version = "0.8.0" , optional = true }
 num-traits = "0.2"
 num-derive = "0.3"
 log = "0.4.0"
-error-stack = "0.3.1"
 bounded-integer = { version = "0.5.2", features = ["std", "macro", "serde1"] }
 rand = "0.8.5"
 

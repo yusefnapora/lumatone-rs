@@ -1,4 +1,3 @@
-use error_stack::{Result, IntoReport, ResultExt, report};
 use midir::{MidiIO, MidiInputConnection, MidiOutputConnection};
 use tokio::sync::mpsc;
 use crate::error::LumatoneMidiError;
@@ -20,8 +19,7 @@ impl LumatoneIO {
     self
       .output_conn
       .send(msg)
-      .into_report()
-      .change_context(LumatoneMidiError::DeviceSendError)
+      .map_err(|e| LumatoneMidiError::DeviceSendError(format!("send error: {e}")))
   }
 
   /// Closes MIDI connections and consumes `self`, making this LumatoneIO unusable.

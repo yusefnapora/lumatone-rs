@@ -3,7 +3,6 @@
 use log::{debug, warn};
 use midir::{ MidiInput, MidiOutput };
 use tokio::sync::mpsc;
-use error_stack::{report, IntoReport, Result, ResultExt};
 
 use crate::{error::LumatoneMidiError, sysex::SYSEX_START};
 use super::io::LumatoneIO;
@@ -17,16 +16,14 @@ pub fn connect<S: AsRef<str>>(input_name: S, output_name: S) -> Result<LumatoneI
 
   let client_name = "lumatone-rs";
   let input = MidiInput::new(client_name)
-    .into_report()
-    .change_context(DeviceConnectionError)?;
+    .map_err(|e| DeviceConnectionError(format!("error creating MidiInput: {e}")))?;
   let output = MidiOutput::new(client_name)
-    .into_report()
-    .change_context(DeviceConnectionError)?;
+    .map_err(|e| DeviceConnectionError(format!("error creating MidiOutput: {e}")))?;
 
   let in_port =
-    get_port_by_name(&input, &*input_name).change_context(DeviceConnectionError)?;
+    get_port_by_name(&input, &*input_name)?;
   let out_port =
-    get_port_by_name(&output, &*output_name).change_context(DeviceConnectionError)?;
+    get_port_by_name(&output, &*output_name)?;
 
   let buf_size = 32;
   let (incoming_tx, incoming_messages) = mpsc::channel(buf_size);
@@ -47,15 +44,10 @@ pub fn connect<S: AsRef<str>>(input_name: S, output_name: S) -> Result<LumatoneI
       },
       (),
     )
-    .map_err(|e|
-      // The ConnectError<MidiInput> type is not thread-safe, so we stringify instead of report()-ing directly
-      report!(DeviceConnectionError)
-        .attach_printable(format!("midi input connection error: {e}")))?;
+    .map_err(|e| DeviceConnectionError(format!("output connection error: {e}")))?;
 
   let output_conn = output.connect(&out_port, &*output_name).map_err(|e|
-    // The ConnectError<MidiOutput> type is not thread-safe, so we stringify instead of report()-ing directly
-    report!(DeviceConnectionError)
-      .attach_printable(format!("midi input connection error: {e}")))?;
+    DeviceConnectionError(format!("midi input connection error: {e}")))?;
 
   let io = LumatoneIO {
     input_conn,
@@ -65,3 +57,16 @@ pub fn connect<S: AsRef<str>>(input_name: S, output_name: S) -> Result<LumatoneI
   Ok(io)
 }
 
+fn get_port_by_name<IO: MidiIO, S: AsRef<str>>(io: &IO, name: S) -> Result<IO::Port, LumatoneMidiError> {
+  for p in io.ports() {
+    let port_name = io.port_name(&p).map_err(|e| {
+      LumatoneMidiError::DeviceConnectionError(format!("unable to get port with name '{name}': {e}"))
+    })?;
+    if port_name == name {
+      return Ok(p);
+    }
+  }
+  Err(
+    LumatoneMidiError::DeviceConnectionError(format!("unable to get port with name: {name}")),
+  )
+}

@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 use std::fmt::Display;
-use error_stack::report;
 use log::{debug, error, warn};
 use uuid::Uuid;
 use crate::capabilities::timeout::TimeoutId;
@@ -338,26 +337,25 @@ impl State {
           }
 
           ResponseStatusCode::Error => {
-            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(
+            let res = Err(LumatoneMidiError::InvalidResponseMessage(
               "Device response had error flag set".to_string()
-            )));
-            let effect = NotifyMessageResponse(command_sent.clone(),
-                                               res.map_err(|err| err.current_context().clone()));
+            ));
+            let effect = NotifyMessageResponse(command_sent.clone(), res);
             Some(effect)
           }
 
           ResponseStatusCode::Nack => {
-            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(format!(
+            let res = Err(LumatoneMidiError::InvalidResponseMessage(format!(
               "Device sent NACK in response to command {command_sent:?}"
-            ))));
-            let effect = NotifyMessageResponse(command_sent.clone(), res.map_err(|err| err.current_context().clone()));
+            )));
+            let effect = NotifyMessageResponse(command_sent.clone(), res);
             Some(effect)
           }
 
           ResponseStatusCode::Ack => {
             let response_res = Response::from_sysex_message(response_msg);
 
-            let effect = NotifyMessageResponse(command_sent.clone(), response_res.map_err(|err| err.current_context().clone()));
+            let effect = NotifyMessageResponse(command_sent.clone(), response_res);
             Some(effect)
           }
 
