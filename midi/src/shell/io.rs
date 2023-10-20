@@ -1,12 +1,12 @@
-use midir::{MidiIO, MidiInputConnection, MidiOutputConnection};
+use midir::{MidiInputConnection, MidiOutputConnection};
 use tokio::sync::mpsc;
 use crate::error::LumatoneMidiError;
 use crate::sysex::EncodedSysex;
 
 /// Represents an open connection to a Lumatone device that can send and receive messages.
 pub struct LumatoneIO {
-  input_conn: MidiInputConnection<()>,
-  output_conn: MidiOutputConnection,
+  pub input_conn: MidiInputConnection<()>,
+  pub output_conn: MidiOutputConnection,
 
   /// All incoming MIDI messages will be pushed onto this channel.
   // TODO: should this be a broadcast instead?

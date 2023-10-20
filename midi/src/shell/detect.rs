@@ -100,7 +100,7 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
   }
 
   if in_port_idx.is_none() || out_port_idx.is_none() {
-    return Err(LumatoneMidiError::DeviceDetectionFailed).attach_printable("timed out");
+    return Err(LumatoneMidiError::DeviceDetectionFailed("timed out".to_string()));
   }
 
   let output_port_name = output

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use log::{debug, warn};
-use midir::{ MidiInput, MidiOutput };
+use midir::{ MidiInput, MidiOutput, MidiIO };
 use tokio::sync::mpsc;
 
 use crate::{error::LumatoneMidiError, sysex::SYSEX_START};
@@ -21,9 +21,9 @@ pub fn connect<S: AsRef<str>>(input_name: S, output_name: S) -> Result<LumatoneI
     .map_err(|e| DeviceConnectionError(format!("error creating MidiOutput: {e}")))?;
 
   let in_port =
-    get_port_by_name(&input, &*input_name)?;
+    get_port_by_name(&input, input_name.as_ref())?;
   let out_port =
-    get_port_by_name(&output, &*output_name)?;
+    get_port_by_name(&output, output_name.as_ref())?;
 
   let buf_size = 32;
   let (incoming_tx, incoming_messages) = mpsc::channel(buf_size);
@@ -31,7 +31,7 @@ pub fn connect<S: AsRef<str>>(input_name: S, output_name: S) -> Result<LumatoneI
   let input_conn = input
     .connect(
       &in_port,
-      &*input_name,
+      input_name.as_ref(),
       move |_, msg, _| {
         let msg = msg.to_vec();
         if msg.is_empty() || msg[0] != SYSEX_START {
@@ -46,7 +46,7 @@ pub fn connect<S: AsRef<str>>(input_name: S, output_name: S) -> Result<LumatoneI
     )
     .map_err(|e| DeviceConnectionError(format!("output connection error: {e}")))?;
 
-  let output_conn = output.connect(&out_port, &*output_name).map_err(|e|
+  let output_conn = output.connect(&out_port, output_name.as_ref()).map_err(|e|
     DeviceConnectionError(format!("midi input connection error: {e}")))?;
 
   let io = LumatoneIO {
@@ -57,7 +57,7 @@ pub fn connect<S: AsRef<str>>(input_name: S, output_name: S) -> Result<LumatoneI
   Ok(io)
 }
 
-fn get_port_by_name<IO: MidiIO, S: AsRef<str>>(io: &IO, name: S) -> Result<IO::Port, LumatoneMidiError> {
+fn get_port_by_name<IO: MidiIO>(io: &IO, name: &str) -> Result<IO::Port, LumatoneMidiError> {
   for p in io.ports() {
     let port_name = io.port_name(&p).map_err(|e| {
       LumatoneMidiError::DeviceConnectionError(format!("unable to get port with name '{name}': {e}"))

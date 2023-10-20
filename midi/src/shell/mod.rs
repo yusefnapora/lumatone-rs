@@ -1,3 +1,3 @@
-mod detect;
-mod connect;
-mod io;
+pub mod detect;
+pub mod connect;
+pub mod io;
