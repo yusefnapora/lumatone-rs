@@ -30,18 +30,4 @@ impl LumatoneIO {
   }
 }
 
-fn get_port_by_name<IO: MidiIO, S: AsRef<str>>(io: &IO, name: S) -> Result<IO::Port, LumatoneMidiError> {
-  for p in io.ports() {
-    let port_name = io.port_name(&p).map_err(|e| {
-      report!(LumatoneMidiError::DeviceConnectionError)
-        .attach_printable(format!("unable to get port with name '{name}': {e}"))
-    })?;
-    if port_name == name {
-      return Ok(p);
-    }
-  }
-  Err(
-    report!(LumatoneMidiError::DeviceConnectionError)
-      .attach_printable(format!("unable to get port with name: {name}")),
-  )
-}
+
