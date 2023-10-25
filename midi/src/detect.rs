@@ -9,7 +9,6 @@ use midir::{MidiInput, MidiOutput};
 
 use log::{debug, info, warn};
 
-use error_stack::{report, IntoReport, Result, ResultExt};
 
 const CLIENT_NAME: &'static str = "lumatone_rs";
 
@@ -18,12 +17,10 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
   debug!("beginning lumatone device detection");
 
   let output = MidiOutput::new(CLIENT_NAME)
-    .into_report()
-    .change_context(DeviceDetectionFailed)?;
+    .map_err(|e| DeviceDetectionFailed(format!("failed to open output port: {e}")))?;
 
   let input = MidiInput::new(CLIENT_NAME)
-    .into_report()
-    .change_context(DeviceDetectionFailed)?;
+    .map_err(|e| DeviceDetectionFailed(format!("failed to open input port: {e}")))?;
   let in_ports = input.ports();
   let out_ports = output.ports();
 
@@ -40,12 +37,10 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
     // unfortunately, it doesn't seem to be possible to use the same MidiInput to connect to
     // multiple ports in parallel, since MidiInput.connect consumes self.
     let midi_in = MidiInput::new(CLIENT_NAME)
-      .into_report()
-      .change_context(DeviceDetectionFailed)?;
+      .map_err(|e| DeviceDetectionFailed(format!("failed to open input port: {e}")))?;
     let port_name = midi_in
       .port_name(p)
-      .into_report()
-      .change_context(DeviceDetectionFailed)?;
+      .map_err(|e| DeviceDetectionFailed(format!("failed to get input port name: {e}")))?;
     let my_tx = tx.clone();
     let conn_res = midi_in.connect(
       p,
@@ -75,12 +70,10 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
   // send a ping message on all output ports, with the ping value set to the output port index
   for (port_index, p) in out_ports.iter().enumerate() {
     let midi_out = MidiOutput::new(CLIENT_NAME)
-      .into_report()
-      .change_context(DeviceDetectionFailed)?;
+      .map_err(|e| DeviceDetectionFailed(format!("failed to open output port: {e}")))?;
     let port_name = midi_out
       .port_name(p)
-      .into_report()
-      .change_context(DeviceDetectionFailed)?;
+      .map_err(|e| DeviceDetectionFailed(format!("failed to get output port name: {e}")))?;
     if let Ok(mut conn) = midi_out.connect(p, &port_name) {
       let cmd = ping(port_index as u32);
       if let Err(send_err) = conn.send(&cmd.to_sysex_message()) {
@@ -101,17 +94,15 @@ pub async fn detect_device() -> Result<LumatoneDevice, LumatoneMidiError> {
   }
 
   if in_port_idx.is_none() || out_port_idx.is_none() {
-    return Err(report!(LumatoneMidiError::DeviceDetectionFailed).attach_printable("timed out"));
+    return Err(LumatoneMidiError::DeviceDetectionFailed("unable to detect ports".to_string()));
   }
 
   let output_port_name = output
     .port_name(&out_ports[out_port_idx.unwrap()])
-    .into_report()
-    .change_context(DeviceDetectionFailed)?;
+    .map_err(|e| DeviceDetectionFailed(format!("failed to get output port name: {e}")))?;
   let input_port_name = input
     .port_name(&in_ports[in_port_idx.unwrap()])
-    .into_report()
-    .change_context(DeviceDetectionFailed)?;
+    .map_err(|e| DeviceDetectionFailed(format!("failed to get input port name: {e}")))?;
 
   info!("detected lumatone ports: in: {input_port_name}, out: {output_port_name}");
 

@@ -85,7 +85,6 @@ use tokio::{
 
 use crate::driver::Action::{MessageSent, QueueEmpty, ResponseDispatched};
 use crate::sysex::to_hex_debug_str;
-use error_stack::{report, IntoReport, Report, Result, ResultExt};
 
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
@@ -160,7 +159,7 @@ enum State {
   },
 
   /// Something has gone horribly wrong, and we've shut down the state machine loop.
-  Failed(Report<LumatoneMidiError>),
+  Failed(LumatoneMidiError),
 }
 
 impl Display for State {
@@ -455,7 +454,7 @@ impl State {
             "Received QueueEmpty action, but queue has {} elements",
             send_queue.len()
           );
-          Failed(report!(LumatoneMidiError::InvalidStateTransition(msg)))
+          Failed(LumatoneMidiError::InvalidStateTransition(msg))
         } else {
           Idle
         }
@@ -470,7 +469,7 @@ impl State {
       // All other state transitions are undefined and result in a Failed state, causing the driver loop to exit with an error.
       (action, state) => {
         let msg = format!("invalid action {:?} for current state {:?}", action, state);
-        Failed(report!(LumatoneMidiError::InvalidStateTransition(msg)))
+        Failed(LumatoneMidiError::InvalidStateTransition(msg))
       }
     }
   }
@@ -518,17 +517,17 @@ impl State {
           }
 
           ResponseStatusCode::Error => {
-            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(
+            let res = Err(LumatoneMidiError::InvalidResponseMessage(
               "Device response had error flag set".to_string()
-            )));
+            ));
             let effect = NotifyMessageResponse(command_sent.clone(), res);
             Some(effect)
           }
 
           ResponseStatusCode::Nack => {
-            let res = Err(report!(LumatoneMidiError::InvalidResponseMessage(format!(
+            let res = Err(LumatoneMidiError::InvalidResponseMessage(format!(
               "Device sent NACK in response to command {command_sent:?}"
-            ))));
+            )));
             let effect = NotifyMessageResponse(command_sent.clone(), res);
             Some(effect)
           }
@@ -581,7 +580,7 @@ impl MidiDriver {
     let send_f = self
       .command_tx
       .send(submission)
-      .map_err(|e| report!(e).change_context(LumatoneMidiError::DeviceSendError));
+      .map_err(|e| LumatoneMidiError::DeviceSendError(format!("send error: {e}")));
 
     send_f.await?;
     response_rx.recv().await.unwrap()
@@ -601,8 +600,7 @@ impl MidiDriver {
     self
       .command_tx
       .blocking_send(submission)
-      .into_report()
-      .change_context(LumatoneMidiError::DeviceSendError)?;
+      .map_err(|e| LumatoneMidiError::DeviceSendError(format!("send error: {e}")))?;
     Ok(response_rx)
   }
 
@@ -612,8 +610,7 @@ impl MidiDriver {
       .done_tx
       .send(())
       .await
-      .into_report()
-      .change_context(LumatoneMidiError::DeviceSendError)
+      .map_err(|e| LumatoneMidiError::DeviceSendError(format!("send error: {e}")))
   }
 }
 

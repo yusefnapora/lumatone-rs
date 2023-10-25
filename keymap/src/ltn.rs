@@ -277,7 +277,6 @@ impl LumatoneKeyMap {
           let note_or_cc_num = get_u8_or_default_from_ini_section(section, format!("Key_{k}"), 0);
           let chan = get_u8_or_default_from_ini_section(section, format!("Chan_{k}"), 1);
           let color_str = section.get(format!("Col_{k}")).unwrap_or("000000");
-          // TODO: use error_stack here:
           let color_u32 =
             u32::from_str_radix(color_str, 16).map_err(|_| LumatoneKeymapError::ValueParseError)?;
           let color = RGBColor::from(color_u32);

@@ -1,6 +1,5 @@
 use super::constants::CommandId;
 
-use error_stack::Context;
 use std::fmt::Display;
 
 #[derive(Debug)]
@@ -25,9 +24,9 @@ pub enum LumatoneMidiError {
   InvalidResponseMessage(String),
 
   InvalidStateTransition(String),
-  DeviceDetectionFailed,
-  DeviceConnectionError,
-  DeviceSendError,
+  DeviceDetectionFailed(String),
+  DeviceConnectionError(String),
+  DeviceSendError(String),
 
   ResponseDecodingError,
 
@@ -36,8 +35,6 @@ pub enum LumatoneMidiError {
   InvalidLumatoneKeyIndex(u8),
   InvalidPresetIndex(u8),
 }
-
-impl Context for LumatoneMidiError {}
 
 impl Display for LumatoneMidiError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -69,11 +66,11 @@ impl Display for LumatoneMidiError {
 
       InvalidStateTransition(msg) => write!(f, "invalid state transition: {msg}"),
 
-      DeviceDetectionFailed => write!(f, "device detection failed"),
+      DeviceDetectionFailed(msg) => write!(f, "device detection failed: {msg}"),
 
-      DeviceConnectionError => write!(f, "failed to connect to device"),
+      DeviceConnectionError(msg) => write!(f, "failed to connect to device: {msg}"),
 
-      DeviceSendError => write!(f, "failed to send message to device"),
+      DeviceSendError(msg) => write!(f, "failed to send message to device: {msg}"),
 
       ResponseDecodingError => write!(f, "failed to decode response from device"),
 
