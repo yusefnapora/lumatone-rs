@@ -1,4 +1,4 @@
-use super::coords::{FractionalHex, Hex};
+use lumatone_core::keymap::coordinates::{FractionalHex, Hex};
 use crate::drawing::Point;
 use hexagon_tiles::layout::{
   Layout as _Layout, LayoutTool, Orientation, LAYOUT_ORIENTATION_POINTY,

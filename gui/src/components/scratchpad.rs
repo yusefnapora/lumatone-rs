@@ -1,12 +1,13 @@
 use crate::{
   components::{
-    keyboard::{board::Board, coords::gen_full_board_coords, layout::Layout},
+    keyboard::{board::Board, layout::Layout},
     tabs::{TabContainer, TabItem},
     wheel::ColorWheel,
   },
   drawing::Point,
   harmony::view_model::{Scale, Tuning},
 };
+use lumatone_core::keymap::coordinates::gen_full_board_coords;
 use dioxus::prelude::*;
 use palette::LinSrgb;
 

@@ -1727,6 +1727,8 @@ version = "0.1.0"
 dependencies = [
  "bounded-integer",
  "futures",
+ "hexagon_tiles",
+ "lazy_static",
  "log",
  "midir",
  "num-derive",

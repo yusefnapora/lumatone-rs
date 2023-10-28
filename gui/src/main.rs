@@ -5,9 +5,6 @@ pub(crate) mod drawing;
 pub(crate) mod harmony;
 pub(crate) mod hooks;
 
-#[macro_use]
-extern crate lazy_static;
-
 use components::scratchpad::Scratchpad;
 
 use dioxus::prelude::*;

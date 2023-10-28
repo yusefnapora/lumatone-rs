@@ -1,7 +1,8 @@
 use core::hash::Hasher;
+use lazy_static::lazy_static;
 pub use hexagon_tiles::hexagon::FractionalHex;
 use hexagon_tiles::hexagon::{Hex as _Hex, HexMath};
-use lumatone_core::midi::constants::{BoardIndex, LumatoneKeyIndex, LumatoneKeyLocation};
+use crate::midi::constants::{BoardIndex, LumatoneKeyIndex, LumatoneKeyLocation};
 use std::{
   collections::{HashMap, HashSet},
   fmt::Debug,
@@ -17,7 +18,7 @@ impl Hex {
     Hex(_Hex::new(q, r))
   }
 
-  fn from_hextile_hex(h: _Hex) -> Hex {
+  pub fn from_hextile_hex(h: _Hex) -> Hex {
     Hex::new(h.q(), h.r())
   }
 
@@ -25,15 +26,15 @@ impl Hex {
     format!("{}, {}, {}", self.q(), self.r(), self.s())
   }
 
-  fn add(&self, other: Hex) -> Hex {
+  pub fn add(&self, other: Hex) -> Hex {
     Hex::from_hextile_hex(self.0.add(other.0))
   }
 
-  fn sub(&self, other: Hex) -> Hex {
+  pub fn sub(&self, other: Hex) -> Hex {
     Hex::from_hextile_hex(self.0.sub(other.0))
   }
 
-  fn scale(&self, k: i32) -> Hex {
+  pub fn scale(&self, k: i32) -> Hex {
     Hex::from_hextile_hex(self.0.scale(k))
   }
 }

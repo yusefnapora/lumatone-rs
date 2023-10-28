@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 use palette::LinSrgb;
 
-use crate::components::keyboard::{coords::Hex, layout::Layout};
+use lumatone_core::keymap::coordinates::Hex;
+use crate::components::keyboard::{layout::Layout};
 use crate::drawing::color::{text_color_for_bgcolor, ToHexColorStr};
-
 #[derive(Props)]
 pub struct KeyProps<'a> {
   layout: &'a Layout,

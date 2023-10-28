@@ -1,6 +1,7 @@
-use super::{coords::Hex, key::Key, layout::Layout, map::KeyMapper};
+use super::{key::Key, layout::Layout, map::KeyMapper};
 use dioxus::prelude::*;
 use std::collections::HashSet;
+use lumatone_core::keymap::coordinates::Hex;
 #[derive(Props)]
 pub struct BoardProps<'a> {
   layout: Layout,
