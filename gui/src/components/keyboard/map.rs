@@ -1,7 +1,6 @@
 use palette::LinSrgb;
 
-use crate::drawing::color::wheel_colors;
-
+use lumatone_core::color::palette::wheel_colors;
 use lumatone_core::geometry::coordinates::{lumatone_location_for_hex, Hex};
 
 pub struct KeyDefinition {

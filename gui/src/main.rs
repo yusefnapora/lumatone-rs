@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)] // TODO: remove this once things settle down a bit...
 pub(crate) mod components;
-pub(crate) mod drawing;
 pub(crate) mod harmony;
 pub(crate) mod hooks;
 

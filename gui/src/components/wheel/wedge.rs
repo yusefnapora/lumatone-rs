@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use palette::LinSrgb;
 
-use crate::drawing::color::ToHexColorStr;
+use lumatone_core::color::utils::ToHexColorStr;
 use lumatone_core::geometry::{
   arc_svg_path,  line_to, polar_to_cartesian, Angle, Float, Point,
 };

@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use palette::LinSrgb;
 
 use lumatone_core::geometry::{coordinates::Hex, layout::Layout};
-use crate::drawing::color::{text_color_for_bgcolor, ToHexColorStr};
+use lumatone_core::color::utils::{text_color_for_bgcolor, ToHexColorStr};
 #[derive(Props)]
 pub struct KeyProps<'a> {
   layout: &'a Layout,

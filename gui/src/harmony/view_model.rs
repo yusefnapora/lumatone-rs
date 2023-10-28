@@ -1,7 +1,7 @@
 //! WIP view models for tuning & scales. needs a lot of revision to fully cover the domain
 use std::collections::HashSet;
 
-use crate::drawing::color::ColorPalette;
+use lumatone_core::color::palette::ColorPalette;
 use palette::LinSrgb;
 
 #[derive(Hash, Eq, PartialEq)]
