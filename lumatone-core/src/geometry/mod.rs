@@ -1,4 +1,5 @@
 pub mod coordinates;
+pub mod layout;
 
 pub use hexagon_tiles::point::Point;
 

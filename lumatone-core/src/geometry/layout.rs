@@ -1,4 +1,4 @@
-use lumatone_core::geometry::{
+use super::{
   Point,
   coordinates::{FractionalHex, Hex}
 };

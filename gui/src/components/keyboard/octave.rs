@@ -26,8 +26,11 @@
 //! octave 0 starts at (0,0), octave 1 starts at (6, 2), etc.
 //!
 //!
-use lumatone_core::geometry::coordinates::gen_octave_coords;
-use crate::components::keyboard::{key::Key, layout::Layout};
+use lumatone_core::geometry::{
+  coordinates::gen_octave_coords,
+  layout::Layout,
+};
+use crate::components::keyboard::key::Key;
 use dioxus::prelude::*;
 use palette::LinSrgb;
 
