@@ -1,8 +1,9 @@
 use dioxus::prelude::*;
 use palette::LinSrgb;
 
-use crate::drawing::{
-  arc_svg_path, color::ToHexColorStr, line_to, polar_to_cartesian, Angle, Float, Point,
+use crate::drawing::color::ToHexColorStr;
+use lumatone_core::geometry::{
+  arc_svg_path,  line_to, polar_to_cartesian, Angle, Float, Point,
 };
 
 type Color = LinSrgb;

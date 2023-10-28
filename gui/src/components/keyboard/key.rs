@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use palette::LinSrgb;
 
-use lumatone_core::keymap::coordinates::Hex;
+use lumatone_core::geometry::coordinates::Hex;
 use crate::components::keyboard::{layout::Layout};
 use crate::drawing::color::{text_color_for_bgcolor, ToHexColorStr};
 #[derive(Props)]

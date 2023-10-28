@@ -1,5 +1,7 @@
-use lumatone_core::keymap::coordinates::{FractionalHex, Hex};
-use crate::drawing::Point;
+use lumatone_core::geometry::{
+  Point,
+  coordinates::{FractionalHex, Hex}
+};
 use hexagon_tiles::layout::{
   Layout as _Layout, LayoutTool, Orientation, LAYOUT_ORIENTATION_POINTY,
 };

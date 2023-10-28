@@ -961,9 +961,23 @@ dependencies = [
 
 [[package]]
 name = "float_eq"
-version = "0.5.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb23b6902f3cdc0544f9916b4c092f46f4ff984e219d5a0c538b6b3539885af3"
+checksum = "28a80e3145d8ad11ba0995949bbcf48b9df2be62772b3d351ef017dff6ecb853"
+dependencies = [
+ "float_eq_derive",
+]
+
+[[package]]
+name = "float_eq_derive"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4292d34ca2b3c17d2bcd30181001402d43601e9ac599dfa9e416e44acb306f56"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.99",
+]
 
 [[package]]
 name = "fnv"
@@ -1429,9 +1443,9 @@ checksum = "443144c8cdadd93ebf52ddb4056d257f5b52c04d3c804e657d19eb73fc33668b"
 
 [[package]]
 name = "hexagon_tiles"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8af8de276d25d351a8b4ba5c623195a3561c43c55d7fb02ff674363c6380e9f7"
+checksum = "0f63b21dfd1bdd0ccd46b9f2d92f718f1eb336572cea90ba6be2dbf32cb841dd"
 dependencies = [
  "float_eq",
 ]

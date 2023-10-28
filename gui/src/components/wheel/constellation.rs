@@ -4,8 +4,10 @@
 use dioxus::prelude::*;
 use palette::LinSrgb;
 
+
+use lumatone_core::geometry::{polar_to_cartesian, Angle, Float, Point};
 use crate::{
-  drawing::{color::ToHexColorStr, polar_to_cartesian, Angle, Float, Point},
+  drawing::color::ToHexColorStr,
   harmony::view_model::{Scale, Tuning},
 };
 

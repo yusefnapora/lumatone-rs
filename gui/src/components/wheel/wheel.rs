@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
+use lumatone_core::geometry::{Angle, Float, Point};
 use crate::{
   components::wheel::{constellation::PitchConstellation, wedge::Wedge},
-  drawing::{Angle, Float, Point},
   harmony::view_model::{Scale, Tuning},
   hooks::useuniqueid::use_unique_id,
 };
