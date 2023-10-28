@@ -1,7 +1,7 @@
 #![allow(unused)]
 use super::{error::LumatoneKeymapError, table_defaults::*};
 use log::warn;
-use lumatone_midi::sysex::{SysexTable, VelocityIntervalTable};
+use crate::midi::sysex::{SysexTable, VelocityIntervalTable};
 
 use ini::Ini;
 

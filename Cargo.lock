@@ -1704,8 +1704,7 @@ dependencies = [
  "dioxus-desktop",
  "hexagon_tiles",
  "lazy_static",
- "lumatone-keymap",
- "lumatone-midi",
+ "lumatone-core",
  "palette",
  "serde_json",
  "tokio",
@@ -1718,24 +1717,12 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
- "lumatone-keymap",
- "lumatone-midi",
+ "lumatone-core",
  "tokio",
 ]
 
 [[package]]
-name = "lumatone-keymap"
-version = "0.1.0"
-dependencies = [
- "log",
- "lumatone-midi",
- "num-derive",
- "num-traits",
- "rust-ini",
-]
-
-[[package]]
-name = "lumatone-midi"
+name = "lumatone-core"
 version = "0.1.0"
 dependencies = [
  "bounded-integer",
@@ -1745,6 +1732,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "rand 0.8.5",
+ "rust-ini",
  "tokio",
 ]
 

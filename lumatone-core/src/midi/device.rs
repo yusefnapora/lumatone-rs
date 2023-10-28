@@ -4,9 +4,7 @@ use log::{debug, warn};
 use midir::{MidiIO, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use tokio::sync::mpsc;
 
-use crate::sysex::SYSEX_START;
-
-use super::{error::LumatoneMidiError, sysex::EncodedSysex};
+use super::{error::LumatoneMidiError, sysex::{EncodedSysex, SYSEX_START}};
 
 /// Identifies the MIDI input and output ports that the Lumatone is connected to.
 /// A LumatoneDevice can be used to initiate a connection to the device using [`Self::connect`].

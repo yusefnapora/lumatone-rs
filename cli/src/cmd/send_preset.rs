@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use lumatone_keymap::ltn::LumatoneKeyMap;
-use lumatone_midi::detect::detect_device;
-use lumatone_midi::driver::MidiDriver;
+use lumatone_core::keymap::ltn::LumatoneKeyMap;
+use lumatone_core::midi::detect::detect_device;
+use lumatone_core::midi::driver::MidiDriver;
 
 pub async fn run_send_preset(path: &PathBuf) {
   let contents = fs::read_to_string(path).expect("unable to read preset");

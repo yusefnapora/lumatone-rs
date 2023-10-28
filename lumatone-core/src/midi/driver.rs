@@ -83,8 +83,8 @@ use tokio::{
   time::{sleep, Sleep},
 };
 
-use crate::driver::Action::{MessageSent, QueueEmpty, ResponseDispatched};
-use crate::sysex::to_hex_debug_str;
+use super::driver::Action::{MessageSent, QueueEmpty, ResponseDispatched};
+use super::sysex::to_hex_debug_str;
 
 /// Result type returned in response to a command submission
 type ResponseResult = Result<Response, LumatoneMidiError>;
@@ -799,7 +799,7 @@ fn log_message_status(status: &ResponseStatusCode, outgoing: &Command) {
 }
 
 mod tests {
-  use crate::constants::{CommandId, MANUFACTURER_ID};
+  use crate::midi::constants::{CommandId, MANUFACTURER_ID};
 
   #[allow(unused_imports)]
   use super::*;

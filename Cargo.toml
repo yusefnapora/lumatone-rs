@@ -2,8 +2,7 @@
 resolver = "2"
 
 members = [
+  "lumatone-core",
   "cli",
-  "gui",
-  "midi",
-  "keymap"
+  "gui"
 ]

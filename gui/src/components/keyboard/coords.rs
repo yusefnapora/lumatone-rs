@@ -1,7 +1,7 @@
 use core::hash::Hasher;
 pub use hexagon_tiles::hexagon::FractionalHex;
 use hexagon_tiles::hexagon::{Hex as _Hex, HexMath};
-use lumatone_midi::constants::{BoardIndex, LumatoneKeyIndex, LumatoneKeyLocation};
+use lumatone_core::midi::constants::{BoardIndex, LumatoneKeyIndex, LumatoneKeyLocation};
 use std::{
   collections::{HashMap, HashSet},
   fmt::Debug,

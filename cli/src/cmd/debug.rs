@@ -1,4 +1,4 @@
-use lumatone_midi::{
+use lumatone_core::midi::{
   commands::set_key_color,
   constants::{LumatoneKeyLocation, RGBColor},
   detect::detect_device,

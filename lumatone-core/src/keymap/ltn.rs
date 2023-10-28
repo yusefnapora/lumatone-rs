@@ -10,7 +10,7 @@
 //!
 //! You can convert [LumatoneKeyMap]s to and from strings in ini format.
 
-use lumatone_midi::{
+use crate::midi::{
   commands::Command,
   constants::{
     key_loc_unchecked, BoardIndex, LumatoneKeyFunction, LumatoneKeyIndex, LumatoneKeyLocation,
