@@ -1751,6 +1751,7 @@ dependencies = [
  "rand 0.8.5",
  "rust-ini",
  "tokio",
+ "tune",
 ]
 
 [[package]]
@@ -3084,6 +3085,12 @@ checksum = "8d82e1a7758622a465f8cee077614c73484dac5b836c02ff6a40d5d1010324d7"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "tune"
+version = "0.33.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7090aff01d6547a468e0cf57a6d9790556812e5474dcd57d0fd685470a2c9cca"
 
 [[package]]
 name = "typenum"

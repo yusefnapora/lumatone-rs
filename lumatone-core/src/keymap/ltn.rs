@@ -81,10 +81,10 @@ impl GeneralOptions {
         .map(bool_val)
         .unwrap_or(false),
       invert_sustain: props.get("InvertSustain").map(bool_val).unwrap_or(false),
-      // TODO: don't panic on invalid int:
       expression_controller_sensitivity: props
         .get("ExprCtrlSensivity")
-        .map(|s| u8::from_str_radix(s, 10).expect("invalid int value"))
+        .map(|s| u8::from_str_radix(s, 10).ok())
+        .flatten()
         .unwrap_or(0),
       config_tables: ConfigurationTables {
         on_off_velocity,
@@ -250,11 +250,12 @@ impl LumatoneKeyMap {
     conf
   }
 
-  pub fn to_ini_string(&self) -> String {
+  pub fn to_ini_string(&self) -> Result<String, LumatoneKeymapError> {
     let ini = self.to_ini();
     let mut w = Vec::new();
-    ini.write_to(&mut w).expect("ini to string error");
-    std::str::from_utf8(&w[..]).expect("utf8 error").to_string()
+    ini.write_to(&mut w)?;
+    let s = std::str::from_utf8(&w[..])?.to_string();
+    Ok(s)
   }
 
   pub fn from_ini_str<S: AsRef<str>>(source: S) -> Result<LumatoneKeyMap, LumatoneKeymapError> {
@@ -375,8 +376,8 @@ fn get_u8_or_default_from_ini_section<S: AsRef<str>>(
 
 #[cfg(test)]
 mod tests {
-  use crate::tables::ConfigurationTables;
-  use lumatone_midi::constants::{key_loc_unchecked, LumatoneKeyFunction, MidiChannel, RGBColor};
+  use crate::keymap::tables::ConfigurationTables;
+  use crate::midi::constants::{key_loc_unchecked, LumatoneKeyFunction, MidiChannel, RGBColor};
 
   use super::{GeneralOptions, KeyDefinition, LumatoneKeyMap};
 
