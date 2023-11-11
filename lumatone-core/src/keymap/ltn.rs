@@ -32,6 +32,19 @@ use super::{
   },
 };
 
+mod keys {
+  pub const AFTERTOUCH_ACTIVE: &'static str = "AfterTouchActive";
+  pub const AFTERTOUCH_CONFIG: &'static str = "afterTouchConfig";
+  pub const EXPRESSION_CONTROLLER_SENSITIVITY: &'static str = "ExprCtrlSensivity";
+  pub const FADER_CONFIG: &'static str = "FaderConfig";
+  pub const INVERT_FOOT_CONTROLLER: &'static str = "InvertFootController";
+  pub const INVERT_SUSTAIN: &'static str = "InvertSustain";
+  pub const LIGHT_ON_KEYSTROKES: &'static str = "LightOnKeyStrokes";
+  pub const LUMATOUCH_CONFIG: &'static str = "LumaTouchConfig";
+  pub const NOTE_ON_OFF_VELOCITY_TABLE: &'static str = "NoteOnOffVelocityCrvTbl";
+  pub const VELOCITY_INTERVAL_TABLE: &'static str = "VelocityIntrvlTbl";
+}
+
 #[derive(Debug)]
 pub struct KeyDefinition {
   pub function: LumatoneKeyFunction,
@@ -65,24 +78,24 @@ impl GeneralOptions {
     let fader_velocity = config_table_from_ini_section(props, "FaderConfig")?;
     let aftertouch_velocity = config_table_from_ini_section(props, "afterTouchConfig")?;
     let lumatouch_velocity = config_table_from_ini_section(props, "LumaTouchConfig")?;
-    let velocity_intervals = match props.get("VelocityIntrvlTbl") {
+    let velocity_intervals = match props.get(keys::VELOCITY_INTERVAL_TABLE) {
       Some(val) => Some(parse_velocity_intervals(val)?),
       None => None,
     };
 
     Ok(GeneralOptions {
-      after_touch_active: props.get("AfterTouchActive").map(bool_val).unwrap_or(false),
+      after_touch_active: props.get(keys::AFTERTOUCH_ACTIVE).map(bool_val).unwrap_or(false),
       light_on_key_strokes: props
-        .get("LightOnKeyStrokes")
+        .get(keys::LIGHT_ON_KEYSTROKES)
         .map(bool_val)
         .unwrap_or(false),
       invert_foot_controller: props
-        .get("InvertFootController")
+        .get(keys::INVERT_FOOT_CONTROLLER)
         .map(bool_val)
         .unwrap_or(false),
-      invert_sustain: props.get("InvertSustain").map(bool_val).unwrap_or(false),
+      invert_sustain: props.get(keys::INVERT_SUSTAIN).map(bool_val).unwrap_or(false),
       expression_controller_sensitivity: props
-        .get("ExprCtrlSensivity")
+        .get(keys::EXPRESSION_CONTROLLER_SENSITIVITY)
         .map(|s| u8::from_str_radix(s, 10).ok())
         .flatten()
         .unwrap_or(0),
@@ -152,51 +165,51 @@ impl LumatoneKeyMap {
     conf
       .with_general_section()
       .set(
-        "AfterTouchActive",
+        keys::AFTERTOUCH_ACTIVE,
         bool_str(self.general.after_touch_active),
       )
       .set(
-        "LightOnKeyStrokes",
+        keys::LIGHT_ON_KEYSTROKES,
         bool_str(self.general.light_on_key_strokes),
       )
       .set(
-        "InvertFootController",
+        keys::INVERT_FOOT_CONTROLLER,
         bool_str(self.general.invert_foot_controller),
       )
-      .set("InvertSustain", bool_str(self.general.invert_sustain))
+      .set(keys::INVERT_SUSTAIN, bool_str(self.general.invert_sustain))
       .set(
-        "ExprCtrlSensivity",
+        keys::EXPRESSION_CONTROLLER_SENSITIVITY,
         self.general.expression_controller_sensitivity.to_string(),
       );
 
     if let Some(t) = &self.general.config_tables.velocity_intervals {
       conf
         .with_general_section()
-        .set("VelocityIntrvlTbl", velocity_intervals_to_string(t));
+        .set(keys::VELOCITY_INTERVAL_TABLE, velocity_intervals_to_string(t));
     }
 
     if let Some(t) = &self.general.config_tables.on_off_velocity {
       conf
         .with_general_section()
-        .set("NoteOnOffVelocityCrvTbl", t.to_string());
+        .set(keys::NOTE_ON_OFF_VELOCITY_TABLE, t.to_string());
     }
 
     if let Some(t) = &self.general.config_tables.fader_velocity {
       conf
         .with_general_section()
-        .set("FaderConfig", t.to_string());
+        .set(keys::FADER_CONFIG, t.to_string());
     }
 
     if let Some(t) = &self.general.config_tables.aftertouch_velocity {
       conf
         .with_general_section()
-        .set("afterTouchConfig", t.to_string());
+        .set(keys::AFTERTOUCH_CONFIG, t.to_string());
     }
 
     if let Some(t) = &self.general.config_tables.lumatouch_velocity {
       conf
         .with_general_section()
-        .set("LumaTouchConfig", t.to_string());
+        .set(keys::LUMATOUCH_CONFIG, t.to_string());
     }
 
     // Key definitions are split into sections, one for each board / octave
